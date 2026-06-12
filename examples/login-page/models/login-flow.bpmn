@@ -123,7 +123,12 @@ steps:
   - id: audit_log_failure
     type: service_task
     description: Log failed login attempt (email, IP, reason)
-    transition: error_invalid_password
+    transition: error_invalid_credentials
+
+  - id: error_invalid_credentials
+    type: end_event_error
+    status: 401 Unauthorized
+    description: Invalid credentials (generic response, does not reveal which field failed)
 
 gateways:
   - id: account_status_check

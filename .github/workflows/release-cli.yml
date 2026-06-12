@@ -1,0 +1,64 @@
+name: Release awp-cli
+
+# Publishes packages/awp-cli to npm as `awp-cli` so the roadmap's Gap 1 exit
+# criterion — "npx awp-cli discover works on a fresh clone" — holds for real.
+#
+# Trigger: push a tag like `cli-v0.1.0`. The tag version must match
+# packages/awp-cli/package.json (guarded below).
+#
+# One-time setup: add an npm automation token as the `NPM_TOKEN` repo secret
+# (npmjs.com -> Access Tokens -> Granular, publish scope for awp-cli).
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Gate — full platform validation must pass before publishing
+        run: |
+          node packages/awp-cli/bin/awp.js validate
+          node packages/awp-cli/bin/awp.js build --check
+          node scripts/bpmn-roundtrip.mjs
+
+      - name: Gate — tag version must match package.json
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#cli-v}"
+          PKG_VERSION="$(node -p "require('./packages/awp-cli/package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag cli-v$TAG_VERSION does not match package.json version $PKG_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Smoke test — CLI runs outside a platform repo
+        run: |
+          cd "$(mktemp -d)"
+          node "$GITHUB_WORKSPACE/packages/awp-cli/bin/awp.js" --help
+
+      - name: Publish to npm with provenance
+        working-directory: packages/awp-cli
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
