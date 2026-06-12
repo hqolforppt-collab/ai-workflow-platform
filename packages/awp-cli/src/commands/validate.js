@@ -143,12 +143,34 @@ function checkMemory(root) {
     return { fatal, notes }
   }
 
+  // The top-level index may delegate subdirectories to their own index.yaml
+  // (e.g. `index: .memory/domain-knowledge/index.yaml`). Honor those
+  // delegations: a file is "indexed" if it appears in the top-level index OR
+  // in the sub-index responsible for its directory.
   const index = readFileSync(indexPath, "utf8")
+  const subIndexes = listFiles(join(root, ".memory"), (f) => f.endsWith("/index.yaml"))
+  const indexByDir = new Map()
+  for (const si of subIndexes) {
+    indexByDir.set(si.slice(0, si.lastIndexOf("/")), readFileSync(si, "utf8"))
+  }
+
   const files = listFiles(join(root, ".memory"), (f) => (f.endsWith(".md") || f.endsWith(".yaml")) && !f.endsWith("index.yaml"))
   for (const f of files) {
     const base = f.split("/").pop()
     if (base === "README.md") continue
-    if (!index.includes(base)) notes.push(`unindexed memory: ${relative(root, f)}`)
+    if (index.includes(base)) continue
+    // walk up parent dirs looking for a delegated sub-index that lists the file
+    let dir = f.slice(0, f.lastIndexOf("/"))
+    let indexed = false
+    while (dir.length >= join(root, ".memory").length) {
+      const sub = indexByDir.get(dir)
+      if (sub && sub.includes(base)) {
+        indexed = true
+        break
+      }
+      dir = dir.slice(0, dir.lastIndexOf("/"))
+    }
+    if (!indexed) notes.push(`unindexed memory: ${relative(root, f)}`)
   }
 
   return { fatal, notes }
