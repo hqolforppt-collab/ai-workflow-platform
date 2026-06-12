@@ -29,7 +29,7 @@ steps:
       Apply negations from step 1 — overridden domains are marked
       not-applicable with reason, never silently dropped or forced.
     output: active-domains[] (each tagged explicit|hidden|not-applicable)
-    on-failure: halt; discovery is mandatory (constitution: no blueprint without hidden coverage)
+    on-failure: "halt; discovery is mandatory (constitution: no blueprint without hidden coverage)"
 
   - step: 4
     id: resolve-constraints
