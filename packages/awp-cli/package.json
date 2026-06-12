@@ -1,6 +1,9 @@
 {
-  "name": "awp",
+  "name": "@awp/cli",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "AWP CLI - command-line interface for the AI Workflow Platform: discover artifacts, validate the repository OS, build workflow blueprints, and scaffold new repos.",
   "license": "Apache-2.0",
   "type": "module",

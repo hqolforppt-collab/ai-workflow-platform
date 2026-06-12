@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             typeLanguage="http://www.w3.org/2001/XMLSchema"
+             expressionLanguage="http://www.w3.org/1999/XPath"
+             targetNamespace="http://ai-workflow-platform/examples/login-page">
+  <!--
+    Flowable-importable BPMN 2.0 rendering of examples/login-page/models/login-flow.bpmn
+    (the canonical AWP model). Round-tripped in CI by .github/workflows/bpmn-roundtrip.yml
+    to prove the platform's BPMN output is engine-valid, not just internal pseudo-YAML.
+  -->
+  <process id="login-flow" name="User Login Process" isExecutable="true">
+    <documentation>Handles credential validation, authentication, session creation, and audit logging, including error paths for invalid credentials, rate limiting, and account lockout.</documentation>
+
+    <startEvent id="start" name="User submits login form" />
+
+    <userTask id="validate_input" name="Validate Input" flowable:assignee="${initiator}">
+      <documentation>Validate email format and password length.</documentation>
+    </userTask>
+
+    <exclusiveGateway id="input_valid_gw" name="Input valid?" />
+
+    <serviceTask id="user_lookup" name="User Lookup" flowable:expression="${authService.lookupUser(email)}">
+      <documentation>Query database for user by email.</documentation>
+    </serviceTask>
+
+    <exclusiveGateway id="user_found_gw" name="User found?" />
+
+    <serviceTask id="password_verify" name="Password Verify" flowable:expression="${authService.verifyPassword(user, password)}">
+      <documentation>Compare password hash using bcrypt.</documentation>
+    </serviceTask>
+
+    <exclusiveGateway id="password_match_gw" name="Password match?" />
+
+    <exclusiveGateway id="account_status_gw" name="Account active and not locked?" />
+
+    <exclusiveGateway id="mfa_check_gw" name="MFA enabled?" />
+
+    <serviceTask id="session_create" name="Session Create" flowable:expression="${authService.createSession(user)}">
+      <documentation>Generate JWT (HS256) token and create session, expires in 24 hours.</documentation>
+    </serviceTask>
+
+    <serviceTask id="set_cookie" name="Set Cookie" flowable:expression="${authService.setCookie(token)}">
+      <documentation>Set HttpOnly, Secure, SameSite=Strict cookie.</documentation>
+    </serviceTask>
+
+    <serviceTask id="audit_log" name="Audit Log" flowable:expression="${auditService.logSuccess(user, request)}">
+      <documentation>Log successful login (user_id, IP, user-agent, timestamp).</documentation>
+    </serviceTask>
+
+    <endEvent id="success" name="200 OK + session info" />
+
+    <!-- Error path: failed-attempt handling -->
+    <serviceTask id="audit_log_failure" name="Log Failed Attempt" flowable:expression="${auditService.logFailure(email, request)}">
+      <documentation>Increment failed attempt counter and log failed login attempt.</documentation>
+    </serviceTask>
+
+    <exclusiveGateway id="rate_limit_gw" name="Under rate limit?" />
+
+    <endEvent id="error_invalid_input" name="400 Bad Request">
+      <errorEventDefinition errorRef="ERR_INVALID_INPUT" />
+    </endEvent>
+    <endEvent id="error_user_not_found" name="401 Unauthorized (user not found)">
+      <errorEventDefinition errorRef="ERR_UNAUTHORIZED" />
+    </endEvent>
+    <endEvent id="error_rate_limit" name="429 Too Many Requests">
+      <errorEventDefinition errorRef="ERR_RATE_LIMIT" />
+    </endEvent>
+    <endEvent id="error_account_locked" name="403 Forbidden (locked)">
+      <errorEventDefinition errorRef="ERR_FORBIDDEN" />
+    </endEvent>
+    <endEvent id="error_account_suspended" name="403 Forbidden (suspended)">
+      <errorEventDefinition errorRef="ERR_FORBIDDEN" />
+    </endEvent>
+
+    <!-- Sequence flows -->
+    <sequenceFlow id="f_start_validate" sourceRef="start" targetRef="validate_input" />
+    <sequenceFlow id="f_validate_gw" sourceRef="validate_input" targetRef="input_valid_gw" />
+    <sequenceFlow id="f_input_valid" sourceRef="input_valid_gw" targetRef="user_lookup">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${inputValid == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_input_invalid" sourceRef="input_valid_gw" targetRef="error_invalid_input">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${inputValid == false}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="f_lookup_gw" sourceRef="user_lookup" targetRef="user_found_gw" />
+    <sequenceFlow id="f_user_found" sourceRef="user_found_gw" targetRef="password_verify">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${userFound == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_user_not_found" sourceRef="user_found_gw" targetRef="error_user_not_found">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${userFound == false}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="f_verify_gw" sourceRef="password_verify" targetRef="password_match_gw" />
+    <sequenceFlow id="f_password_match" sourceRef="password_match_gw" targetRef="account_status_gw">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${passwordMatch == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_password_mismatch" sourceRef="password_match_gw" targetRef="audit_log_failure">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${passwordMatch == false}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="f_failure_gw" sourceRef="audit_log_failure" targetRef="rate_limit_gw" />
+    <sequenceFlow id="f_under_limit" sourceRef="rate_limit_gw" targetRef="error_invalid_input">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${underLimit == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_rate_limited" sourceRef="rate_limit_gw" targetRef="error_rate_limit">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${underLimit == false}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="f_status_active" sourceRef="account_status_gw" targetRef="mfa_check_gw">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${accountStatus == 'active'}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_status_locked" sourceRef="account_status_gw" targetRef="error_account_locked">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${accountStatus == 'locked'}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_status_suspended" sourceRef="account_status_gw" targetRef="error_account_suspended">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${accountStatus == 'suspended'}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="f_mfa_no" sourceRef="mfa_check_gw" targetRef="session_create">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${mfaEnabled == false}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_mfa_yes" sourceRef="mfa_check_gw" targetRef="session_create">
+      <conditionExpression xsi:type="tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${mfaEnabled == true}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="f_session_cookie" sourceRef="session_create" targetRef="set_cookie" />
+    <sequenceFlow id="f_cookie_audit" sourceRef="set_cookie" targetRef="audit_log" />
+    <sequenceFlow id="f_audit_success" sourceRef="audit_log" targetRef="success" />
+  </process>
+
+  <error id="ERR_INVALID_INPUT" errorCode="400" />
+  <error id="ERR_UNAUTHORIZED" errorCode="401" />
+  <error id="ERR_RATE_LIMIT" errorCode="429" />
+  <error id="ERR_FORBIDDEN" errorCode="403" />
+</definitions>

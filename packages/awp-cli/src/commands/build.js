@@ -13,8 +13,9 @@ import { requireRepoRoot, tryReadYaml } from "../lib/repo.js"
 export async function build(flags) {
   const root = requireRepoRoot()
   const story = flags._.join(" ").trim()
+  const checkOnly = flags.check === true
 
-  if (!story) {
+  if (!story && !checkOnly) {
     console.error('awp build: a user story is required. Example: awp build "Create login and registration feature"')
     return 1
   }
@@ -39,6 +40,11 @@ export async function build(flags) {
       console.error(`awp build: missing required artifact: ${label} (${p})`)
       return 1
     }
+  }
+
+  if (checkOnly) {
+    console.log("awp build --check: all prompt-assembly inputs present")
+    return 0
   }
 
   const slug = slugify(story)

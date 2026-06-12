@@ -96,7 +96,8 @@ examples/login-page/
 ├── security/
 │   └── threat-model-login.yaml (STRIDE analysis)
 ├── models/
-│   ├── login-flow.bpmn (BPMN process diagram)
+│   ├── login-flow.bpmn (canonical AWP process model — YAML)
+│   ├── login-flow.bpmn20.xml (Flowable-importable BPMN 2.0 XML, round-tripped in CI)
 │   └── session-decision.yaml (DMN decision table)
 ├── tests/
 │   ├── golden-tests.spec.ts (5 golden tests - ALL PASSING ✓)
