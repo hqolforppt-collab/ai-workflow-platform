@@ -1,0 +1,49 @@
+id: G2-architecture-evidence
+gate: G2-Architecture
+status: approved
+approval_date: 2026-06-12
+approver: architecture-board@company.com
+traces_to: SPEC-LOGIN-001
+
+description: |
+  Architecture review gate (G2) approved for login system.
+  All architecture artifacts reviewed and design decisions validated.
+
+evidence:
+  - artifact: ADR-001-auth-session-strategy.yaml
+    type: Architecture Decision Record
+    status: approved
+    reviewer: tech-lead@company.com
+    notes: JWT + HttpOnly cookie strategy approved (scalable, secure, XSS-resistant)
+
+  - artifact: architecture/architecture-spec.yaml
+    type: Architecture Specification
+    status: approved
+    reviewer: architect@company.com
+    notes: Component design, data flow, security controls validated
+
+  - artifact: models/login-flow.bpmn
+    type: BPMN Process Model
+    status: approved
+    reviewer: process-owner@company.com
+    notes: Process flow diagram complete with error handling paths
+
+  - artifact: security/threat-model-login.yaml
+    type: Threat Model
+    status: approved
+    reviewer: security@company.com
+    notes: STRIDE analysis complete, all threats mitigated
+
+design_review:
+  - date: 2026-06-12T10:00:00Z
+    reviewer: architecture-board@company.com
+    summary: "Architecture review completed. Design meets requirements, security controls adequate, scalability plan in place."
+    decision: APPROVED
+    conditions: []
+
+risks_identified: []
+blockers_resolved: []
+
+next_gate: G3-data-model
+trace_id: G2-evidence-login
+created_at: 2026-06-12T14:00:00Z

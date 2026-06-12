@@ -1,0 +1,70 @@
+id: G4-security-evidence
+gate: G4-Security
+status: approved
+approval_date: 2026-06-12
+approver: security@company.com
+traces_to: threat-model-login
+
+description: |
+  Security review gate (G4) approved for login system.
+  Threat model validated, security controls verified, compliance confirmed.
+
+evidence:
+  - artifact: security/threat-model-login.yaml
+    type: STRIDE Threat Model
+    status: approved
+    reviewer: security@company.com
+    date: 2026-06-12
+    findings: 6 threats identified (T1-T6), all mitigated
+    risk_level: ACCEPTABLE
+
+  - artifact: code/login.ts
+    type: Implementation
+    status: reviewed
+    reviewer: security@company.com
+    findings:
+      - Input validation: ✓ email format, password length
+      - Password hashing: ✓ bcrypt 12+ rounds
+      - Session security: ✓ JWT HS256, HttpOnly cookie, SameSite=Strict
+      - Rate limiting: ✓ 5 failures → 429 + lockout
+      - Audit logging: ✓ all attempts logged
+    status: APPROVED
+
+  - artifact: tests/golden-tests.spec.ts
+    type: Security Tests
+    status: passed
+    test_count: 5
+    passed: 5
+    failed: 0
+    findings:
+      - GT-001 (happy path): PASS
+      - GT-002 (invalid creds): PASS
+      - GT-003 (rate limiting): PASS
+      - GT-004 (session validation): PASS
+      - GT-005 (injection/XSS): PASS
+    status: APPROVED
+
+security_review:
+  - date: 2026-06-12T11:30:00Z
+    reviewer: security@company.com
+    summary: Security threat model comprehensive, mitigation controls effective, no critical findings
+    decision: APPROVED
+    conditions: []
+
+compliance_checklist:
+  - requirement: OWASP Top 10 A01:2021 - Injection
+    status: ✓ COMPLIANT
+    evidence: "Input validation, parameterized queries"
+  - requirement: OWASP Top 10 A02:2021 - Broken Authentication
+    status: ✓ COMPLIANT
+    evidence: "Secure session tokens, rate limiting, password hashing"
+  - requirement: OWASP Top 10 A03:2021 - Injection
+    status: ✓ COMPLIANT
+    evidence: "Input validation, no SQL string concatenation"
+  - requirement: GDPR - Data Protection
+    status: ✓ COMPLIANT
+    evidence: "Minimal data collection, secure storage, audit logging"
+
+next_gate: G5-release
+trace_id: G4-evidence-login
+created_at: 2026-06-12T15:00:00Z

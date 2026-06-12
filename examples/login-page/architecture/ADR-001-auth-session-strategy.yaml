@@ -1,0 +1,58 @@
+id: ADR-001-auth-session-strategy
+title: Authentication and Session Token Strategy
+type: adr
+status: approved
+date: 2026-06-12
+decision_maker: architecture-board@company.com
+traces_to: SPEC-LOGIN-001
+
+problem_statement: |
+  We need to choose an authentication and session management strategy for the login system.
+  Options considered: (1) Session cookies + server storage, (2) JWT tokens in cookies,
+  (3) JWT tokens in Authorization header, (4) OAuth2 with external provider.
+
+decision: |
+  Use JWT (JSON Web Tokens) with HMAC-SHA256 (HS256) stored in HttpOnly, Secure,
+  SameSite=Strict cookies. This combines the security of server-side sessions with
+  the scalability of stateless tokens, while protecting against XSS attacks via HttpOnly.
+
+rationale:
+  - JWT is stateless (no server-side session storage needed, scalable)
+  - HttpOnly cookie prevents XSS token theft (JavaScript cannot access)
+  - Secure + SameSite flags protect against CSRF and man-in-the-middle
+  - HS256 allows quick signature verification without external key service
+  - 24-hour expiry balances security and user experience
+  - Token includes user_id, roles, issued_at, expires_at claims
+
+consequences:
+  positive:
+    - Stateless: scales horizontally without session replication
+    - Secure: resistant to XSS, CSRF, token hijacking
+    - Fast: no database lookup on every request (verify JWT signature)
+    - Standard: JWT is widely understood and supported
+
+  negative:
+    - Token cannot be revoked immediately (until expiry)
+    - Secret key compromise affects all active tokens
+    - Logout requires client-side cookie deletion (no server-side invalidation)
+
+mitigations:
+  - Short expiry (24 hours) limits damage from key compromise
+  - Rotate secrets quarterly
+  - Implement token blocklist for urgent revocation (in Redis)
+  - Audit all token issuances and validations
+
+alternatives_considered:
+  - Session cookies + in-memory storage: harder to scale, more server memory
+  - OAuth2: adds external dependency, complexity
+  - JWT in Authorization header: vulnerable to XSS (header accessible from JS)
+
+implementation:
+  - JWT library: jsonwebtoken (Node.js)
+  - Signing algorithm: HMAC-SHA256 (HS256)
+  - Secret: JWT_SECRET env var (min 32 bytes, rotated quarterly)
+  - Payload: {user_id, email, roles, iat, exp}
+  - Cookie: session_id, HttpOnly, Secure, SameSite=Strict, Max-Age=86400
+
+trace_id: ADR-001-auth-session-strategy
+created_at: 2026-06-12T11:00:00Z

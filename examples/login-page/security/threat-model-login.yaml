@@ -1,0 +1,142 @@
+id: threat-model-login
+title: Login API Security Threat Model
+type: security/threat-model
+scope: /auth/login endpoint
+status: approved
+created: 2026-06-12
+owner: security@company.com
+
+assets:
+  - name: User Credentials
+    criticality: critical
+    protection: bcrypt hashing, HTTPS only
+  - name: Session Tokens
+    criticality: critical
+    protection: JWT HS256, HttpOnly cookie, 24h expiry
+  - name: User Email
+    criticality: high
+    protection: stored encrypted in DB, GDPR compliant
+  - name: Audit Log
+    criticality: medium
+    protection: immutable, encrypted at rest
+
+threat_actors:
+  - name: Unauthenticated Attacker
+    capabilities: network access, no credentials, tools (password list, scanners)
+    motivation: account takeover, credential harvesting
+  - name: Insider Threat
+    capabilities: database access, code access, system admin
+    motivation: theft, fraud, sabotage
+
+threats:
+  - id: T1
+    category: Spoofing
+    description: Attacker impersonates valid user by guessing password
+    likelihood: high
+    impact: critical
+    current_mitigations: rate limiting (5 attempts → lockout)
+    additional_mitigations: require CAPTCHA after 3 failed attempts, MFA option
+
+  - id: T2
+    category: Tampering
+    description: Attacker intercepts login request and modifies credentials/response
+    likelihood: low
+    impact: critical
+    current_mitigations: HTTPS TLS 1.2+, HSTS headers
+    additional_mitigations: certificate pinning (mobile apps)
+
+  - id: T3
+    category: Repudiation
+    description: User denies logging in (claims account was hacked)
+    likelihood: low
+    impact: medium
+    current_mitigations: audit log of all login attempts (IP, user-agent, timestamp)
+    additional_mitigations: email notification of login from new device/IP
+
+  - id: T4
+    category: Information Disclosure
+    description: Attacker steals session token (XSS, CSRF, network sniffing)
+    likelihood: medium
+    impact: critical
+    current_mitigations: HttpOnly cookie, Secure flag, SameSite=Strict, HTTPS
+    additional_mitigations: CSP headers, regular security scan
+
+  - id: T5
+    category: Denial of Service
+    description: Attacker floods login endpoint with requests
+    likelihood: high
+    impact: high
+    current_mitigations: rate limiting per IP, CAPTCHA
+    additional_mitigations: DDoS protection (CloudFlare, WAF), load balancer
+
+  - id: T6
+    category: Elevation of Privilege
+    description: Attacker modifies JWT token to gain admin privileges
+    likelihood: low
+    impact: critical
+    current_mitigations: JWT signature verification (HS256)
+    additional_mitigations: validate roles in backend, short expiry
+
+risk_matrix:
+  - threat: T1
+    likelihood: high
+    impact: critical
+    risk_level: CRITICAL
+    status: mitigated
+
+  - threat: T2
+    likelihood: low
+    impact: critical
+    risk_level: HIGH
+    status: mitigated
+
+  - threat: T4
+    likelihood: medium
+    impact: critical
+    risk_level: HIGH
+    status: mitigated
+
+  - threat: T5
+    likelihood: high
+    impact: high
+    risk_level: HIGH
+    status: mitigated
+
+security_controls:
+  - name: Input Validation
+    type: preventive
+    status: implemented
+    evidence: email format check, password length validation
+
+  - name: Rate Limiting
+    type: preventive
+    status: implemented
+    evidence: 5 failures → 429 + 15-min lockout per IP
+
+  - name: HTTPS/TLS
+    type: preventive
+    status: implemented
+    evidence: HTTPS required, TLS 1.2+, HSTS headers
+
+  - name: Secure Session Storage
+    type: preventive
+    status: implemented
+    evidence: JWT in HttpOnly cookie, SameSite=Strict
+
+  - name: Password Hashing
+    type: preventive
+    status: implemented
+    evidence: bcrypt min 12 rounds
+
+  - name: Audit Logging
+    type: detective
+    status: implemented
+    evidence: all login attempts logged (success/failure)
+
+  - name: Security Headers
+    type: preventive
+    status: implemented
+    evidence: CSP, X-Frame-Options, X-Content-Type-Options
+
+trace_id: threat-model-login
+created_at: 2026-06-12T11:30:00Z
