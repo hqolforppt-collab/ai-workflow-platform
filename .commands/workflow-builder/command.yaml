@@ -1,0 +1,43 @@
+id: workflow-builder
+name: workflow-builder
+description: >
+  Flagship command. Turn a one-line user story into a complete, enterprise-grade
+  workflow blueprint YAML that covers every hidden area the user did not mention
+  (security, audit, logging, monitoring, compliance, documentation, testing,
+  deployment, operations, and more) with every attribute fully defined.
+purpose: >
+  The user types "/workflow-builder Create Login and Registration Feature" in
+  Claude Code, OpenCode, Cursor, or Copilot — and receives ONE detailed YAML
+  blueprint conforming to .schemas/workflow-blueprint/schema.yaml.
+usage: |
+  /workflow-builder <user story>
+  /workflow-builder Create Login and Registration Feature
+  /workflow-builder --level=L3 Employee onboarding with manager approval
+  /workflow-builder --output=blueprints/login.yaml Users can log in
+inputs:
+  story: the user story or feature description (required; free text)
+  level: output maturity level L1-L4 (optional; default L4 — see maturity-levels.yaml)
+  output: target file path (optional; default blueprints/<slug>.yaml)
+  context: existing blueprint to extend (optional; brownfield mode)
+outputs:
+  blueprint: complete YAML file conforming to .schemas/workflow-blueprint/schema.yaml
+  coverage-report: domains activated, hidden requirements added, assumptions needing review
+exit-conditions:
+  success: blueprint passes all 16 rules in .schemas/workflow-blueprint/validation-rules.yaml
+  failure: validation errors listed; partial blueprint saved with status DRAFT-INVALID
+dependencies:
+  schema: .schemas/workflow-blueprint/schema.yaml
+  knowledge-base: .memory/domain-knowledge/index.yaml
+  skill: .skills/hidden-requirement-discovery/skill.yaml
+  pipeline: .commands/workflow-builder/pipeline.yaml
+  prompt: .commands/workflow-builder/prompt.md
+platforms: [claude-code, opencode, cursor, copilot, codex, gemini-cli]
+example: |
+  $ /workflow-builder Create Login and Registration Feature
+  Discovering domains... 27 activated (2 explicit, 25 hidden)
+  Generating blueprint... 28 sections populated
+  Validating... 16/16 rules passed
+  Written: blueprints/login-and-registration.yaml (1,240 lines)
+  Review needed: 6 assumptions in section 'assumptions'
+lifecycle: stable
+version: 1.0.0
