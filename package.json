@@ -14,6 +14,8 @@
   "scripts": {
     "validate": "node packages/awp-cli/bin/awp.js validate",
     "discover": "node packages/awp-cli/bin/awp.js discover",
+    "test:bpmn": "node scripts/bpmn-roundtrip.mjs",
+    "test:flowable": "node scripts/flowable-deploy-test.mjs",
     "setup": "bash scripts/setup.sh"
   },
   "engines": {

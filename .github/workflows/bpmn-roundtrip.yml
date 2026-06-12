@@ -1,0 +1,62 @@
+name: BPMN round-trip
+
+# Gap 4 (GAP-FULFILLMENT-ROADMAP): prove the platform's BPMN output is
+# engine-valid BPMN 2.0, not just internal pseudo-YAML.
+#
+# Two layers of proof:
+#   1. roundtrip — bpmn-moddle parse -> serialize -> re-parse must preserve
+#      every element and the full sequence-flow topology, and every step in
+#      the canonical AWP YAML model must exist in the BPMN 2.0 XML.
+#   2. flowable-deploy — the model is deployed to a real Flowable REST engine
+#      (Docker service container) which must accept it and register an
+#      executable process definition.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  roundtrip:
+    name: bpmn-moddle round-trip + YAML sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Round-trip all BPMN models
+        run: node scripts/bpmn-roundtrip.mjs
+
+  flowable-deploy:
+    name: Flowable engine deployment
+    runs-on: ubuntu-latest
+    needs: roundtrip
+    services:
+      flowable:
+        image: flowable/flowable-rest:7.0.1
+        ports:
+          - 8080:8080
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Deploy models to Flowable
+        run: node scripts/flowable-deploy-test.mjs
+        env:
+          FLOWABLE_URL: http://localhost:8080/flowable-rest
+          FLOWABLE_USER: rest-admin
+          FLOWABLE_PASS: test
