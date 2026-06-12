@@ -1,0 +1,81 @@
+# Golden tests for /workflow-builder
+# Any implementation of the command (on any platform) must reproduce a blueprint
+# for the story below that passes ALL of these assertions. The reference output
+# is blueprint.yaml in this directory.
+id: workflow-builder-golden-tests
+version: 1.0.0
+story: "Create Login and Registration Feature"
+reference: examples/workflow-builder/login-registration/blueprint.yaml
+
+tests:
+  - id: GT-001
+    name: all-28-sections-present
+    asserts: "Output contains all 28 top-level sections of schema.yaml; none missing, none 'not-applicable' among the 12 always-populated sections."
+    maps-to: [VAL-001, VAL-002]
+
+  - id: GT-002
+    name: auth-mandatory-domains-activated
+    asserts: >
+      All 25 VAL-013 domains appear across domains.functional + domains.cross-cutting:
+      authentication, authorization, session-management, password-policy,
+      account-lockout, rate-limiting, audit, security, logging, monitoring,
+      notification, email-verification, fraud-detection, privacy, compliance,
+      backup, disaster-recovery, documentation, testing, deployment, operations,
+      error-management, observability, analytics, identity-management.
+    maps-to: [VAL-013]
+
+  - id: GT-003
+    name: minimum-cross-cutting
+    asserts: "domains.cross-cutting has >= 12 entries, each with discovery-rule and criticality."
+    maps-to: [VAL-010]
+
+  - id: GT-004
+    name: hidden-requirements-discovered
+    asserts: "requirements.hidden is non-empty (reference: 10 entries) and every entry's source matches discovery/<domain>."
+    maps-to: [VAL-011, VAL-012]
+
+  - id: GT-005
+    name: acceptance-criteria-everywhere
+    asserts: "Every requirement (explicit and hidden) has >= 1 Given/When/Then acceptance criterion."
+    maps-to: [VAL-021]
+
+  - id: GT-006
+    name: no-undefined-failures
+    asserts: "Every step in every workflow defines on-failure; every workflow has an exceptions list."
+    maps-to: [VAL-022]
+
+  - id: GT-007
+    name: api-error-coverage
+    asserts: "Every API endpoint defines >= 2 responses including >= 1 non-2xx; all carry rate-limit and idempotency."
+    maps-to: [VAL-023]
+
+  - id: GT-008
+    name: form-validation-complete
+    asserts: "Every form field has validation and error-message; forms list security measures (csrf-token at minimum)."
+    maps-to: [VAL-024]
+
+  - id: GT-009
+    name: references-resolve
+    asserts: "All ref values (requirements in workflows, actors in steps, runbooks in alerts, roles in pages, notifications in exceptions) resolve to ids defined in the same blueprint."
+    maps-to: [VAL-030, VAL-031, VAL-032]
+
+  - id: GT-010
+    name: pii-inventoried
+    asserts: "Every attribute flagged pii: true appears in compliance.privacy.pii-inventory."
+    maps-to: [VAL-040]
+
+  - id: GT-011
+    name: quality-floors
+    asserts: "monitoring.slos >= 1; testing.golden-scenarios >= 3 (reference: 5); no TBD/TODO placeholder anywhere in the file."
+    maps-to: [VAL-041, VAL-042]
+
+  - id: GT-012
+    name: user-intent-preserved
+    asserts: "project.story is the verbatim input; both explicit requirements (registration, login) exist with priority must; nothing the user asked for is dropped or contradicted."
+    maps-to: [pipeline.invariants.additive-only]
+
+expected-coverage-report:
+  domains-activated: 27        # 2 explicit, 25 hidden/discovered (incl. functional expansions)
+  hidden-requirements: 10
+  validation: 16/16
+  assumptions-for-review: 6

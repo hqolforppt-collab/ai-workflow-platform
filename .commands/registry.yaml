@@ -11,6 +11,15 @@ commands:
     invocation: "/awp-init"
     spec: .commands/awp-init/command.yaml
 
+  # Flagship
+  - id: workflow-builder
+    description: Turn a one-line user story into a complete enterprise-grade workflow blueprint (28 sections, hidden-requirement discovery, maturity levels L1-L6)
+    agents: [analyst]
+    invocation: "/workflow-builder <story>"
+    spec: .commands/workflow-builder/command.yaml
+    prompt: .commands/workflow-builder/prompt.md
+    platforms: [claude-code, opencode, cursor, copilot, codex, gemini-cli]
+
   # Workflow
   - id: discover
     description: Start discovery (S01) — elicit scope, stakeholders, domains
