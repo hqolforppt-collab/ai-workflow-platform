@@ -22,6 +22,7 @@ every failure path defined, every discovered item traced to the rule that added 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Spec-Driven](https://img.shields.io/badge/method-spec--driven-green.svg)](.ai/constitution.md)
 [![Domains: 25+](https://img.shields.io/badge/knowledge_base-25%2B_domains-orange.svg)](.memory/domain-knowledge/index.yaml)
+[![Repository OS](https://github.com/hqolforppt-collab/ai-workflow-platform/actions/workflows/validate.yml/badge.svg)](.github/workflows/validate.yml)
 [![BPMN round-trip](https://github.com/hqolforppt-collab/ai-workflow-platform/actions/workflows/bpmn-roundtrip.yml/badge.svg)](.github/workflows/bpmn-roundtrip.yml)
 
 ## Install in 60 seconds
