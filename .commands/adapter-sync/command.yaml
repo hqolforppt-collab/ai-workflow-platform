@@ -1,0 +1,26 @@
+id: adapter-sync
+name: adapter-sync
+description: Generate and validate AI platform adapters from central manifest
+purpose: Keep CLAUDE.md, opencode.json, copilot-instructions.md in sync with .ai/manifest.yaml
+usage: |
+  awp adapter-sync --platform=claude
+  awp adapter-sync --all
+  awp adapter-sync --check
+inputs:
+  platform: platform to sync (claude, opencode, copilot, agents-md, bmad, all)
+  check: validate without generating (dry-run)
+  output: output directory for generated adapters
+outputs:
+  adapter_files: generated .md, .json, .yaml files
+  drift_report: any conflicts between manifest and adapters
+  exit_code: 0 (synced), 1 (drift detected)
+example: |
+  $ awp adapter-sync --all
+  Generating adapters from .ai/manifest.yaml...
+  ✓ CLAUDE.md (agents, skills, templates)
+  ✓ opencode.json (configuration)
+  ✓ .github/copilot-instructions.md (rules)
+  ✓ AGENTS.md (agent teams)
+  All adapters synchronized.
+lifecycle: stable
+version: 1.0.0

@@ -1,0 +1,25 @@
+id: architect
+name: architect
+description: Architecture design assistant for generating architecture specs and ADRs
+purpose: Guide architects through design decisions and generate decision records
+usage: |
+  awp architect --component=payments --style=ddd
+  awp architect --decision="cache strategy for user sessions"
+  awp architect --review=architecture-spec.yaml
+inputs:
+  component: component/system name
+  style: architectural style (ddd, cqrs, layered, microservices, event-driven)
+  decision: specific decision to record as ADR
+  review: review existing architecture spec
+outputs:
+  adr: Architecture Decision Record (.yaml)
+  spec: architecture-spec.yaml in docs/architecture/
+  diagrams: optional context/container diagrams
+example: |
+  $ awp architect --component=payment-processing --style=cqrs
+  > Generating CQRS architecture for payment-processing...
+  Generated:
+    - docs/architecture/ADR-0001-payment-cqrs.yaml
+    - docs/architecture/payment-processing-spec.yaml
+lifecycle: beta
+version: 1.0.0

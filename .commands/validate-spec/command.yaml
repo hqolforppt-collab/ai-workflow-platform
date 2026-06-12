@@ -1,0 +1,26 @@
+id: validate-spec
+name: validate-spec
+description: Validate specifications against constitutional rules
+purpose: Ensure specs comply with structure, naming, traceability, and quality standards
+usage: |
+  awp validate-spec docs/requirements/login.yaml
+  awp validate-spec docs/ --recursive
+  awp validate-spec --all --strict
+inputs:
+  path: spec file or directory
+  recursive: validate all specs in directory tree
+  strict: enforce all rules including draft-level specs
+  verbose: detailed validation report
+outputs:
+  report: pass/fail with violations
+  violations: list of rule violations with line numbers
+  exit_code: 0 (pass), 1 (fail)
+example: |
+  $ awp validate-spec docs/requirements/login.yaml
+  ✓ PASS: docs/requirements/login.yaml
+  - Requirement ID: REQ-0001
+  - Status: approved
+  - Traceability: linked to EPIC-001
+  - Coverage: 5 acceptance criteria
+lifecycle: stable
+version: 1.0.0

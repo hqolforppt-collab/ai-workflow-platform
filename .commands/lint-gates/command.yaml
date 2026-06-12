@@ -1,0 +1,25 @@
+id: lint-gates
+name: lint-gates
+description: Lint governance gates for consistency and completeness
+purpose: Verify gate configurations, assignments, transitions, and evidence requirements are valid
+usage: |
+  awp lint-gates --all
+  awp lint-gates --gate=G2-architecture
+  awp lint-gates --check-evidence
+inputs:
+  all: lint all gates
+  gate: lint specific gate
+  check_evidence: verify required evidence is present
+  check_transitions: verify allowed stage transitions
+outputs:
+  report: violations and warnings
+  missing_evidence: unmet evidence requirements
+  exit_code: 0 (pass), 1 (fail)
+example: |
+  $ awp lint-gates --all
+  ✓ PASS: Gate configuration valid
+  Warnings:
+    - G3-data-model: no recent approvals (>30 days)
+    - G4-security: threat model missing for feature X
+lifecycle: stable
+version: 1.0.0

@@ -1,0 +1,29 @@
+id: audit-trace
+name: audit-trace
+description: Trace artifact from requirement through design, code, and tests
+purpose: Verify complete traceability chain and generate trace audit reports
+usage: |
+  awp audit-trace --requirement=REQ-001 --depth=full
+  awp audit-trace --specification=SPEC-0042 --links-only
+  awp audit-trace --output=html > trace-report.html
+inputs:
+  requirement: start from requirement ID
+  specification: start from specification ID
+  depth: trace depth (direct, full)
+  links_only: show only trace links, not full artifacts
+  output: output format (text, json, html)
+outputs:
+  trace_tree: complete requirement → spec → design → code → test chain
+  missing_links: any broken or missing links
+  coverage: percentage of requirements with full trace
+example: |
+  $ awp audit-trace --requirement=REQ-0001 --depth=full
+  REQ-0001 (User Login)
+    → SPEC-0001 (Login API)
+      → ARCH-0001 (Authentication ADR)
+        → models/login.bpmn
+          → src/auth/login.ts
+            → tests/auth.login.spec.ts
+  Status: FULLY TRACED
+lifecycle: beta
+version: 1.0.0
