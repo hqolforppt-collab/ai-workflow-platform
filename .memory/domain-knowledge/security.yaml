@@ -1,0 +1,19 @@
+id: security
+type: cross-cutting
+version: 1.0.0
+triggers: [ANY-USER-FACING]
+standards: [OWASP Top 10, OWASP ASVS, CWE Top 25]
+constraints:
+  - { id: SEC-C1, rule: "All input validated server-side (length, type, format, encoding)" }
+  - { id: SEC-C2, rule: "Parameterized queries only; no string-built SQL" }
+  - { id: SEC-C3, rule: "TLS 1.2+ enforced; HSTS enabled; secrets only in env/secret manager" }
+  - { id: SEC-C4, rule: "CSRF protection on all state-changing requests" }
+  - { id: SEC-C5, rule: "Security headers: CSP, X-Content-Type-Options, X-Frame-Options" }
+requirement-seeds:
+  - id: discovery/security/REQ-1
+    title: Input validation
+    ac: "Given any API endpoint, When malformed input is sent, Then 400 with field-level errors and no stack trace"
+  - id: discovery/security/REQ-2
+    title: Injection defence
+    ac: "Given a SQLi/XSS payload in any field, When submitted, Then it is rejected or safely encoded, never executed"
+blueprint-sections: [security, api, testing, requirements]

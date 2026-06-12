@@ -1,0 +1,17 @@
+id: user-management
+type: functional
+version: 1.0.0
+triggers: [profile, account settings, deactivate, user admin]
+implies: [authorization, audit, privacy]
+constraints:
+  - { id: USER-C1, rule: "Account lifecycle states: pending, active, locked, suspended, deleted" }
+  - { id: USER-C2, rule: "Self-service deletion honours GDPR right-to-erasure within 30 days" }
+  - { id: USER-C3, rule: "Admin actions on accounts always audited with actor + reason" }
+requirement-seeds:
+  - id: discovery/user-management/REQ-1
+    title: Account lifecycle management
+    ac: "Given an active account, When admin suspends it, Then all sessions revoke and the user is notified"
+  - id: discovery/user-management/REQ-2
+    title: Profile changes notification
+    ac: "Given a change of email or password, When it completes, Then the previous email receives a security notice"
+blueprint-sections: [actors, data-model, master-data, requirements]

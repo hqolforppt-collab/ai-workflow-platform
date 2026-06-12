@@ -1,0 +1,13 @@
+id: rate-limiting
+type: cross-cutting
+version: 1.0.0
+triggers: [login, api, email, register]
+constraints:
+  - { id: RTL-C1, rule: "Auth endpoints: 10 req/min per IP; 5 failed logins per account window" }
+  - { id: RTL-C2, rule: "429 responses include Retry-After; limits documented in API spec" }
+  - { id: RTL-C3, rule: "Limits enforced at edge AND application layer" }
+requirement-seeds:
+  - id: discovery/rate-limiting/REQ-1
+    title: Brute-force throttling
+    ac: "Given 10 login requests in 60s from one IP, When the 11th arrives, Then 429 with Retry-After is returned"
+blueprint-sections: [security, api, requirements]

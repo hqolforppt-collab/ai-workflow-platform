@@ -1,0 +1,13 @@
+id: account-lockout
+type: cross-cutting
+version: 1.0.0
+triggers: [login, authentication]
+constraints:
+  - { id: LCK-C1, rule: "Lock after 5 consecutive failures; 10 min auto-unlock or self-service reset" }
+  - { id: LCK-C2, rule: "Lockout counter per account AND per IP to resist spraying" }
+  - { id: LCK-C3, rule: "Lockout events audited and user notified by email" }
+requirement-seeds:
+  - id: discovery/account-lockout/REQ-1
+    title: Progressive lockout
+    ac: "Given 5 failed logins within 10 min, When the 6th attempt occurs, Then the account locks 10 min and the owner is emailed"
+blueprint-sections: [security, workflows, requirements]

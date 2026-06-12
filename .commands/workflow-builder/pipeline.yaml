@@ -1,0 +1,64 @@
+# /workflow-builder — 6-step generation pipeline
+# Every step has a defined input, output, and failure behaviour.
+id: workflow-builder-pipeline
+version: 1.0.0
+
+steps:
+  - step: 1
+    id: parse-story
+    action: >
+      Parse the user story. Extract: feature intent, explicit actors, explicit
+      capabilities, constraints stated by the user, and negations
+      ("passwordless", "no email") which must be honoured as overrides.
+    output: parsed-intent (intent, actors[], capabilities[], user-constraints[], negations[])
+    on-failure: ask user one clarifying question; never guess silently
+
+  - step: 2
+    id: classify-domains
+    action: >
+      Match parsed intent against .memory/domain-knowledge/index.yaml trigger-map.
+      Collect explicit functional domains.
+    output: explicit-domains[]
+    on-failure: if zero triggers match, treat as generic feature and proceed with ANY-USER-FACING baseline only
+
+  - step: 3
+    id: expand-hidden
+    action: >
+      Run .skills/hidden-requirement-discovery: implication closure over
+      implication-map until fixpoint, union ANY-USER-FACING baseline.
+      Apply negations from step 1 — overridden domains are marked
+      not-applicable with reason, never silently dropped or forced.
+    output: active-domains[] (each tagged explicit|hidden|not-applicable)
+    on-failure: halt; discovery is mandatory (constitution: no blueprint without hidden coverage)
+
+  - step: 4
+    id: resolve-constraints
+    action: >
+      Load constraints and requirement-seeds for every active domain.
+      Precedence: user story > compliance > security > defaults.
+      Conflicts surface in risks section; uncertainties become assumptions.
+    output: resolved-requirements[], constraints[], assumptions[], risks[]
+
+  - step: 5
+    id: populate-schema
+    action: >
+      Populate all 28 sections of .schemas/workflow-blueprint/schema.yaml.
+      The 12 always-populated sections may never be omitted. Every workflow
+      step gets on-failure; every requirement gets Given/When/Then AC;
+      every discovered item gets source: discovery/<domain>/<rule-id>.
+    output: blueprint (in-memory, complete)
+
+  - step: 6
+    id: emit-and-validate
+    action: >
+      Validate against all 16 rules in validation-rules.yaml. On pass, write
+      the blueprint file and print the coverage report (domains activated,
+      hidden requirements added, assumptions needing human review).
+    output: blueprint file + coverage-report
+    on-failure: list failing rules; save as DRAFT-INVALID; never emit silently-broken output
+
+invariants:
+  - additive-only: user intent is never removed or contradicted
+  - no-silent-gaps: skipped domains always carry a reason
+  - traceability: 100% of discovered content cites its discovery rule
+  - actionability: no TBD/TODO placeholder values in constraints

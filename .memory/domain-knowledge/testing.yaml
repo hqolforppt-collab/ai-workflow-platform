@@ -1,0 +1,13 @@
+id: testing
+type: cross-cutting
+version: 1.0.0
+triggers: [ANY-USER-FACING]
+constraints:
+  - { id: TST-C1, rule: "Test pyramid: unit > integration > e2e; coverage >= 80% on changed code" }
+  - { id: TST-C2, rule: "Security test cases mandatory for auth features (injection, brute force, session)" }
+  - { id: TST-C3, rule: "Every requirement (incl. discovered) maps to >= 1 test case (VAL-021 traceability)" }
+requirement-seeds:
+  - id: discovery/testing/REQ-1
+    title: Requirement-to-test traceability
+    ac: "Given the test suite, When traced against requirements, Then no requirement lacks a covering test"
+blueprint-sections: [testing, requirements]
