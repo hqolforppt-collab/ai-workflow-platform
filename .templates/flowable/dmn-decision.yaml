@@ -1,0 +1,45 @@
+id: flowable/dmn-decision
+title: DMN Decision Table Template
+description: Decision Model and Notation (DMN) specification for business rules, decision tables, and automated decision-making
+usage: Use for rule-based decisions (loan approval, pricing, eligibility, routing) with clear input/output mapping
+fields:
+  id: unique decision identifier
+  name: human-readable decision name
+  description: business rule description
+  inputs: array of input variables (name, type, domain)
+  outputs: array of output variables (name, type, domain)
+  rules: decision table rows (input conditions → output actions)
+  hitPolicy: how to handle multiple matching rules (Unique, First, Priority, Any, Collect)
+  default: default output if no rules match
+  documentation: business context, change history
+example: |
+  id: loan-approval-decision
+  name: Loan Approval Decision
+  description: Automated decision for loan eligibility
+  inputs:
+    - name: applicant_age
+      type: integer
+      domain: '[18, 120]'
+    - name: credit_score
+      type: integer
+      domain: '[300, 850]'
+    - name: annual_income
+      type: decimal
+    - name: debt_to_income_ratio
+      type: decimal
+      domain: '[0, 1.0]'
+  outputs:
+    - name: approval_status
+      type: string
+      domain: '[APPROVED, REJECTED, PENDING]'
+    - name: loan_amount
+      type: decimal
+  rules:
+    - input: 'credit_score >= 700 AND debt_to_income_ratio <= 0.43 AND annual_income >= 50000'
+      output: 'APPROVED, 500000'
+    - input: 'credit_score >= 620 AND credit_score < 700 AND debt_to_income_ratio <= 0.50'
+      output: 'PENDING, 0'
+    - input: 'credit_score < 620'
+      output: 'REJECTED, 0'
+  hitPolicy: First
+  default: 'REJECTED, 0'

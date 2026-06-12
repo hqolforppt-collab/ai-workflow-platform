@@ -1,0 +1,46 @@
+id: flowable/cmmn-case
+title: CMMN Case Definition Template
+description: Case Management Model Notation (CMMN) specification for complex, unstructured processes with stages, milestones, and discretionary tasks
+usage: Use for case management workflows where stages and milestones are conditional (customer onboarding, support tickets, compliance reviews)
+fields:
+  id: unique case identifier
+  name: human-readable case name
+  description: case purpose and business context
+  stages: array of case stages (sequential milestones)
+  milestones: completion criteria for each stage
+  tasks: discretionary tasks available at each stage
+  decisionPoints: conditional logic for stage transitions
+  documentation: reference documents, templates, forms
+example: |
+  id: customer-onboarding-case
+  name: Customer Onboarding
+  description: Multi-stage customer onboarding process
+  stages:
+    - id: intake
+      name: Intake & Verification
+      order: 1
+    - id: documentation
+      name: Documentation Review
+      order: 2
+    - id: approval
+      name: Approval & Activation
+      order: 3
+  milestones:
+    - id: intake_complete
+      stage: intake
+      criteria: 'application_submitted AND identity_verified'
+    - id: docs_approved
+      stage: documentation
+      criteria: 'all_documents_reviewed AND compliance_check_passed'
+  tasks:
+    - id: verify_identity
+      stage: intake
+      type: discretionary
+      assignee: compliance_team
+    - id: review_docs
+      stage: documentation
+      type: standard
+  decisionPoints:
+    - id: risk_assessment
+      condition: 'customer_risk_level > HIGH'
+      action: escalate_to_manager
