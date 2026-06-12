@@ -17,6 +17,12 @@ Chief Enterprise Architecture deliverable set. Scope: architecture only — no i
 | 9 | Knowledge Architecture | [09-knowledge-architecture.md](09-knowledge-architecture.md) |
 | 10 | Reference Architecture | [10-reference-architecture.md](10-reference-architecture.md) |
 
+## Test Scenarios
+
+| Scenario | Validates | Location |
+|----------|-----------|----------|
+| Login Page (user story → staged YAML deliverables) | Lifecycle states, domain research, data dictionary schema impact, actor classification, Flowable field-name compliance | [test-scenarios/login-page/](test-scenarios/login-page/README.md) |
+
 ## Architecture Principles (applied across all deliverables)
 
 1. **Spec-Driven** — every artifact traces to an approved specification; nothing is generated without a spec.

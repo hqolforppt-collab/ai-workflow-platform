@@ -1,0 +1,101 @@
+# =============================================================================
+# STAGE: GENERATING_ROOT_MODELS — Data Dictionary (delivered with the root model)
+# Includes schema-impact analysis driven by the best-practice research phase
+# (audit logging, lockout counters per OWASP / NIST findings)
+# =============================================================================
+apiVersion: modeler/v1
+kind: DataDictionary
+metadata:
+  generatedBy: exec-7f3a9c2e
+  storyId: story-login-001
+  key: loginDataDictionary
+  name: "Login Domain Data Dictionary"
+
+entities:
+  - name: USER_ACCOUNT
+    description: "Identity-store entity read/updated during authentication"
+    schemaImpact: ALTER          # existing table, new columns required
+    attributes:
+      - name: id
+        type: uuid
+        primaryKey: true
+      - name: username
+        type: string
+        maxLength: 100
+        unique: true
+        required: true
+      - name: passwordHash
+        type: string
+        maxLength: 255
+        required: true
+        sensitive: true
+        note: "bcrypt — per OWASP research finding"
+      - name: failedAttempts
+        type: integer
+        defaultValue: 0
+        schemaImpact: NEW_COLUMN
+        note: "Added for NIST 800-63B throttling"
+      - name: lockedUntil
+        type: timestamp
+        nullable: true
+        schemaImpact: NEW_COLUMN
+        note: "Auto-unlock cooldown timestamp"
+
+  - name: AUDIT_LOG
+    description: "Authentication audit trail — support domain: audit-logging"
+    schemaImpact: NEW_TABLE
+    attributes:
+      - name: id
+        type: uuid
+        primaryKey: true
+      - name: userId
+        type: uuid
+        foreignKey: USER_ACCOUNT.id
+      - name: eventType
+        type: enum
+        values: [LOGIN_SUCCESS, LOGIN_FAILURE, ACCOUNT_LOCKED, ACCOUNT_UNLOCKED, PASSWORD_RESET]
+      - name: ipAddress
+        type: string
+        maxLength: 45
+      - name: userAgent
+        type: string
+        maxLength: 512
+      - name: createdAt
+        type: timestamp
+        required: true
+
+processVariables:
+  # Variables exchanged with the Flowable process (variable names as used in models)
+  - name: username
+    type: string
+    sourceElement: enterCredentialsTask
+    actor: user
+  - name: password
+    type: string
+    transient: true            # never persisted as a process variable
+    sourceElement: enterCredentialsTask
+    actor: user
+  - name: authResult
+    type: string
+    values: [SUCCESS, FAILURE]
+    sourceElement: validateCredentialsTask
+    actor: server
+  - name: failedAttempts
+    type: integer
+    sourceElement: incrementFailedAttemptsTask
+    actor: server
+  - name: lockedUntil
+    type: date
+    sourceElement: lockAccountActivity
+    actor: system
+
+schemaImpactSummary:
+  newTables: [AUDIT_LOG]
+  alteredTables:
+    - table: USER_ACCOUNT
+      newColumns: [failedAttempts, lockedUntil]
+  migrations:
+    - id: mig-001
+      description: "CREATE TABLE AUDIT_LOG"
+    - id: mig-002
+      description: "ALTER TABLE USER_ACCOUNT ADD failedAttempts, lockedUntil"

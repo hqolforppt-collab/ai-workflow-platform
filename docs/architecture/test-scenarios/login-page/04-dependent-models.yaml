@@ -1,0 +1,124 @@
+# =============================================================================
+# STAGE: GENERATING_DEPENDENT_MODELS — Models operating in the root model context
+# Called via callActivity (calledElement) from userLoginProcess
+# =============================================================================
+apiVersion: modeler/v1
+kind: BpmnModelCollection
+metadata:
+  generatedBy: exec-7f3a9c2e
+  storyId: story-login-001
+  parentProcessDefinitionKey: userLoginProcess
+
+models:
+  # ---------------------------------------------------------------------------
+  # Dependent model 1: Account Lockout (invoked by lockAccountActivity)
+  # ---------------------------------------------------------------------------
+  - process:
+      id: accountLockoutProcess
+      key: accountLockoutProcess
+      name: "Account Lockout Process"
+      isExecutable: true
+      flowElements:
+        - elementType: startEvent
+          id: startLockout
+          name: "Lockout triggered"
+        - elementType: serviceTask
+          id: setLockTask
+          name: "Set lockedUntil on USER_ACCOUNT"
+          implementationType: delegateExpression
+          delegateExpression: "${accountLockDelegate}"
+          actor: server
+        - elementType: serviceTask
+          id: notifyUserTask
+          name: "Send lockout notification email"
+          implementationType: delegateExpression
+          delegateExpression: "${emailNotificationDelegate}"
+          actor: server
+          fieldExtensions:
+            - fieldName: template
+              stringValue: account-locked
+        - elementType: userTask
+          id: requestUnlockTask
+          name: "Request Unlock"
+          taskDefinitionKey: requestUnlockTask
+          candidateGroups: []
+          assignee: "${initiator}"
+          formKey: unlockRequestForm
+          actor: user
+        - elementType: boundaryEvent
+          id: autoUnlockTimer
+          name: "Cooldown elapsed"
+          attachedToRef: requestUnlockTask
+          cancelActivity: true
+          eventDefinitions:
+            - type: timerEventDefinition
+              timeDuration: "PT30M"
+          actor: timer
+        - elementType: serviceTask
+          id: unlockAccountTask
+          name: "Unlock account + audit"
+          implementationType: delegateExpression
+          delegateExpression: "${accountUnlockDelegate}"
+          actor: server
+        - elementType: endEvent
+          id: endLockout
+          name: "Account unlocked"
+      sequenceFlows:
+        - { id: lf1, sourceRef: startLockout, targetRef: setLockTask }
+        - { id: lf2, sourceRef: setLockTask, targetRef: notifyUserTask }
+        - { id: lf3, sourceRef: notifyUserTask, targetRef: requestUnlockTask }
+        - { id: lf4, sourceRef: requestUnlockTask, targetRef: unlockAccountTask }
+        - { id: lf5, sourceRef: autoUnlockTimer, targetRef: unlockAccountTask }
+        - { id: lf6, sourceRef: unlockAccountTask, targetRef: endLockout }
+
+  # ---------------------------------------------------------------------------
+  # Dependent model 2: Password Reset (support flow discovered during research)
+  # ---------------------------------------------------------------------------
+  - process:
+      id: passwordResetProcess
+      key: passwordResetProcess
+      name: "Password Reset Process"
+      isExecutable: true
+      flowElements:
+        - elementType: startEvent
+          id: startReset
+          name: "Reset requested"
+        - elementType: userTask
+          id: submitResetRequestTask
+          name: "Submit Reset Request"
+          taskDefinitionKey: submitResetRequestTask
+          formKey: passwordResetForm
+          actor: user
+        - elementType: serviceTask
+          id: sendResetTokenTask
+          name: "Send reset token email"
+          implementationType: delegateExpression
+          delegateExpression: "${resetTokenDelegate}"
+          actor: server
+        - elementType: boundaryEvent
+          id: resetTokenExpiry
+          name: "Token expired"
+          attachedToRef: submitResetRequestTask
+          cancelActivity: true
+          eventDefinitions:
+            - type: timerEventDefinition
+              timeDuration: "PT1H"
+          actor: timer
+        - elementType: serviceTask
+          id: updatePasswordTask
+          name: "Update passwordHash + audit"
+          implementationType: delegateExpression
+          delegateExpression: "${passwordUpdateDelegate}"
+          actor: server
+        - elementType: endEvent
+          id: endResetDone
+          name: "Password reset complete"
+        - elementType: endEvent
+          id: endResetExpired
+          name: "Reset expired"
+      sequenceFlows:
+        - { id: rf1, sourceRef: startReset, targetRef: submitResetRequestTask }
+        - { id: rf2, sourceRef: submitResetRequestTask, targetRef: sendResetTokenTask }
+        - { id: rf3, sourceRef: sendResetTokenTask, targetRef: updatePasswordTask }
+        - { id: rf4, sourceRef: updatePasswordTask, targetRef: endResetDone }
+        - { id: rf5, sourceRef: resetTokenExpiry, targetRef: endResetExpired }

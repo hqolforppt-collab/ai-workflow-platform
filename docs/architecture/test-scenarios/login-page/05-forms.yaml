@@ -1,0 +1,94 @@
+# =============================================================================
+# STAGE: GENERATING_FORMS — One form per user task
+# Field names match the Flowable Form model (flowable-engine: SimpleFormModel /
+# FormField): key, name, fields[{id, name, type, required, placeholder, params}]
+# =============================================================================
+apiVersion: modeler/v1
+kind: FormModelCollection
+metadata:
+  generatedBy: exec-7f3a9c2e
+  storyId: story-login-001
+
+forms:
+  # Bound to userLoginProcess > enterCredentialsTask (formKey: loginForm)
+  - key: loginForm
+    name: "Login Form"
+    description: "Credentials entry — generic error per OWASP guidance"
+    boundTo:
+      processDefinitionKey: userLoginProcess
+      taskDefinitionKey: enterCredentialsTask
+    fields:
+      - id: username
+        name: "Username"
+        type: text
+        required: true
+        placeholder: "Enter your username"
+        params:
+          maxLength: 100
+      - id: password
+        name: "Password"
+        type: password
+        required: true
+        placeholder: "Enter your password"
+        params:
+          transient: true
+      - id: rememberMe
+        name: "Remember me"
+        type: boolean
+        required: false
+    outcomes:
+      - id: submit
+        name: "Sign In"
+
+  # Bound to accountLockoutProcess > requestUnlockTask (formKey: unlockRequestForm)
+  - key: unlockRequestForm
+    name: "Unlock Request Form"
+    boundTo:
+      processDefinitionKey: accountLockoutProcess
+      taskDefinitionKey: requestUnlockTask
+    fields:
+      - id: username
+        name: "Username"
+        type: text
+        required: true
+        readOnly: true
+      - id: unlockReason
+        name: "Reason"
+        type: multi-line-text
+        required: false
+        placeholder: "Optionally explain why your account should be unlocked"
+    outcomes:
+      - id: requestUnlock
+        name: "Request Unlock"
+
+  # Bound to passwordResetProcess > submitResetRequestTask (formKey: passwordResetForm)
+  - key: passwordResetForm
+    name: "Password Reset Form"
+    boundTo:
+      processDefinitionKey: passwordResetProcess
+      taskDefinitionKey: submitResetRequestTask
+    fields:
+      - id: email
+        name: "Email"
+        type: text
+        required: true
+        placeholder: "Enter the email linked to your account"
+        params:
+          validation: email
+      - id: newPassword
+        name: "New Password"
+        type: password
+        required: true
+        params:
+          minLength: 12
+          transient: true
+      - id: confirmPassword
+        name: "Confirm New Password"
+        type: password
+        required: true
+        params:
+          matches: newPassword
+          transient: true
+    outcomes:
+      - id: resetPassword
+        name: "Reset Password"

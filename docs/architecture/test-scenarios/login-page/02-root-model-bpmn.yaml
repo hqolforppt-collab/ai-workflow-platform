@@ -1,0 +1,150 @@
+# =============================================================================
+# STAGE: GENERATING_ROOT_MODELS — Root BPMN process
+# Field names match Flowable BPMN model (flowable-engine: org.flowable.bpmn.model)
+# userTask: assignee, candidateGroups, formKey, taskDefinitionKey
+# serviceTask: implementationType, delegateExpression
+# sequenceFlow: sourceRef, targetRef, conditionExpression
+# boundaryEvent: attachedToRef, cancelActivity
+# =============================================================================
+apiVersion: modeler/v1
+kind: BpmnModel
+metadata:
+  generatedBy: exec-7f3a9c2e
+  storyId: story-login-001
+  role: root
+  rootSelectionRule: dominance-lifecycle-exception
+  selectedBecause: "Sequential lifecycle-driven flow with bounded exceptions"
+
+process:
+  id: userLoginProcess
+  key: userLoginProcess          # processDefinitionKey at deployment
+  name: "User Login Process"
+  isExecutable: true
+  candidateStarterGroups: [users]
+
+  dataObjects:
+    - id: loginAttempt
+      name: "Login Attempt"
+      itemSubjectRef: "xsd:string"
+
+  flowElements:
+    # ---- Start ----
+    - elementType: startEvent
+      id: startLogin
+      name: "Login page opened"
+
+    # ---- USER action ----
+    - elementType: userTask
+      id: enterCredentialsTask
+      name: "Enter Credentials"
+      taskDefinitionKey: enterCredentialsTask
+      assignee: "${initiator}"
+      candidateGroups: []
+      formKey: loginForm
+      actor: user
+
+    # ---- SERVER action ----
+    - elementType: serviceTask
+      id: validateCredentialsTask
+      name: "Validate Credentials"
+      implementationType: delegateExpression
+      delegateExpression: "${credentialValidationDelegate}"
+      resultVariableName: authResult
+      actor: server
+      fieldExtensions:
+        - fieldName: hashAlgorithm
+          stringValue: bcrypt
+
+    # ---- Gateway ----
+    - elementType: exclusiveGateway
+      id: authDecisionGateway
+      name: "Credentials valid?"
+      defaultFlow: flowAuthFailed
+
+    # ---- SERVER action: failure path ----
+    - elementType: serviceTask
+      id: incrementFailedAttemptsTask
+      name: "Increment Failed Attempts"
+      implementationType: delegateExpression
+      delegateExpression: "${failedAttemptDelegate}"
+      actor: server
+
+    - elementType: exclusiveGateway
+      id: lockoutDecisionGateway
+      name: "Attempts >= 5?"
+      defaultFlow: flowRetryLogin
+
+    # ---- SYSTEM action: call dependent model ----
+    - elementType: callActivity
+      id: lockAccountActivity
+      name: "Lock Account"
+      calledElement: accountLockoutProcess
+      inheritVariables: true
+      actor: system
+
+    # ---- SERVER action: audit (both paths) ----
+    - elementType: serviceTask
+      id: auditLogTask
+      name: "Write Audit Log Entry"
+      implementationType: delegateExpression
+      delegateExpression: "${auditLogDelegate}"
+      actor: server
+
+    # ---- TIMER exception on the login task ----
+    - elementType: boundaryEvent
+      id: loginSessionTimeout
+      name: "Session timeout"
+      attachedToRef: enterCredentialsTask
+      cancelActivity: true
+      eventDefinitions:
+        - type: timerEventDefinition
+          timeDuration: "PT15M"
+      actor: timer
+
+    # ---- Ends ----
+    - elementType: endEvent
+      id: endLoginSuccess
+      name: "Login granted — redirect to dashboard"
+    - elementType: endEvent
+      id: endLoginLocked
+      name: "Account locked"
+    - elementType: endEvent
+      id: endLoginTimedOut
+      name: "Login abandoned"
+
+  sequenceFlows:
+    - id: flowStart
+      sourceRef: startLogin
+      targetRef: enterCredentialsTask
+    - id: flowSubmit
+      sourceRef: enterCredentialsTask
+      targetRef: validateCredentialsTask
+    - id: flowToDecision
+      sourceRef: validateCredentialsTask
+      targetRef: authDecisionGateway
+    - id: flowAuthSuccess
+      sourceRef: authDecisionGateway
+      targetRef: auditLogTask
+      conditionExpression: "${authResult == 'SUCCESS'}"
+    - id: flowAuthFailed
+      sourceRef: authDecisionGateway
+      targetRef: incrementFailedAttemptsTask
+    - id: flowToLockoutDecision
+      sourceRef: incrementFailedAttemptsTask
+      targetRef: lockoutDecisionGateway
+    - id: flowLockAccount
+      sourceRef: lockoutDecisionGateway
+      targetRef: lockAccountActivity
+      conditionExpression: "${failedAttempts >= 5}"
+    - id: flowRetryLogin
+      sourceRef: lockoutDecisionGateway
+      targetRef: enterCredentialsTask
+    - id: flowLockedEnd
+      sourceRef: lockAccountActivity
+      targetRef: endLoginLocked
+    - id: flowAuditToEnd
+      sourceRef: auditLogTask
+      targetRef: endLoginSuccess
+    - id: flowTimeoutEnd
+      sourceRef: loginSessionTimeout
+      targetRef: endLoginTimedOut

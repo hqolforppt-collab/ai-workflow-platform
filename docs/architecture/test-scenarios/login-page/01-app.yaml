@@ -1,0 +1,37 @@
+# =============================================================================
+# STAGE: GENERATING_APP — App container that owns all generated models
+# Field names align with Flowable App model (flowable-engine: AppModel)
+# =============================================================================
+apiVersion: modeler/v1
+kind: AppModel
+metadata:
+  generatedBy: exec-7f3a9c2e
+  storyId: story-login-001
+
+app:
+  key: loginApp
+  name: "User Login App"
+  description: "Application containing the secure login process and its supporting models"
+  theme: theme-default
+  icon: glyphicon-lock
+  usersAccess: []          # empty = all authenticated users
+  groupsAccess: [users]
+
+  models:
+    - key: userLoginProcess
+      type: bpmn
+      role: root
+    - key: accountLockoutProcess
+      type: bpmn
+      role: dependent
+    - key: passwordResetProcess
+      type: bpmn
+      role: dependent
+    - key: loginForm
+      type: form
+    - key: unlockRequestForm
+      type: form
+    - key: passwordResetForm
+      type: form
+    - key: loginDataDictionary
+      type: dataDictionary

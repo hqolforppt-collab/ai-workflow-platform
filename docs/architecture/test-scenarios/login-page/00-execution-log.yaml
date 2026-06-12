@@ -1,0 +1,135 @@
+# =============================================================================
+# GENERATOR EXECUTION LOG — User Story: "Create a login page"
+# Demonstrates the full lifecycle state machine with in-processing research,
+# data-dictionary schema impact, and actor-classified actions.
+# =============================================================================
+apiVersion: modeler/v1
+kind: GeneratorExecution
+metadata:
+  executionId: exec-7f3a9c2e
+  storyId: story-login-001
+  createdBy: ai-orchestrator
+  createdAt: "2026-06-12T09:00:00Z"
+
+userStory:
+  title: "Login page"
+  narrative: "As a user, I want a login page so I can securely access my account."
+  acceptanceCriteria:
+    - "User can enter username and password"
+    - "Invalid credentials show an error without revealing which field is wrong"
+    - "Account locks after 5 failed attempts"
+    - "Successful login redirects to the dashboard and is audit-logged"
+
+# -----------------------------------------------------------------------------
+# Lifecycle transitions (states from 05-generation-architecture.md)
+# -----------------------------------------------------------------------------
+lifecycle:
+  - state: INITIALIZED
+    enteredAt: "2026-06-12T09:00:00Z"
+    message: "The model generator has been successfully initialized and is ready to start."
+    outputs: []
+
+  - state: IN_PROGRESS
+    enteredAt: "2026-06-12T09:00:02Z"
+    message: "The model generation has started and is currently in progress."
+    activities:
+      - type: domainResearch
+        description: "Searching best practices for the authentication / IAM domain"
+        queries:
+          - "login flow best practices OWASP authentication cheat sheet"
+          - "account lockout policy NIST 800-63B"
+          - "Flowable BPMN user task form authentication pattern"
+        findings:
+          - source: "OWASP Authentication Cheat Sheet"
+            decision: "Generic error message on failure; never reveal which credential is wrong"
+          - source: "NIST SP 800-63B"
+            decision: "Throttle: lock account after 5 consecutive failures; unlock via timer or admin"
+          - source: "Flowable engine reference (flowable-engine repo)"
+            decision: "Model user input as userTask + formKey; server validation as serviceTask with delegateExpression"
+      - type: supportDomainAnalysis
+        description: "Identify supporting domains impacted by the story"
+        supportDomains:
+          - name: audit-logging
+            impact: "Every authentication attempt must be persisted (schema impact: AUDIT_LOG table)"
+          - name: notification
+            impact: "Lockout event triggers email notification (dependent model)"
+          - name: identity-store
+            impact: "Read/update USER_ACCOUNT (failedAttempts, lockedUntil columns)"
+      - type: rootModelSelection
+        ruleSet: dominance-lifecycle-exception
+        evaluation:
+          dominanceTest: "Sequential, predictable path → process-dominant"
+          lifecycleTest: "Clear start (credentials submitted) and end (granted/denied)"
+          exceptionTest: "Exceptions are bounded (lockout, timeout) → BPMN boundary events suffice"
+        result: BPMN
+      - type: actorClassification
+        actions:
+          - action: "Enter credentials"
+            actor: user
+            flowableElement: userTask
+          - action: "Validate credentials"
+            actor: server
+            flowableElement: serviceTask
+          - action: "Increment failed-attempt counter"
+            actor: server
+            flowableElement: serviceTask
+          - action: "Lock account"
+            actor: system
+            flowableElement: callActivity
+          - action: "Auto-unlock after cooldown"
+            actor: timer
+            flowableElement: boundaryEvent (timerEventDefinition)
+          - action: "Write audit log entry"
+            actor: server
+            flowableElement: serviceTask
+          - action: "Redirect to dashboard"
+            actor: system
+            flowableElement: endEvent
+
+  - state: GENERATING_APP
+    enteredAt: "2026-06-12T09:00:18Z"
+    message: "An app which will contain all generated models is being created."
+    outputs:
+      - artifact: 01-app.yaml
+        modelType: app
+
+  - state: GENERATING_ROOT_MODELS
+    enteredAt: "2026-06-12T09:00:25Z"
+    message: >-
+      The AI system is generating a root BPMN process model, including a
+      data dictionary model, based on the provided prompt.
+    outputs:
+      - artifact: 02-root-model-bpmn.yaml
+        modelType: bpmn
+        processDefinitionKey: userLoginProcess
+      - artifact: 03-data-dictionary.yaml
+        modelType: dataDictionary
+
+  - state: GENERATING_DEPENDENT_MODELS
+    enteredAt: "2026-06-12T09:00:41Z"
+    message: >-
+      The AI system is processing new prompts to create BPMN models that are part
+      of the model hierarchy and will operate within the context of the root model.
+    outputs:
+      - artifact: 04-dependent-models.yaml
+        modelType: bpmn
+        processDefinitionKeys: [accountLockoutProcess, passwordResetProcess]
+
+  - state: GENERATING_FORMS
+    enteredAt: "2026-06-12T09:00:55Z"
+    message: "Forms are being generated for each user task to allow end-users to provide data at runtime."
+    outputs:
+      - artifact: 05-forms.yaml
+        modelType: form
+        formKeys: [loginForm, unlockRequestForm, passwordResetForm]
+
+  - state: COMPLETED
+    enteredAt: "2026-06-12T09:01:03Z"
+    message: "All models generated, validated against the meta-model, and linked to the app."
+    traceability:
+      story: story-login-001
+      app: loginApp
+      rootModels: [userLoginProcess]
+      dependentModels: [accountLockoutProcess, passwordResetProcess]
+      forms: [loginForm, unlockRequestForm, passwordResetForm]
+      dataDictionary: loginDataDictionary
