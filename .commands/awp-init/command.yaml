@@ -8,10 +8,10 @@ command:
     - load: .ai/manifest.yaml (authority chain, component registries)
     - load: .agents/registry.yaml (adopt persona on demand)
     - load: .governance/gates/*.yaml (gate definitions and transitions)
-    - hydrate: .memory/index.yaml (consultation order: failure first)
+    - hydrate: ".memory/index.yaml (consultation order: failure first)"
     - load: .templates/registry.yaml and .skills/registry.yaml
     - report: system status (agents, skills, templates, gates, memory tiers)
   failure-modes:
-    - missing constitution: REFUSE to operate (Constitution enforcement hook)
-    - registry conflict with constitution: HALT and escalate to human (G2)
+    - "missing constitution: REFUSE to operate (Constitution enforcement hook)"
+    - "registry conflict with constitution: HALT and escalate to human (G2)"
   output: boot report (markdown) listing loaded components and any conflicts

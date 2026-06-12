@@ -86,7 +86,7 @@ Operating model: [`docs/ai-delivery-os/00-index.md`](docs/ai-delivery-os/00-inde
 
 ## Launch checklist
 
-Maintainers: the v1.0 launch checklist lives at [`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md).
+Maintainers: the v1.0 launch checklist lives at [`docs/planning/LAUNCH_CHECKLIST.md`](docs/planning/LAUNCH_CHECKLIST.md).
 
 ## Contributing
 

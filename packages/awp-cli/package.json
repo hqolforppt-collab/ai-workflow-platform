@@ -1,0 +1,33 @@
+{
+  "name": "awp",
+  "version": "0.1.0",
+  "description": "AWP CLI - command-line interface for the AI Workflow Platform: discover artifacts, validate the repository OS, build workflow blueprints, and scaffold new repos.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "awp": "bin/awp.js"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hqolforppt-collab/ai-workflow-platform.git",
+    "directory": "packages/awp-cli"
+  },
+  "keywords": [
+    "ai",
+    "workflow",
+    "spec-driven",
+    "blueprint",
+    "flowable",
+    "bpmn"
+  ],
+  "dependencies": {
+    "yaml": "^2.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
