@@ -23,6 +23,10 @@ Chief Enterprise Architecture deliverable set. Scope: architecture only — no i
 |----------|-----------|----------|
 | Login Page (user story → staged YAML deliverables) | Lifecycle states, domain research, data dictionary schema impact, actor classification, Flowable field-name compliance | [test-scenarios/login-page/](test-scenarios/login-page/README.md) |
 
+## Successor Deliverable
+
+The approved architecture has been transformed into a reusable **Enterprise AI Delivery Operating System** — see [../ai-delivery-os/00-index.md](../ai-delivery-os/00-index.md).
+
 ## Architecture Principles (applied across all deliverables)
 
 1. **Spec-Driven** — every artifact traces to an approved specification; nothing is generated without a spec.
