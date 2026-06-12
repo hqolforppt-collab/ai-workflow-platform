@@ -1,0 +1,18 @@
+id: authorization
+type: functional
+version: 1.0.0
+triggers: [role, permission, access control, admin, authorize, rbac]
+implies: [audit, security]
+standards: [OWASP ASVS V4]
+constraints:
+  - { id: AUTHZ-C1, rule: "Deny-by-default; every endpoint declares required permission" }
+  - { id: AUTHZ-C2, rule: "Authorization enforced server-side; UI hiding is not access control" }
+  - { id: AUTHZ-C3, rule: "Permission changes take effect within one request cycle (session re-check)" }
+requirement-seeds:
+  - id: discovery/authorization/REQ-1
+    title: Role-based access enforcement
+    ac: "Given a user without permission X, When they call an endpoint requiring X, Then 403 is returned and the attempt audited"
+  - id: discovery/authorization/REQ-2
+    title: Least-privilege defaults
+    ac: "Given a newly registered user, When account is created, Then only the basic 'user' role is assigned"
+blueprint-sections: [roles, security, api, requirements]

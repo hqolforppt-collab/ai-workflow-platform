@@ -1,0 +1,18 @@
+id: session-management
+type: functional
+version: 1.0.0
+triggers: [session, remember me, logout, token, jwt]
+implies: [security, logging]
+standards: [OWASP ASVS V3]
+constraints:
+  - { id: SESS-C1, rule: "Idle timeout 30 min; absolute timeout 12 h; remember-me 30 days max" }
+  - { id: SESS-C2, rule: "Tokens in HttpOnly+Secure+SameSite cookies; never in localStorage" }
+  - { id: SESS-C3, rule: "Session rotated on login and privilege change; all sessions revocable" }
+requirement-seeds:
+  - id: discovery/session-management/REQ-1
+    title: Session expiry
+    ac: "Given an idle session of 30 min, When the user acts, Then they are required to re-authenticate"
+  - id: discovery/session-management/REQ-2
+    title: Logout everywhere
+    ac: "Given multiple active sessions, When user clicks 'log out all devices', Then every session is invalidated within 60s"
+blueprint-sections: [security, api, workflows, requirements]

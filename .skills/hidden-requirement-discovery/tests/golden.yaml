@@ -1,0 +1,39 @@
+skill: requirements/hidden-requirement-discovery
+version: 1.0.0
+tests:
+  - id: GT-DISC-001
+    name: One-word login story expands to full coverage
+    input:
+      story: "Login"
+    expect:
+      min-domains: 25
+      must-include-domains:
+        [authentication, session-management, security, audit, logging,
+         monitoring, password-policy, account-lockout, rate-limiting,
+         fraud-detection, notification, error-management, observability,
+         documentation, testing, deployment, operations, analytics,
+         compliance, privacy, backup, disaster-recovery]
+      every-requirement-has: [ac, source]
+
+  - id: GT-DISC-002
+    name: Registration story implies email verification and privacy
+    input:
+      story: "Users can create an account"
+    expect:
+      must-include-domains: [identity-management, email, privacy, compliance, user-management]
+      must-include-requirements: [discovery/identity-management/REQ-1]
+
+  - id: GT-DISC-003
+    name: Additive-only guarantee
+    input:
+      story: "Passwordless login via magic link only"
+    expect:
+      must-not: "force password-policy constraints to mandate passwords"
+      behavior: password-policy seeds marked not-applicable with reason, not silently applied
+
+  - id: GT-DISC-004
+    name: Traceability of discovered items
+    input:
+      story: "Login"
+    expect:
+      every-discovered-item-matches: "^discovery/[a-z-]+/[A-Z]+-?.+$"

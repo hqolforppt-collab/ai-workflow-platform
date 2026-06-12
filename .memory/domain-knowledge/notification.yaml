@@ -1,0 +1,13 @@
+id: notification
+type: cross-cutting
+version: 1.0.0
+triggers: [ANY-USER-FACING]
+constraints:
+  - { id: NOT-C1, rule: "Security notifications (new device, password change) are mandatory, not opt-out" }
+  - { id: NOT-C2, rule: "Channels abstracted (email, in-app, sms) behind one dispatch service" }
+  - { id: NOT-C3, rule: "User notification preferences honoured for non-security messages" }
+requirement-seeds:
+  - id: discovery/notification/REQ-1
+    title: New-device alert
+    ac: "Given a login from an unseen device, When session is created, Then the user is notified with device, location, time"
+blueprint-sections: [notifications, integrations, requirements]

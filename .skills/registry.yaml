@@ -15,6 +15,7 @@ skills:
 
   # Domain: Requirements & Analysis
   - { id: requirements/elicitation,     version: 1.0.0, status: approved, agents: [analyst],        spec: .skills/requirements-elicitation/skill.yaml }
+  - { id: requirements/hidden-requirement-discovery, version: 1.0.0, status: approved, agents: [analyst], spec: .skills/hidden-requirement-discovery/skill.yaml }
   - { id: requirements/user-stories,    version: 1.0.0, status: approved, agents: [analyst, po],    spec: .skills/user-story-writing/skill.yaml }
   - { id: requirements/acceptance-criteria, version: 1.0.0, status: approved, agents: [analyst, qa], spec: .skills/acceptance-criteria/skill.yaml }
 

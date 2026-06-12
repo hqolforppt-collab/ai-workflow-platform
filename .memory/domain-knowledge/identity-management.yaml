@@ -1,0 +1,18 @@
+id: identity-management
+type: functional
+version: 1.0.0
+triggers: [register, registration, sign up, create account, onboard]
+implies: [email, privacy, compliance, user-management]
+standards: [NIST 800-63A, GDPR Art. 5]
+constraints:
+  - { id: IDM-C1, rule: "Email verification required before account activation (24h token expiry)" }
+  - { id: IDM-C2, rule: "Duplicate-email registration returns same UX as success (no enumeration)" }
+  - { id: IDM-C3, rule: "Only minimum data collected at registration (data minimisation)" }
+requirement-seeds:
+  - id: discovery/identity-management/REQ-1
+    title: Email verification flow
+    ac: "Given a new registration, When user submits the form, Then a single-use verification link valid 24h is emailed"
+  - id: discovery/identity-management/REQ-2
+    title: Account states
+    ac: "Given an unverified account, When 7 days pass, Then the account is purged and the email freed"
+blueprint-sections: [actors, data-model, workflows, requirements]

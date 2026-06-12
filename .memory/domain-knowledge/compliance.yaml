@@ -1,0 +1,13 @@
+id: compliance
+type: cross-cutting
+version: 1.0.0
+triggers: [ANY-USER-FACING]
+standards: [GDPR, SOC2, ISO 27001]
+constraints:
+  - { id: CMP-C1, rule: "Applicable regimes identified per feature; obligations mapped to controls" }
+  - { id: CMP-C2, rule: "Evidence collection automated where possible (audit trail, access reviews)" }
+requirement-seeds:
+  - id: discovery/compliance/REQ-1
+    title: Compliance control mapping
+    ac: "Given the feature blueprint, When reviewed, Then each obligation lists its implementing control and evidence source"
+blueprint-sections: [compliance, governance, requirements]

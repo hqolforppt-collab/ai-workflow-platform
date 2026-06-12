@@ -1,0 +1,102 @@
+# Hidden Requirement Discovery — Knowledge Base Index
+# Consumed by: .skills/hidden-requirement-discovery/ and /workflow-builder
+# Purpose: map user-story trigger keywords to the hidden domains the user
+#          did not mention, with concrete constraints and requirement seeds.
+
+version: 1.0.0
+status: approved
+authority: .ai/constitution.md
+
+# ---------------------------------------------------------------------------
+# Trigger map: keywords found in a user story -> functional domains activated
+# ---------------------------------------------------------------------------
+trigger-map:
+  - keywords: [login, log in, sign in, signin, authenticate, credentials]
+    domains: [authentication, session-management, identity-management]
+  - keywords: [register, registration, sign up, signup, create account, onboard user]
+    domains: [identity-management, user-management, email, authentication]
+  - keywords: [password, forgot password, reset password]
+    domains: [password-policy, authentication, email]
+  - keywords: [role, permission, access control, admin only, authorize]
+    domains: [authorization]
+  - keywords: [profile, account settings, user data]
+    domains: [user-management, privacy]
+  - keywords: [email, notification, alert user]
+    domains: [email, notification]
+  - keywords: [payment, checkout, billing, invoice]
+    domains: [fraud-detection, audit, compliance]
+  - keywords: [upload, file, document, attachment]
+    domains: [security, backup]
+  - keywords: [report, dashboard, metrics]
+    domains: [analytics]
+
+# ---------------------------------------------------------------------------
+# Implication map: domain -> domains it always implies (transitive closure
+# is computed by the discovery skill until a fixpoint is reached)
+# ---------------------------------------------------------------------------
+implication-map:
+  authentication: [security, password-policy, account-lockout, rate-limiting, fraud-detection, session-management, audit]
+  identity-management: [email, privacy, compliance, user-management]
+  session-management: [security, logging]
+  user-management: [authorization, audit, privacy]
+  authorization: [audit, security]
+  email: [notification, rate-limiting]
+  fraud-detection: [monitoring, analytics, audit]
+  privacy: [compliance]
+
+  # Baseline: ANY user-facing feature always implies these cross-cutting domains
+  ANY-USER-FACING:
+    - security
+    - audit
+    - logging
+    - monitoring
+    - error-management
+    - notification
+    - observability
+    - documentation
+    - testing
+    - deployment
+    - operations
+    - analytics
+    - compliance
+    - privacy
+    - backup
+    - disaster-recovery
+
+# ---------------------------------------------------------------------------
+# Domain registry: every domain file in this KB
+# ---------------------------------------------------------------------------
+domains:
+  functional:
+    - { id: authentication,      file: authentication.yaml }
+    - { id: authorization,       file: authorization.yaml }
+    - { id: identity-management, file: identity-management.yaml }
+    - { id: session-management,  file: session-management.yaml }
+    - { id: user-management,     file: user-management.yaml }
+    - { id: email,               file: email.yaml }
+  cross-cutting:
+    - { id: security,            file: security.yaml }
+    - { id: audit,               file: audit.yaml }
+    - { id: logging,             file: logging.yaml }
+    - { id: monitoring,          file: monitoring.yaml }
+    - { id: notification,        file: notification.yaml }
+    - { id: password-policy,     file: password-policy.yaml }
+    - { id: account-lockout,     file: account-lockout.yaml }
+    - { id: fraud-detection,     file: fraud-detection.yaml }
+    - { id: rate-limiting,       file: rate-limiting.yaml }
+    - { id: observability,       file: observability.yaml }
+    - { id: error-management,    file: error-management.yaml }
+    - { id: documentation,       file: documentation.yaml }
+    - { id: testing,             file: testing.yaml }
+    - { id: deployment,          file: deployment.yaml }
+    - { id: operations,          file: operations.yaml }
+    - { id: analytics,           file: analytics.yaml }
+    - { id: compliance,          file: compliance.yaml }
+    - { id: privacy,             file: privacy.yaml }
+    - { id: backup,              file: backup.yaml }
+    - { id: disaster-recovery,   file: disaster-recovery.yaml }
+
+guarantees:
+  - additive-only: discovery may add domains/requirements, never remove or alter user intent
+  - auth-coverage: any auth-triggered story must activate >= 25 domains (VAL-013)
+  - traceability: every discovered item cites discovery/<domain>/<rule-id>

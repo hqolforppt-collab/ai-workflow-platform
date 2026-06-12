@@ -9,6 +9,14 @@ tiers:
     path: .memory/domain/
     purpose: Flowable / BPMN / CMMN / DMN domain knowledge and patterns
     write-access: [humans; agents may propose]
+  domain-knowledge:
+    path: .memory/domain-knowledge/
+    purpose: >
+      Hidden Requirement Discovery KB — 26 domain files mapping story triggers
+      to hidden domains, constraints, and requirement seeds. Consumed by
+      .skills/hidden-requirement-discovery/ and /workflow-builder.
+    index: .memory/domain-knowledge/index.yaml
+    write-access: [humans; analyst may propose new domains via PR]
   pattern:
     path: .memory/pattern/
     purpose: reusable solution patterns

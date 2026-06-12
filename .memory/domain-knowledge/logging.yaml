@@ -1,0 +1,13 @@
+id: logging
+type: cross-cutting
+version: 1.0.0
+triggers: [ANY-USER-FACING]
+constraints:
+  - { id: LOG-C1, rule: "Structured JSON logs with level, timestamp, correlation-id, service" }
+  - { id: LOG-C2, rule: "No PII, passwords, tokens, or session ids in logs" }
+  - { id: LOG-C3, rule: "Retention: app logs 30d, security logs 1y; centralised aggregation" }
+requirement-seeds:
+  - id: discovery/logging/REQ-1
+    title: Correlated request logging
+    ac: "Given any request, When it traverses services, Then one correlation-id links all log lines"
+blueprint-sections: [logging, operations, requirements]

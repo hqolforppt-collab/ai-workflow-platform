@@ -1,0 +1,42 @@
+id: requirements/hidden-requirement-discovery
+version: 1.0.0
+status: approved
+owner-agents: [analyst]
+purpose: >
+  Expand a user story into the full set of domains, constraints, and
+  requirements the user did not mention. The engine behind /workflow-builder's
+  core promise: ask for "login", receive security, audit, logging, compliance,
+  and 20+ domains you forgot.
+
+knowledge-base: .memory/domain-knowledge/index.yaml
+output-contract: .schemas/workflow-blueprint/schema.yaml
+
+procedure:
+  - step: 1-keyword-scan
+    action: Scan the story for trigger keywords using trigger-map; collect functional domains.
+  - step: 2-implication-closure
+    action: >
+      Apply implication-map repeatedly until fixpoint: every activated domain
+      pulls in its implied domains. Always union the ANY-USER-FACING baseline.
+  - step: 3-constraint-resolution
+    action: >
+      For each active domain, load its constraints and requirement-seeds.
+      Resolve conflicts by precedence: user story > compliance > security > defaults.
+  - step: 4-dedup-and-trace
+    action: >
+      Deduplicate requirements; tag every discovered item with
+      source: discovery/<domain>/<rule-id> for full traceability.
+  - step: 5-assumption-extraction
+    action: >
+      Anything inferred but not certain becomes an entry in the blueprint
+      assumptions section requiring human confirmation.
+
+guarantees:
+  - additive-only: never remove or contradict explicit user intent
+  - auth-coverage: auth-triggered stories activate >= 25 domains (VAL-013)
+  - traceability: every discovered item cites its discovery rule
+  - concreteness: constraints carry concrete values (numbers, durations, limits)
+
+failure-modes:
+  - unknown-domain-keyword: record in assumptions; do not guess silently
+  - conflicting-constraints: surface in risks section with both options
