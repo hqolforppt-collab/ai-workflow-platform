@@ -16,7 +16,7 @@ usage: |
   /workflow-builder --output=blueprints/login.yaml Users can log in
 inputs:
   story: the user story or feature description (required; free text)
-  level: output maturity level L1-L4 (optional; default L4 — see maturity-levels.yaml)
+  level: output maturity level L1-L6 (optional; default L6 — see maturity-levels.yaml)
   output: target file path (optional; default blueprints/<slug>.yaml)
   context: existing blueprint to extend (optional; brownfield mode)
 outputs:
@@ -31,6 +31,8 @@ dependencies:
   skill: .skills/hidden-requirement-discovery/skill.yaml
   pipeline: .commands/workflow-builder/pipeline.yaml
   prompt: .commands/workflow-builder/prompt.md
+  maturity-levels: .commands/workflow-builder/maturity-levels.yaml
+golden-example: examples/workflow-builder/login-registration/
 platforms: [claude-code, opencode, cursor, copilot, codex, gemini-cli]
 example: |
   $ /workflow-builder Create Login and Registration Feature

@@ -47,6 +47,18 @@ components:
       consumers: [.commands/workflow-builder/]
       validation: .schemas/workflow-blueprint/validation-rules.yaml
 
+command-adapters:
+  # Per-platform slash-command adapters; all delegate to the canonical prompt.
+  workflow-builder:
+    canonical: .commands/workflow-builder/prompt.md
+    outputs:
+      claude-code: .claude/commands/workflow-builder.md
+      opencode: .opencode/command/workflow-builder.md
+      cursor: .cursor/commands/workflow-builder.md
+      copilot: .github/prompts/workflow-builder.prompt.md
+      codex: AGENTS.md      # AGENTS.md-compatible agents read the Flagship section
+      gemini-cli: AGENTS.md
+
 adapters:
   claude:
     output: CLAUDE.md

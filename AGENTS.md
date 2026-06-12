@@ -26,4 +26,8 @@ Adopt the matching role from `.agents/registry.yaml`: `analyst`, `po`, `architec
 
 ## Commands
 
-`/awp-init`, `/discover`, `/specify`, `/architect`, `/generate`, `/gate <G1..G5>`, `/validate-spec`, `/lint-gates`, `/audit-trace` — definitions in `.commands/registry.yaml`.
+`/workflow-builder`, `/awp-init`, `/discover`, `/specify`, `/architect`, `/generate`, `/gate <G1..G5>`, `/validate-spec`, `/lint-gates`, `/audit-trace` — definitions in `.commands/registry.yaml`.
+
+## Flagship: /workflow-builder
+
+`/workflow-builder <user story>` turns one line into a complete enterprise-grade workflow blueprint YAML — 28 sections covering security, audit, logging, monitoring, compliance, testing, deployment, operations, and 20+ other domains the user did not mention. Execute the canonical prompt at `.commands/workflow-builder/prompt.md` (6-step pipeline, maturity levels L1-L6, default L6). Output must conform to `.schemas/workflow-blueprint/schema.yaml` and pass all 16 rules in `.schemas/workflow-blueprint/validation-rules.yaml`. Golden example: `examples/workflow-builder/login-registration/`.

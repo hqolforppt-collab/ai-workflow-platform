@@ -1,0 +1,65 @@
+# /workflow-builder — Output maturity levels L1-L6
+# Each level is a strict superset of the one below it. Default: L6.
+# Lower levels exist for quick drafts; only L6 passes the full 16-rule
+# validation set in .schemas/workflow-blueprint/validation-rules.yaml.
+id: workflow-builder-maturity-levels
+version: 1.0.0
+default: L6
+
+levels:
+  - level: L1
+    name: Sketch
+    intent: "Fastest possible shape of the feature — what and who, nothing else."
+    sections: [project, requirements.explicit, workflows]
+    hidden-discovery: off
+    validates-against: [VAL-020, VAL-022]
+    use-when: "Brainstorming; throwaway exploration; comparing feature variants."
+
+  - level: L2
+    name: Functional
+    intent: "The user-visible surface is fully specified."
+    adds: [actors, roles, forms, pages, api]
+    hidden-discovery: off
+    validates-against: [VAL-020, VAL-022, VAL-023, VAL-024]
+    use-when: "UI/UX alignment; early estimation; API contract discussion."
+
+  - level: L3
+    name: Integrated
+    intent: "The feature is wired into its technical environment."
+    adds: [data-model, master-data, events, integrations, notifications, knowledge]
+    hidden-discovery: functional-only   # trigger-map expansion, no baseline
+    validates-against: [VAL-020..VAL-024, VAL-030, VAL-031, VAL-032]
+    use-when: "System design reviews; integration planning."
+
+  - level: L4
+    name: Hardened
+    intent: "Security and quality are first-class — hidden discovery is ON."
+    adds: [security, audit, logging, monitoring, testing, requirements.hidden, domains.cross-cutting]
+    hidden-discovery: full              # implication closure + ANY-USER-FACING baseline
+    validates-against: [VAL-010, VAL-011, VAL-012, VAL-020..VAL-032, VAL-040]
+    use-when: "Anything that will face real users or real data."
+
+  - level: L5
+    name: Operational
+    intent: "The feature can be run, supported, and recovered in production."
+    adds: [deployment, operations, support, documentation, risks, assumptions]
+    hidden-discovery: full
+    validates-against: [VAL-010..VAL-032, VAL-040, VAL-041, VAL-042]
+    use-when: "Pre-implementation sign-off; handover to delivery teams."
+
+  - level: L6
+    name: Enterprise
+    intent: >
+      The full contract: all 28 schema sections, governance and compliance
+      populated, every always-populated section filled, 100% discovery
+      traceability. This is the level the flagship examples ship at.
+    adds: [governance, compliance]
+    hidden-discovery: full
+    validates-against: ALL   # all 16 rules, errors AND warnings enforced
+    use-when: "Default. Regulated environments, audits, flagship blueprints."
+
+rules:
+  - levels are cumulative; L(n) contains everything in L(n-1)
+  - requesting L1-L3 prints a warning that hidden-requirement coverage is reduced
+  - VAL-013 (auth-story mandatory domains) applies at L4+ whenever triggered
+  - the emitted blueprint records its level in project.maturity-level

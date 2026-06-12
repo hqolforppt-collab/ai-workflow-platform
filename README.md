@@ -1,75 +1,99 @@
 # AI Workflow Platform
 
-**The open-source operating system for Spec-Driven Development, Workflow Engineering, and Agentic Software Delivery — with first-class Flowable (BPMN / CMMN / DMN) model generation.**
+**Type one line. Get the enterprise spec you forgot to write.**
 
-Clone it, open it in any AI coding agent, and it boots into a governed, spec-first delivery system. No setup, no lock-in.
+```
+/workflow-builder Create Login and Registration Feature
+```
+
+```
+Domains activated:     27 (2 explicit, 25 hidden)
+Hidden requirements:   10 added across 10 domains
+Validation:            16/16 rules passed
+Assumptions to review: 6
+Written:               blueprints/login-and-registration.yaml (640 lines)
+```
+
+You asked for login. You got password policy, account lockout, rate limiting, fraud
+detection, audit trail, GDPR privacy, SOC2 compliance, logging, monitoring, backup,
+disaster recovery, runbooks, SLOs, and 12 more domains — every attribute concrete,
+every failure path defined, every discovered item traced to the rule that added it.
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Spec-Driven](https://img.shields.io/badge/method-spec--driven-green.svg)](.ai/constitution.md)
-[![Agents: 6](https://img.shields.io/badge/agents-6-orange.svg)](.agents/registry.yaml)
+[![Domains: 25+](https://img.shields.io/badge/knowledge_base-25%2B_domains-orange.svg)](.memory/domain-knowledge/index.yaml)
 
-## Why this exists
-
-AI coding agents are fast — and ungoverned. This repository turns any AI agent (Claude Code, OpenCode, GitHub Copilot, Cursor, Codex, Gemini CLI, BMAD) into a **disciplined delivery team**:
-
-- **Specification before implementation** — no code or model generation until requirements, architecture, data model, and security are human-approved.
-- **Five mandatory human gates** — agents prepare evidence; humans decide. Always.
-- **Full traceability** — Requirement → Design → Architecture → Task → Code → Test, enforced at every gate.
-- **Template-first generation** — every artifact starts from a registered, versioned schema.
-- **Organizational memory** — a 7-tier memory system so no learning is lost between projects.
-
-## Quick start
+## Install in 60 seconds
 
 ```bash
 git clone https://github.com/hqolforppt-collab/ai-workflow-platform.git
 cd ai-workflow-platform
 ```
 
-Then open the repo in your AI agent of choice — each one auto-discovers its adapter:
+Then open the repo in your tool — the command is already installed:
 
-| Agent | Adapter (generated) |
-|-------|---------------------|
-| Claude Code | [`CLAUDE.md`](CLAUDE.md) |
-| OpenCode | [`opencode.json`](opencode.json) |
-| GitHub Copilot | [`.github/copilot-instructions.md`](.github/copilot-instructions.md) |
-| Cursor / Codex / Gemini CLI | [`AGENTS.md`](AGENTS.md) |
-| BMAD | [`.ai/adapters/bmad/`](.ai/adapters/bmad/agent-teams.yaml) |
+| Tool | It just works because | Run it |
+|------|----------------------|--------|
+| **Claude Code** | [`.claude/commands/workflow-builder.md`](.claude/commands/workflow-builder.md) | `/workflow-builder <story>` |
+| **OpenCode** | [`.opencode/command/workflow-builder.md`](.opencode/command/workflow-builder.md) | `/workflow-builder <story>` |
+| **Cursor** | [`.cursor/commands/workflow-builder.md`](.cursor/commands/workflow-builder.md) | `/workflow-builder <story>` |
+| **GitHub Copilot** | [`.github/prompts/workflow-builder.prompt.md`](.github/prompts/workflow-builder.prompt.md) | `/workflow-builder` in chat |
+| **Codex** | [`AGENTS.md`](AGENTS.md) (Flagship section) | ask for `/workflow-builder <story>` |
+| **Gemini CLI** | [`AGENTS.md`](AGENTS.md) (Flagship section) | ask for `/workflow-builder <story>` |
 
-Start a session:
+No build step. No API keys. No configuration. The "install" is `git clone`.
 
-```
-/awp-init
-/discover "build a leave request approval app"
-/specify          → /gate G1   (human approves requirements)
-/architect        → /gate G2-G4
-/generate         → Flowable BPMN/CMMN/DMN models, fully traced
-/audit-trace      → /gate G5   (release)
-```
+## See it before you run it
+
+The full golden example lives at
+[`examples/workflow-builder/login-registration/`](examples/workflow-builder/login-registration/):
+the one-line story above, expanded into a [640-line L6 blueprint](examples/workflow-builder/login-registration/blueprint.yaml)
+with all 28 sections, plus the [12 golden tests](examples/workflow-builder/login-registration/golden-tests.yaml)
+any implementation must pass.
 
 ## How it works
 
+1. **Parse** your story — intent, actors, constraints, and negations ("passwordless" is honoured, not overridden).
+2. **Discover** what you forgot — a [25+ domain knowledge base](.memory/domain-knowledge/index.yaml) with trigger keywords and an implication map, closed to a fixpoint by the [hidden-requirement-discovery skill](.skills/hidden-requirement-discovery/skill.yaml).
+3. **Resolve** constraints with precedence: your story > compliance > security > defaults.
+4. **Populate** the [28-section blueprint schema](.schemas/workflow-blueprint/schema.yaml) — failures defined, IDs everywhere, no placeholders.
+5. **Validate** against [16 machine-checkable rules](.schemas/workflow-blueprint/validation-rules.yaml) — broken output is never emitted silently.
+
+Pick your depth with [maturity levels](.commands/workflow-builder/maturity-levels.yaml)
+`L1` (sketch) to `L6` (enterprise, default): `/workflow-builder --level=L3 <story>`.
+
+## Guarantees
+
+- **Additive-only** — your intent is never removed or contradicted.
+- **No silent gaps** — every skipped domain carries a reason.
+- **Traceability** — 100% of discovered content cites its discovery rule.
+- **Actionability** — concrete numbers, durations, and limits. No TBDs.
+
+## More than one command
+
+`/workflow-builder` is the front door of a full spec-driven delivery OS: 6 agent
+charters, 5 human approval gates, versioned skills with golden tests, a template
+registry, and a 7-tier organizational memory — all governed by a
+[repository constitution](.ai/constitution.md).
+
 ```
-.ai/constitution.md          ← supreme authority (5 principles, 7 rules)
-  ├── .governance/gates/     ← G1–G5 human approval gates
-  ├── .agents/               ← 6 agent charters (analyst, po, architect, dev, qa, governance)
-  ├── .skills/               ← versioned capabilities with golden tests
-  ├── .templates/            ← artifact schemas (template-first generation)
-  ├── .memory/               ← 7-tier organizational memory
-  └── .commands/             ← canonical command set + agent discovery
+/awp-init   /discover   /specify   /architect   /generate   /gate G1..G5   /audit-trace
 ```
 
-One tool-neutral core; thin generated adapters per platform. Adapters are regenerated from `.ai/manifest.yaml` (`npm run sync-adapters`) — hand edits are rejected by CI.
+Full command set: [`.commands/registry.yaml`](.commands/registry.yaml) ·
+Architecture: [`docs/architecture/00-index.md`](docs/architecture/00-index.md) ·
+Operating model: [`docs/ai-delivery-os/00-index.md`](docs/ai-delivery-os/00-index.md)
 
-## Documentation
+## Launch checklist
 
-- [Architecture](docs/architecture/00-index.md) — AI-driven Flowable model generation
-- [AI Delivery OS (AIDOS)](docs/ai-delivery-os/00-index.md) — the enterprise operating model
-- [OSS Transformation](docs/oss-transformation/00-index.md) — assessments, blueprints, and roadmaps
-- [Repository Constitution](.ai/constitution.md) — the rules everything obeys
+Maintainers: the v1.0 launch checklist lives at [`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md).
 
 ## Contributing
 
-We aim for your **first contribution in 15 minutes**. Start with [CONTRIBUTING.md](CONTRIBUTING.md). All contributions follow the same spec-driven flow the platform itself enforces.
+First contribution in 15 minutes — start with [CONTRIBUTING.md](CONTRIBUTING.md).
+The easiest high-impact PR: add a domain file to
+[`.memory/domain-knowledge/`](.memory/domain-knowledge/index.yaml) (payments, search,
+file-upload, multi-tenancy...) and wire it into the trigger map.
 
 ## License
 

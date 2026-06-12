@@ -33,7 +33,11 @@ Adopt the agent role matching the user's request (charters in `.agents/<id>/char
 
 ## Commands
 
-Canonical set in `.commands/registry.yaml`: `/awp-init`, `/discover`, `/specify`, `/architect`, `/generate`, `/gate <G1..G5>`, `/validate-spec`, `/lint-gates`, `/audit-trace`.
+Canonical set in `.commands/registry.yaml`: `/workflow-builder`, `/awp-init`, `/discover`, `/specify`, `/architect`, `/generate`, `/gate <G1..G5>`, `/validate-spec`, `/lint-gates`, `/audit-trace`.
+
+## Flagship: /workflow-builder
+
+`/workflow-builder <user story>` (slash command in `.claude/commands/workflow-builder.md`) turns one line into a complete enterprise-grade workflow blueprint YAML — 28 sections covering security, audit, logging, monitoring, compliance, testing, deployment, operations, and 20+ other domains the user did not mention. Canonical prompt: `.commands/workflow-builder/prompt.md` (6-step pipeline, maturity levels L1-L6, default L6). Output conforms to `.schemas/workflow-blueprint/schema.yaml` and must pass all 16 validation rules. Golden example: `examples/workflow-builder/login-registration/`.
 
 ## Repository map
 
