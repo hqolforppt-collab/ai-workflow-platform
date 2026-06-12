@@ -1,0 +1,281 @@
+# =============================================================================
+# MINI EXAMPLE — condensed excerpt of a /workflow-builder output
+# Story: "Users can login."
+# Demonstrates: hidden-domain discovery, traceability, actionable attributes.
+# (Full flagship example lives in examples/workflow-builder/login-registration/)
+# =============================================================================
+project:
+  name: User Login
+  id: BLU-LOGIN-MINI
+  blueprint-schema-version: 2.0.0
+  maturity-level: L4
+  story: "Users can login."
+  summary: >
+    Email/password authentication with session management. Discovery expanded
+    the one-line story into 25 domains including security, audit, rate
+    limiting, and GDPR obligations the user did not mention.
+  scope:
+    in-scope: [email-password login, session issuance, failed-attempt handling]
+    out-of-scope: [social login, SSO/SAML, biometric auth]
+  stakeholders: [product-owner, security-officer]
+  created: 2026-06-12
+
+domains:
+  functional:
+    - { id: DOM-AUTH, name: authentication, source: user }
+    - { id: DOM-SESSION, name: session-management, source: discovery,
+        rationale: "Login is meaningless without session lifecycle" }
+  cross-cutting:
+    - { id: DOM-SEC, name: security, source: discovery,
+        discovery-rule: discovery/login.security, criticality: mandatory }
+    - { id: DOM-AUD, name: audit, source: discovery,
+        discovery-rule: discovery/login.audit, criticality: mandatory }
+    - { id: DOM-RATE, name: rate-limiting, source: discovery,
+        discovery-rule: discovery/login.rate-limiting, criticality: mandatory }
+    - { id: DOM-PRIV, name: privacy-gdpr, source: discovery,
+        discovery-rule: discovery/login.compliance, criticality: mandatory }
+    # ... full output contains >= 12 cross-cutting domains (VAL-010)
+
+requirements:
+  explicit:
+    - id: REQ-001
+      title: Email/password login
+      description: Registered users authenticate with email and password.
+      domain: DOM-AUTH
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given a registered user, When valid credentials are submitted, Then a session is created and the user is redirected."
+  hidden:
+    - id: REQ-002
+      title: Account lockout after failed attempts
+      description: Lock account for 15 minutes after 5 failed attempts within 10 minutes; notify the user by email.
+      domain: DOM-SEC
+      source: discovery/login.account-lockout
+      priority: must
+      acceptance-criteria:
+        - "Given 5 failed attempts within 10 minutes, When a 6th attempt occurs, Then respond 429 and send lockout notification NOT-002."
+      risks: [RSK-001]
+
+actors:
+  - id: ACT-001
+    name: End User
+    type: human
+    description: Registered person authenticating to the system.
+    goals: [access account securely]
+    interactions: [WF-001]
+
+roles:
+  - id: ROLE-USER
+    name: Authenticated User
+    permissions: ["profile:read", "profile:update"]
+    assigned-actors: [ACT-001]
+
+security:
+  authentication:
+    methods: [email-password]
+    password-policy: { min-length: 12, complexity: "upper+lower+digit", history: 5, max-age-days: 365 }
+    mfa: { required: false, methods: [totp], enrollment: optional-self-service }
+    session: { storage: httponly-secure-cookie, ttl-minutes: 30, idle-timeout-minutes: 15, refresh-strategy: sliding, revocation: server-side-denylist }
+    account-lockout: { threshold: 5, window-minutes: 10, lockout-minutes: 15, notification: NOT-002 }
+    rate-limiting: { scope: per-ip-and-account, limit: 10, window: 1m, response: 429 }
+  authorization:
+    model: rbac
+    enforcement-points: [api-middleware]
+  data-protection:
+    encryption-at-rest: AES-256
+    encryption-in-transit: TLS 1.3
+    secrets-management: platform-secret-store
+  threat-controls:
+    - { threat: credential-stuffing, mitigation: "rate limiting + lockout + breach-password check", owner: security-officer }
+
+audit:
+  events:
+    - { id: AUD-001, event: login-success, trigger: "WF-001 step S4",
+        captured-fields: [user-id, ip, user-agent, timestamp], actor-recorded: true }
+    - { id: AUD-002, event: login-failure, trigger: "WF-001 step S3 failure",
+        captured-fields: [attempted-email-hash, ip, timestamp], actor-recorded: false }
+  retention: 7-years
+  immutability: append-only-store
+  access: [ROLE-SECURITY-AUDITOR]
+
+logging:
+  categories:
+    - { name: security, level: info, sink: siem, retention: 1-year, pii-policy: "hash emails, never log passwords" }
+  correlation: request-id-propagated
+  structured: true
+
+monitoring:
+  metrics:
+    - { name: login_failures_total, type: counter, purpose: detect-attacks, labels: [reason] }
+  alerts:
+    - { name: brute-force-spike, condition: "login_failures_total > 100/5m", severity: critical, channel: pagerduty, runbook: RB-001 }
+  slos:
+    - { name: login-availability, target: "99.9%", window: 30d, error-budget: 43m }
+  dashboards: [auth-overview]
+
+notifications:
+  - { id: NOT-002, trigger: account-lockout, channel: email, recipient: ACT-001,
+      template: lockout-notice, locale-support: true, retry-policy: "3x exponential backoff" }
+
+data-model:
+  entities:
+    - id: ENT-User
+      name: User
+      description: Registered account holder.
+      attributes:
+        - { name: email, type: string, required: true, pii: true, unique: true, validation: rfc5322 }
+        - { name: password-hash, type: string, required: true, pii: false, validation: bcrypt-cost-12 }
+      relationships: []
+      retention: account-lifetime-plus-30-days
+      classification: confidential
+
+master-data:
+  - { name: account-status, values: [active, locked, disabled], owner: identity-team, change-process: ADR-required }
+
+workflows:
+  - id: WF-001
+    name: User Login
+    trigger: "User submits login form FRM-001"
+    actors: [ACT-001]
+    requirements: [REQ-001, REQ-002]
+    steps:
+      - { id: S1, name: Validate input, type: system-action,
+          inputs: [email, password], outputs: [validated-credentials],
+          on-success: S2, on-failure: "return 400 field errors (FRM-001 messages)" }
+      - { id: S2, name: Check rate limit and lockout, type: decision,
+          on-success: S3, on-failure: "EXC-001", audit-event: AUD-002 }
+      - { id: S3, name: Verify credentials, type: system-action,
+          on-success: S4, on-failure: "increment counter; return 401 generic message", audit-event: AUD-002 }
+      - { id: S4, name: Create session and respond, type: system-action,
+          outputs: [session-cookie], on-success: end, on-failure: "return 500; alert", audit-event: AUD-001 }
+    exceptions:
+      - { id: EXC-001, condition: lockout-active, handling: "respond 429 with retry-after", notification: NOT-002 }
+    sla: "p95 < 500ms"
+
+forms:
+  - id: FRM-001
+    name: Login Form
+    used-in: [WF-001, PG-001]
+    fields:
+      - { name: email, label: Email, type: email, required: true,
+          validation: rfc5322, error-message: "Enter a valid email address.",
+          accessibility: "autocomplete=username" }
+      - { name: password, label: Password, type: password, required: true,
+          validation: non-empty, error-message: "Password is required.",
+          accessibility: "autocomplete=current-password" }
+    submit-behavior: "POST API-001; disable button while pending"
+    security: [csrf-token, rate-limited, captcha-after-3-failures]
+
+pages:
+  - id: PG-001
+    name: Login Page
+    route: /login
+    access: [ROLE-ANONYMOUS]
+    states: [default, loading, error, locked-out]
+    components: [FRM-001, forgot-password-link]
+    navigation: { entry-points: [home, session-expiry-redirect], exit-points: [dashboard] }
+
+api:
+  - id: API-001
+    method: POST
+    path: /auth/login
+    description: Authenticate user and issue session.
+    auth-required: false
+    request: { content-type: application/json, schema: "{email, password}", validation: server-side-strict }
+    responses:
+      - { status: 200, condition: valid-credentials, schema: "{user, session}" }
+      - { status: 401, condition: invalid-credentials, schema: error-envelope }
+      - { status: 429, condition: rate-limited-or-locked, schema: error-envelope }
+    rate-limit: "10/min per ip+account"
+    idempotency: "safe to retry; no side effects on failure"
+    errors: [ERR-AUTH-001, ERR-RATE-001]
+
+events:
+  - { id: EVT-auth.user.logged-in, name: auth.user.logged-in, producer: auth-service,
+      consumers: [analytics, fraud-detection], payload: { user-id: uuid, ip: string },
+      delivery: at-least-once, pii-in-payload: true }
+
+integrations:
+  - { id: INT-001, system: email-provider, purpose: lockout-notifications,
+      protocol: smtp-api, direction: outbound, auth: api-key,
+      failure-mode: "queue and retry; lockout still enforced", data-shared: [email, notification-type] }
+
+testing:
+  strategy: "Golden scenarios from acceptance criteria; security tests from threat controls."
+  coverage-targets: { unit: 80%, integration: 70%, e2e: critical-paths }
+  golden-scenarios:
+    - { id: GT-001, name: happy-path, given: registered-user, when: valid-credentials, then: "200 + session", requirement: REQ-001 }
+    - { id: GT-002, name: invalid-credentials, given: registered-user, when: wrong-password, then: "401 generic error", requirement: REQ-001 }
+    - { id: GT-003, name: lockout, given: 5-failed-attempts, when: 6th-attempt, then: "429 + NOT-002", requirement: REQ-002 }
+  security-tests: [sql-injection-on-login, credential-stuffing-simulation]
+  performance-tests: [login-p95-under-500ms-at-100rps]
+
+deployment:
+  environments: [dev, staging, production]
+  pipeline: [lint, unit-tests, integration-tests, security-scan, deploy-staging, e2e, deploy-production]
+  rollout: canary
+  rollback: automatic-on-error-budget-burn
+  feature-flags: [captcha-enforcement]
+  configuration: [SESSION_SECRET, EMAIL_API_KEY, RATE_LIMIT_REDIS_URL]
+
+operations:
+  runbooks:
+    - { id: RB-001, scenario: brute-force-spike, steps: [confirm-alert, enable-captcha-flag, block-offending-ips, notify-security], owner: on-call-engineer }
+  capacity: { expected-load: 50-logins/min, peak-load: 500-logins/min, scaling-strategy: horizontal-stateless }
+  maintenance: [quarterly-password-policy-review]
+  on-call: 24x7-rotation
+
+support:
+  tiers: [self-service-kb, tier-1-helpdesk, tier-2-engineering]
+  escalation: "lockout disputes -> tier 2 within 4h"
+  common-issues:
+    - { issue: "user locked out", resolution: "verify identity; manual unlock; advise reset", kb-ref: KB-AUTH-01 }
+  user-impact-comms: status-page
+
+documentation:
+  - { type: user-guide, audience: end-users, owner: product, location: docs/user/login.md, update-trigger: any-ux-change }
+  - { type: runbook, audience: on-call, owner: platform-team, location: ops/runbooks/RB-001.md, update-trigger: alert-changes }
+
+knowledge:
+  glossary:
+    - { term: lockout, definition: "Temporary block of authentication after repeated failures." }
+  domain-concepts: [credential-stuffing, session-fixation]
+  references: ["OWASP ASVS v4 §2", "NIST 800-63B"]
+
+risks:
+  - { id: RSK-001, description: "Credential stuffing at scale", category: security,
+      likelihood: high, impact: high, mitigation: "rate limiting + lockout + breach-password screening", owner: security-officer }
+
+assumptions:
+  - { id: ASM-001, statement: "Email is the unique account identifier",
+      impact-if-wrong: "data model and login flow rework",
+      validation-needed: "Confirm no username-based or phone-based login is planned." }
+
+governance:
+  approvals:
+    - { gate: G1-requirements, approver-role: product-owner, status: pending }
+    - { gate: G4-security, approver-role: security-officer, status: pending }
+  lifecycle: draft
+  version: 0.1.0
+  change-policy: "changes after G1 approval require re-approval"
+  traceability: "every item carries source: user or discovery/<rule>"
+
+compliance:
+  regulations:
+    - { name: GDPR, applicable: true, rationale: "EU users; email is PII",
+        obligations: [lawful-basis-documented, erasure-support, breach-notification-72h] }
+    - { name: SOC2, applicable: true, rationale: "B2B customers require it",
+        obligations: [access-reviews, audit-log-retention] }
+    - { name: HIPAA, applicable: false, rationale: "no health data in scope" }
+  privacy:
+    pii-inventory: [ENT-User.email]
+    consent: privacy-policy-acceptance-at-registration
+    data-subject-rights: [access, erasure, portability]
+  backup:
+    strategy: daily-encrypted-snapshots
+    rpo: 24h
+    rto: 4h
+  disaster-recovery:
+    plan: cross-region-restore
+    test-frequency: quarterly
