@@ -1,0 +1,475 @@
+# =============================================================================
+# WORKFLOW BLUEPRINT SCHEMA v2.0
+# Output contract for /workflow-builder
+# Every attribute is typed. required: true attributes must always be present.
+# =============================================================================
+schema:
+  id: workflow-blueprint
+  version: 2.0.0
+  status: approved
+  authority: .ai/constitution.md
+
+# -----------------------------------------------------------------------------
+# 1. PROJECT — identity and scope of the blueprint
+# -----------------------------------------------------------------------------
+project:
+  attributes:
+    name:            { type: string, required: true, desc: "Feature/system name" }
+    id:              { type: string, required: true, pattern: "BLU-[A-Z0-9-]+", desc: "Unique blueprint id" }
+    blueprint-schema-version: { type: semver, required: true }
+    maturity-level:  { type: enum, values: [L1, L2, L3, L4, L5, L6], required: true, desc: "Workflow-builder maturity level of this output" }
+    story:           { type: string, required: true, desc: "Original user story verbatim" }
+    summary:         { type: string, required: true, desc: "One-paragraph restatement incl. discovered scope" }
+    scope:
+      in-scope:      { type: list[string], required: true }
+      out-of-scope:  { type: list[string], required: true, desc: "Explicit exclusions to prevent scope creep" }
+    stakeholders:    { type: list[string], required: true }
+    created:         { type: date, required: true }
+
+# -----------------------------------------------------------------------------
+# 2. DOMAINS — all discovered domains, explicit + hidden
+# -----------------------------------------------------------------------------
+domains:
+  attributes:
+    functional:      # what the user asked for (and functional expansions)
+      type: list[domain]
+      item:
+        id:          { type: string, required: true }
+        name:        { type: string, required: true }
+        source:      { type: enum, values: [user, discovery], required: true }
+        rationale:   { type: string, required-when: "source == discovery" }
+    cross-cutting:   # what the user did NOT ask for but needs
+      type: list[domain]
+      required-minimum: 12
+      item:
+        id:          { type: string, required: true }
+        name:        { type: string, required: true }
+        source:      { type: const, value: discovery }
+        discovery-rule: { type: string, required: true, desc: "KB rule that triggered inclusion, e.g. discovery/login.security" }
+        criticality: { type: enum, values: [mandatory, recommended, optional], required: true }
+
+# -----------------------------------------------------------------------------
+# 3. REQUIREMENTS — explicit and hidden, fully attributed
+# -----------------------------------------------------------------------------
+requirements:
+  attributes:
+    explicit:
+      type: list[requirement]
+    hidden:
+      type: list[requirement]
+      desc: "Requirements the user forgot; ALWAYS populated for non-trivial stories"
+    requirement:     # shared item shape
+      id:            { type: string, required: true, pattern: "REQ-[0-9]+" }
+      title:         { type: string, required: true }
+      description:   { type: string, required: true }
+      domain:        { type: ref, target: domains, required: true }
+      source:        { type: enum, values: [user, "discovery/<domain>"], required: true }
+      priority:      { type: enum, values: [must, should, could, wont], required: true }
+      acceptance-criteria: { type: list[string], required: true, min: 1, format: "Given/When/Then" }
+      depends-on:    { type: list[ref], target: requirements }
+      risks:         { type: list[ref], target: risks }
+
+# -----------------------------------------------------------------------------
+# 4. ACTORS — every human, system, and service that interacts
+# -----------------------------------------------------------------------------
+actors:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "ACT-[0-9]+" }
+      name:          { type: string, required: true }
+      type:          { type: enum, values: [human, system, service, scheduler], required: true }
+      description:   { type: string, required: true }
+      goals:         { type: list[string], required: true }
+      interactions:  { type: list[ref], target: workflows, required: true }
+
+# -----------------------------------------------------------------------------
+# 5. ROLES — permission model
+# -----------------------------------------------------------------------------
+roles:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "ROLE-[A-Z-]+" }
+      name:          { type: string, required: true }
+      inherits:      { type: ref, target: roles }
+      permissions:   { type: list[string], required: true, format: "resource:action" }
+      assigned-actors: { type: list[ref], target: actors }
+      separation-of-duties: { type: list[ref], target: roles, desc: "Roles that may NOT be combined" }
+
+# -----------------------------------------------------------------------------
+# 6. SECURITY — always populated (hidden-domain guarantee)
+# -----------------------------------------------------------------------------
+security:
+  always-populated: true
+  attributes:
+    authentication:
+      methods:       { type: list[string], required: true }
+      password-policy: { type: object, required: true, fields: [min-length, complexity, history, max-age-days] }
+      mfa:           { type: object, required: true, fields: [required, methods, enrollment] }
+      session:       { type: object, required: true, fields: [storage, ttl-minutes, idle-timeout-minutes, refresh-strategy, revocation] }
+      account-lockout: { type: object, required: true, fields: [threshold, window-minutes, lockout-minutes, notification] }
+      rate-limiting: { type: object, required: true, fields: [scope, limit, window, response] }
+    authorization:
+      model:         { type: enum, values: [rbac, abac, rebac, hybrid], required: true }
+      enforcement-points: { type: list[string], required: true }
+    data-protection:
+      encryption-at-rest:    { type: string, required: true }
+      encryption-in-transit: { type: string, required: true }
+      secrets-management:    { type: string, required: true }
+    threat-controls:
+      type: list[control]
+      item: { threat: string, mitigation: string, owner: string }
+
+# -----------------------------------------------------------------------------
+# 7. AUDIT — always populated
+# -----------------------------------------------------------------------------
+audit:
+  always-populated: true
+  attributes:
+    events:
+      type: list[audit-event]
+      item:
+        id:          { type: string, required: true, pattern: "AUD-[0-9]+" }
+        event:       { type: string, required: true }
+        trigger:     { type: string, required: true }
+        captured-fields: { type: list[string], required: true }
+        actor-recorded:  { type: boolean, required: true }
+    retention:       { type: string, required: true, desc: "e.g. 7 years (compliance-driven)" }
+    immutability:    { type: string, required: true, desc: "append-only storage strategy" }
+    access:          { type: list[ref], target: roles, required: true }
+
+# -----------------------------------------------------------------------------
+# 8. LOGGING — always populated
+# -----------------------------------------------------------------------------
+logging:
+  always-populated: true
+  attributes:
+    categories:
+      type: list[log-category]
+      item:
+        name:        { type: string, required: true, examples: [application, security, access, performance] }
+        level:       { type: enum, values: [debug, info, warn, error], required: true }
+        sink:        { type: string, required: true }
+        retention:   { type: string, required: true }
+        pii-policy:  { type: string, required: true, desc: "Redaction/masking rules" }
+    correlation:     { type: string, required: true, desc: "Trace/correlation id strategy" }
+    structured:      { type: boolean, required: true, default: true }
+
+# -----------------------------------------------------------------------------
+# 9. MONITORING — always populated
+# -----------------------------------------------------------------------------
+monitoring:
+  always-populated: true
+  attributes:
+    metrics:
+      type: list[metric]
+      item: { name: string, type: "enum[counter,gauge,histogram]", purpose: string, labels: "list[string]" }
+    alerts:
+      type: list[alert]
+      item: { name: string, condition: string, severity: "enum[critical,warning,info]", channel: string, runbook: "ref:operations" }
+    slos:
+      type: list[slo]
+      item: { name: string, target: string, window: string, error-budget: string }
+    dashboards:      { type: list[string], required: true }
+
+# -----------------------------------------------------------------------------
+# 10. NOTIFICATIONS
+# -----------------------------------------------------------------------------
+notifications:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "NOT-[0-9]+" }
+      trigger:       { type: string, required: true }
+      channel:       { type: enum, values: [email, sms, push, in-app, webhook], required: true }
+      recipient:     { type: ref, target: actors, required: true }
+      template:      { type: string, required: true }
+      locale-support: { type: boolean, required: true }
+      retry-policy:  { type: string, required: true }
+
+# -----------------------------------------------------------------------------
+# 11. DATA-MODEL
+# -----------------------------------------------------------------------------
+data-model:
+  attributes:
+    entities:
+      type: list[entity]
+      item:
+        id:          { type: string, required: true, pattern: "ENT-[A-Za-z]+" }
+        name:        { type: string, required: true }
+        description: { type: string, required: true }
+        attributes:
+          type: list[attribute]
+          item: { name: string, type: string, required: boolean, pii: boolean, unique: boolean, default: any, validation: string }
+        relationships:
+          type: list[relationship]
+          item: { target: "ref:entities", cardinality: "enum[1-1,1-n,n-n]", on-delete: string }
+        retention:   { type: string, required: true }
+        classification: { type: enum, values: [public, internal, confidential, restricted], required: true }
+
+# -----------------------------------------------------------------------------
+# 12. MASTER-DATA
+# -----------------------------------------------------------------------------
+master-data:
+  attributes:
+    item:
+      name:          { type: string, required: true }
+      values:        { type: list, required: true }
+      owner:         { type: string, required: true }
+      change-process: { type: string, required: true }
+
+# -----------------------------------------------------------------------------
+# 13. WORKFLOWS — the core actionable processes
+# -----------------------------------------------------------------------------
+workflows:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "WF-[0-9]+" }
+      name:          { type: string, required: true }
+      trigger:       { type: string, required: true }
+      actors:        { type: list[ref], target: actors, required: true }
+      requirements:  { type: list[ref], target: requirements, required: true }
+      steps:
+        type: list[step]
+        min: 1
+        item:
+          id:        { type: string, required: true }
+          name:      { type: string, required: true }
+          type:      { type: enum, values: [user-action, system-action, decision, notification, integration, timer], required: true }
+          actor:     { type: ref, target: actors }
+          inputs:    { type: list[string] }
+          outputs:   { type: list[string] }
+          on-success: { type: ref, target: steps, required: true }
+          on-failure: { type: string, required: true, desc: "Step ref or exception ref — failures are never undefined" }
+          audit-event: { type: ref, target: audit.events }
+      exceptions:
+        type: list[exception]
+        item: { id: string, condition: string, handling: string, notification: "ref:notifications" }
+      sla:           { type: string, desc: "End-to-end completion target" }
+
+# -----------------------------------------------------------------------------
+# 14. FORMS
+# -----------------------------------------------------------------------------
+forms:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "FRM-[0-9]+" }
+      name:          { type: string, required: true }
+      used-in:       { type: list[ref], target: [workflows, pages], required: true }
+      fields:
+        type: list[field]
+        item:
+          name:      { type: string, required: true }
+          label:     { type: string, required: true }
+          type:      { type: enum, values: [text, email, password, number, date, select, checkbox, file, hidden], required: true }
+          required:  { type: boolean, required: true }
+          validation: { type: string, required: true }
+          error-message: { type: string, required: true }
+          accessibility: { type: string, desc: "ARIA / a11y notes" }
+      submit-behavior: { type: string, required: true }
+      security:      { type: list[string], required: true, examples: [csrf-token, captcha, rate-limited] }
+
+# -----------------------------------------------------------------------------
+# 15. PAGES
+# -----------------------------------------------------------------------------
+pages:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "PG-[0-9]+" }
+      name:          { type: string, required: true }
+      route:         { type: string, required: true }
+      access:        { type: list[ref], target: roles, required: true }
+      states:        { type: list[string], required: true, examples: [default, loading, error, empty, success] }
+      components:    { type: list[string], required: true }
+      navigation:    { type: object, fields: [entry-points, exit-points] }
+
+# -----------------------------------------------------------------------------
+# 16. API
+# -----------------------------------------------------------------------------
+api:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "API-[0-9]+" }
+      method:        { type: enum, values: [GET, POST, PUT, PATCH, DELETE], required: true }
+      path:          { type: string, required: true }
+      description:   { type: string, required: true }
+      auth-required: { type: boolean, required: true }
+      roles:         { type: list[ref], target: roles }
+      request:       { type: object, required: true, fields: [content-type, schema, validation] }
+      responses:
+        type: list[response]
+        min: 2
+        item: { status: integer, condition: string, schema: string }
+      rate-limit:    { type: string, required: true }
+      idempotency:   { type: string, required: true }
+      errors:        { type: list[string], required: true, desc: "Error taxonomy refs" }
+
+# -----------------------------------------------------------------------------
+# 17. EVENTS
+# -----------------------------------------------------------------------------
+events:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "EVT-[a-z.-]+" }
+      name:          { type: string, required: true, format: "domain.entity.action" }
+      producer:      { type: string, required: true }
+      consumers:     { type: list[string], required: true }
+      payload:       { type: object, required: true }
+      delivery:      { type: enum, values: [at-least-once, at-most-once, exactly-once], required: true }
+      pii-in-payload: { type: boolean, required: true }
+
+# -----------------------------------------------------------------------------
+# 18. INTEGRATIONS
+# -----------------------------------------------------------------------------
+integrations:
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "INT-[0-9]+" }
+      system:        { type: string, required: true }
+      purpose:       { type: string, required: true }
+      protocol:      { type: string, required: true }
+      direction:     { type: enum, values: [inbound, outbound, bidirectional], required: true }
+      auth:          { type: string, required: true }
+      failure-mode:  { type: string, required: true, desc: "Behavior when integration is down" }
+      data-shared:   { type: list[string], required: true }
+
+# -----------------------------------------------------------------------------
+# 19. TESTING — always populated
+# -----------------------------------------------------------------------------
+testing:
+  always-populated: true
+  attributes:
+    strategy:        { type: string, required: true }
+    coverage-targets: { type: object, required: true, fields: [unit, integration, e2e] }
+    golden-scenarios:
+      type: list[scenario]
+      min: 3
+      item: { id: string, name: string, given: string, when: string, then: string, requirement: "ref:requirements" }
+    security-tests:  { type: list[string], required: true }
+    performance-tests: { type: list[string], required: true }
+
+# -----------------------------------------------------------------------------
+# 20. DEPLOYMENT — always populated
+# -----------------------------------------------------------------------------
+deployment:
+  always-populated: true
+  attributes:
+    environments:    { type: list[string], required: true, examples: [dev, staging, production] }
+    pipeline:        { type: list[string], required: true, desc: "Ordered pipeline stages" }
+    rollout:         { type: enum, values: [blue-green, canary, rolling, recreate], required: true }
+    rollback:        { type: string, required: true }
+    feature-flags:   { type: list[string] }
+    configuration:   { type: list[string], required: true, desc: "Required env vars / secrets (names only)" }
+
+# -----------------------------------------------------------------------------
+# 21. OPERATIONS — always populated
+# -----------------------------------------------------------------------------
+operations:
+  always-populated: true
+  attributes:
+    runbooks:
+      type: list[runbook]
+      item: { id: string, scenario: string, steps: "list[string]", owner: string }
+    capacity:        { type: object, required: true, fields: [expected-load, peak-load, scaling-strategy] }
+    maintenance:     { type: list[string], required: true }
+    on-call:         { type: string, required: true }
+
+# -----------------------------------------------------------------------------
+# 22. SUPPORT
+# -----------------------------------------------------------------------------
+support:
+  attributes:
+    tiers:           { type: list[string], required: true }
+    escalation:      { type: string, required: true }
+    common-issues:
+      type: list[issue]
+      item: { issue: string, resolution: string, kb-ref: string }
+    user-impact-comms: { type: string, required: true }
+
+# -----------------------------------------------------------------------------
+# 23. DOCUMENTATION — always populated
+# -----------------------------------------------------------------------------
+documentation:
+  always-populated: true
+  attributes:
+    item:
+      type:          { type: enum, values: [user-guide, admin-guide, api-reference, runbook, architecture, onboarding], required: true }
+      audience:      { type: string, required: true }
+      owner:         { type: string, required: true }
+      location:      { type: string, required: true }
+      update-trigger: { type: string, required: true }
+
+# -----------------------------------------------------------------------------
+# 24. KNOWLEDGE
+# -----------------------------------------------------------------------------
+knowledge:
+  attributes:
+    glossary:
+      type: list[term]
+      item: { term: string, definition: string }
+    domain-concepts: { type: list[string] }
+    references:      { type: list[string], desc: "Standards, RFCs, internal docs" }
+
+# -----------------------------------------------------------------------------
+# 25. RISKS — always populated
+# -----------------------------------------------------------------------------
+risks:
+  always-populated: true
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "RSK-[0-9]+" }
+      description:   { type: string, required: true }
+      category:      { type: enum, values: [security, technical, operational, compliance, business], required: true }
+      likelihood:    { type: enum, values: [low, medium, high], required: true }
+      impact:        { type: enum, values: [low, medium, high, critical], required: true }
+      mitigation:    { type: string, required: true }
+      owner:         { type: string, required: true }
+
+# -----------------------------------------------------------------------------
+# 26. ASSUMPTIONS — always populated
+# -----------------------------------------------------------------------------
+assumptions:
+  always-populated: true
+  attributes:
+    item:
+      id:            { type: string, required: true, pattern: "ASM-[0-9]+" }
+      statement:     { type: string, required: true }
+      impact-if-wrong: { type: string, required: true }
+      validation-needed: { type: string, required: true, desc: "Question to ask the user/stakeholder" }
+
+# -----------------------------------------------------------------------------
+# 27. GOVERNANCE — always populated
+# -----------------------------------------------------------------------------
+governance:
+  always-populated: true
+  attributes:
+    approvals:
+      type: list[approval]
+      item: { gate: "ref:.governance/gates", approver-role: string, status: "enum[pending,approved,rejected]" }
+    lifecycle:       { type: enum, values: [draft, in-review, approved, deprecated], required: true }
+    version:         { type: semver, required: true }
+    change-policy:   { type: string, required: true }
+    traceability:    { type: string, required: true, desc: "How items trace to source story + discovery rules" }
+
+# -----------------------------------------------------------------------------
+# 28. COMPLIANCE — always populated
+# -----------------------------------------------------------------------------
+compliance:
+  always-populated: true
+  attributes:
+    regulations:
+      type: list[regulation]
+      item:
+        name:        { type: string, required: true, examples: [GDPR, SOC2, HIPAA, PCI-DSS] }
+        applicable:  { type: boolean, required: true }
+        rationale:   { type: string, required: true }
+        obligations: { type: list[string], required-when: "applicable == true" }
+    privacy:
+      pii-inventory: { type: list[ref], target: data-model, required: true }
+      consent:       { type: string, required: true }
+      data-subject-rights: { type: list[string], required: true, examples: [access, erasure, portability] }
+    backup:
+      strategy:      { type: string, required: true }
+      rpo:           { type: string, required: true }
+      rto:           { type: string, required: true }
+    disaster-recovery:
+      plan:          { type: string, required: true }
+      test-frequency: { type: string, required: true }

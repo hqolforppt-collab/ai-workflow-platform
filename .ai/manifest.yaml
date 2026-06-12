@@ -40,6 +40,12 @@ components:
   workflows:
     - .workflows/greenfield-flowable.yaml
     - .workflows/brownfield-flowable.yaml
+  schemas:
+    workflow-blueprint:
+      path: .schemas/workflow-blueprint/
+      version: 2.0.0
+      consumers: [.commands/workflow-builder/]
+      validation: .schemas/workflow-blueprint/validation-rules.yaml
 
 adapters:
   claude:

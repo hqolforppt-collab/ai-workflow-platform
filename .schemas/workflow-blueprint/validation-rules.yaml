@@ -1,0 +1,112 @@
+# =============================================================================
+# WORKFLOW BLUEPRINT VALIDATION RULES v2.0
+# Machine-checkable rules applied to every /workflow-builder output.
+# Severity: error = blueprint rejected | warning = flagged for review
+# =============================================================================
+rules:
+
+  # --- Structural completeness ---
+  - id: VAL-001
+    name: all-sections-present
+    severity: error
+    check: "All 28 top-level sections exist. Sections may be 'not-applicable' only with a 'justification' attribute."
+
+  - id: VAL-002
+    name: always-populated-sections
+    severity: error
+    check: >
+      Sections marked always-populated in schema.yaml (security, audit, logging,
+      monitoring, testing, deployment, operations, documentation, risks,
+      assumptions, governance, compliance) must contain real content and may
+      NEVER be 'not-applicable'.
+
+  # --- Hidden requirement guarantee ---
+  - id: VAL-010
+    name: minimum-cross-cutting-domains
+    severity: error
+    check: "domains.cross-cutting contains >= 12 entries for any story involving users, data, or external access."
+
+  - id: VAL-011
+    name: hidden-requirements-present
+    severity: error
+    check: "requirements.hidden is non-empty for any non-trivial story (more than one explicit requirement)."
+
+  - id: VAL-012
+    name: discovery-rule-traceability
+    severity: error
+    check: "Every cross-cutting domain and hidden requirement cites its discovery rule (source: discovery/<domain>)."
+
+  - id: VAL-013
+    name: auth-story-mandatory-domains
+    severity: error
+    applies-when: "story mentions login|registration|signin|auth|password|account"
+    check: >
+      The following domains MUST appear: authentication, authorization,
+      session-management, password-policy, account-lockout, rate-limiting,
+      audit, security, logging, monitoring, notification, email-verification,
+      fraud-detection, privacy(GDPR), compliance(SOC2), backup,
+      disaster-recovery, documentation, testing, deployment, operations,
+      error-management, observability, analytics, identity-management.
+
+  # --- Actionability ---
+  - id: VAL-020
+    name: ids-everywhere
+    severity: error
+    check: "Every item in requirements, actors, roles, workflows, forms, pages, api, events, integrations, risks, assumptions, audit.events, notifications has a unique id matching its pattern."
+
+  - id: VAL-021
+    name: acceptance-criteria-required
+    severity: error
+    check: "Every requirement (explicit AND hidden) has >= 1 Given/When/Then acceptance criterion."
+
+  - id: VAL-022
+    name: workflow-failure-paths
+    severity: error
+    check: "Every workflow step defines on-failure. Failures are never undefined."
+
+  - id: VAL-023
+    name: api-error-responses
+    severity: error
+    check: "Every API endpoint defines >= 2 responses including at least one non-2xx."
+
+  - id: VAL-024
+    name: form-field-validation
+    severity: error
+    check: "Every form field defines validation and error-message."
+
+  # --- Traceability ---
+  - id: VAL-030
+    name: requirement-domain-link
+    severity: error
+    check: "Every requirement references an existing domain."
+
+  - id: VAL-031
+    name: workflow-requirement-link
+    severity: error
+    check: "Every workflow references >= 1 requirement; every must-priority requirement is covered by >= 1 workflow, api, or page."
+
+  - id: VAL-032
+    name: dangling-refs
+    severity: error
+    check: "All ref/list[ref] values resolve to existing ids within the blueprint."
+
+  # --- Quality warnings ---
+  - id: VAL-040
+    name: pii-flagged
+    severity: warning
+    check: "Entities containing email, name, phone, address, ip fields flag those attributes pii: true and appear in compliance.privacy.pii-inventory."
+
+  - id: VAL-041
+    name: slo-defined
+    severity: warning
+    check: "monitoring.slos contains >= 1 entry."
+
+  - id: VAL-042
+    name: golden-scenarios-minimum
+    severity: warning
+    check: "testing.golden-scenarios contains >= 3 scenarios."
+
+exit-codes:
+  0: valid
+  1: errors-found
+  2: warnings-only
