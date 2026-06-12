@@ -1,0 +1,16 @@
+# Golden tests: requirements/user-stories
+tests:
+  - id: GT-US-001
+    name: FR converts to INVEST story with trace
+    given:
+      functional-requirement: FR-001 "System authenticates user via email+password"
+    expect:
+      - story in as-a/i-want/so-that form
+      - trace.functional-requirements includes FR-001
+      - no implementation details (no tech stack, no UI framework)
+  - id: GT-US-002
+    name: story without FR trace is rejected
+    given:
+      story-draft: missing trace block
+    expect:
+      - validation FAILURE per .templates/requirements/user-story.yaml

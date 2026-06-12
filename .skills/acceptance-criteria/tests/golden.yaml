@@ -1,0 +1,17 @@
+# Golden tests: requirements/acceptance-criteria
+tests:
+  - id: GT-AC-001
+    name: login story produces happy + error criteria
+    given:
+      user-story: US-001 login with email + password
+    expect:
+      - Given/When/Then for successful login
+      - Given/When/Then for invalid credentials
+      - Given/When/Then for account lockout after N failures
+      - each criterion observable and testable
+  - id: GT-AC-002
+    name: vague criterion rejected
+    given:
+      criterion: "login should be fast and easy"
+    expect:
+      - REJECTED as untestable; rewrite requested with measurable threshold

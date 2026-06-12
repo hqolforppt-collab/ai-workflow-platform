@@ -1,0 +1,20 @@
+skill:
+  id: requirements/acceptance-criteria
+  version: 1.0.0
+  status: approved
+  description: Write Given/When/Then acceptance criteria for user stories; the contract QA verifies against.
+  licensed-agents: [analyst, qa]
+  preconditions:
+    - user stories exist in draft or later
+  inputs:
+    - user-stories
+    - functional-requirements
+  outputs:
+    - acceptance-criteria (Gherkin-style, traced to story IDs)
+  templates:
+    - .templates/requirements/user-story.yaml # AC section
+  constraints:
+    - every criterion is testable (observable outcome, no ambiguity)
+    - error/edge paths required, not just happy path
+    - criteria become golden-test inputs downstream
+  tests: .skills/acceptance-criteria/tests/golden.yaml

@@ -1,0 +1,20 @@
+skill:
+  id: requirements/user-stories
+  version: 1.0.0
+  status: approved
+  description: Convert functional requirements into INVEST-compliant user stories with mandatory trace links.
+  licensed-agents: [analyst, po]
+  preconditions:
+    - functional requirements exist in draft or later
+  inputs:
+    - functional-requirements
+    - stakeholder-map
+  outputs:
+    - user-stories (template-conformant, traced to >=1 FR)
+  templates:
+    - .templates/requirements/user-story.yaml
+  constraints:
+    - every story traces to at least one functional requirement
+    - stories must be INVEST (independent, negotiable, valuable, estimable, small, testable)
+    - no implementation details in stories
+  tests: .skills/user-story-writing/tests/golden.yaml

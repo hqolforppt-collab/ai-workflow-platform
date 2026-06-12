@@ -1,0 +1,17 @@
+# Golden tests: architecture/adr-writing
+tests:
+  - id: GT-ADR-001
+    name: root model decision recorded with options
+    given:
+      decision: root model selection for login workflow
+      options: [BPMN, CMMN]
+    expect:
+      - ADR with context, >=2 options, trade-offs, consequence section
+      - status=accepted only after human review
+      - trace to driving requirement(s)
+  - id: GT-ADR-002
+    name: editing an accepted ADR is refused
+    given:
+      request: modify accepted ADR-003 in place
+    expect:
+      - REFUSED; superseding ADR drafted instead, linked to ADR-003

@@ -1,0 +1,46 @@
+# BMAD Adapter — maps AWP agents to BMAD agent teams.
+# Source: .ai/manifest.yaml + docs/oss-transformation/02-bmad-compatibility-assessment.md
+bmad-adapter:
+  version: 1.0.0
+  constitution: .ai/constitution.md # loaded as highest-priority rules
+
+teams:
+  - id: awp-discovery-team
+    bmad-phase: analysis
+    members:
+      - { awp-agent: analyst, bmad-role: analyst }
+      - { awp-agent: po, bmad-role: pm }
+    outputs: [specification-set, prioritized-backlog]
+    checkpoint: G1-requirements # BMAD checkpoint maps to AWP gate
+
+  - id: awp-design-team
+    bmad-phase: design
+    members:
+      - { awp-agent: architect, bmad-role: architect }
+    outputs: [architecture-spec, adrs, data-dictionary]
+    checkpoints: [G2-architecture, G3-data-model]
+
+  - id: awp-build-team
+    bmad-phase: implementation
+    members:
+      - { awp-agent: dev, bmad-role: dev }
+      - { awp-agent: qa, bmad-role: qa }
+    blocked-until: [G1, G2, G3, G4]
+    outputs: [model-yaml-hierarchy, test-suites]
+    checkpoint: G5-release
+
+  - id: awp-governance-overlay
+    bmad-phase: all
+    members:
+      - { awp-agent: governance, bmad-role: po-validator }
+    verdicts-binding: true
+
+workflow-mapping:
+  # AWP 12-stage pipeline -> BMAD checkpoints
+  S01-discovery: bmad.brainstorming
+  S02-requirements: bmad.prd
+  S03-architecture: bmad.architecture
+  S05-data-model: bmad.architecture
+  S07-test-strategy: bmad.test-design
+  S08-generation: bmad.dev-stories
+  S12-release: bmad.review

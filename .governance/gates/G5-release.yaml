@@ -1,0 +1,21 @@
+gate:
+  id: G5-release
+  name: Release Approval
+  version: 1.0.0
+  mandatory: true
+  approver: human
+  preparing-agents: [qa, governance]
+  preconditions:
+    - G1 through G4 approved
+    - all generated artifacts pass golden tests
+    - full trace audit passes (Requirement -> Design -> Architecture -> Task -> Code -> Test)
+    - test strategy executed; scorecard meets thresholds in quality-gates.yaml
+  evidence-packet:
+    - trace audit report
+    - test execution results and scorecard
+    - changelog entry
+  outputs:
+    - approval record in projects/<id>/gates/G5.yaml
+    - sealed release; learnings written to .memory/ (Constitution P5)
+  on-rejection: return-with-findings (max 3 cycles, then escalate)
+  unblocks: [release]

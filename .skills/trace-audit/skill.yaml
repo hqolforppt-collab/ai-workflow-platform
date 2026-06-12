@@ -1,0 +1,18 @@
+skill:
+  id: governance/trace-audit
+  version: 1.0.0
+  status: approved
+  description: Audit the full trace chain (Requirement -> Design -> Architecture -> Task -> Code -> Test) across all project artifacts; broken chains fail gates.
+  licensed-agents: [governance]
+  preconditions: []
+  inputs:
+    - all-project-artifacts
+  outputs:
+    - trace-audit-report (complete chains, broken links, orphaned artifacts)
+    - block/pass verdict per gate
+  constraints:
+    - every artifact must carry a trace block (Constitution R4)
+    - verdicts are binding; only humans override (recorded)
+    - audit events are append-only (Constitution R6)
+  tooling: .tools/trace-audit.sh
+  tests: .skills/trace-audit/tests/golden.yaml

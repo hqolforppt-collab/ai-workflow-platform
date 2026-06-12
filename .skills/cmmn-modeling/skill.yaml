@@ -1,0 +1,25 @@
+skill:
+  id: flowable/cmmn-modeling
+  version: 1.0.0
+  status: draft
+  description: Generate Flowable-compatible CMMN 1.1 case definitions for unstructured, knowledge-driven work.
+  licensed-agents: [dev, architect]
+  preconditions:
+    - G2-architecture approved (root model = CMMN or hybrid)
+    - G3-data-model approved
+    - G4-security approved
+  inputs:
+    - architecture-spec
+    - task-specs
+    - data-dictionary
+  outputs:
+    - cmmn-case-yaml (meta-model conformant, official Flowable field names)
+  templates:
+    - .templates/flowable/cmmn-case.yaml
+  knowledge:
+    - .knowledge/flowable/schemas/cmmn.yaml
+  constraints:
+    - use only official Flowable field names
+    - plan items, sentries, and milestones carry trace blocks to task specs
+    - prefer CMMN only when work is genuinely case-driven (root-model-selection verdict)
+  tests: .skills/cmmn-modeling/tests/golden.yaml

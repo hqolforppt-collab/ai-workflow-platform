@@ -1,0 +1,23 @@
+skill:
+  id: security/threat-modeling
+  version: 1.0.0
+  status: approved
+  description: STRIDE-based threat modeling for workflows; produces the G4 security evidence packet.
+  licensed-agents: [qa]
+  preconditions:
+    - G2-architecture approved
+    - G3-data-model approved
+  inputs:
+    - architecture-spec
+    - data-dictionary (PII/sensitivity classifications)
+    - api-contract (if present)
+  outputs:
+    - threat-model (STRIDE matrix, mitigations, residual risk)
+    - security-verdict (input to G4)
+  templates:
+    - .templates/security/threat-model.yaml
+  constraints:
+    - every trust boundary in the architecture gets a STRIDE pass
+    - PII flows require explicit mitigation or documented acceptance
+    - unmitigated HIGH risks block G4 (cannot be waived by agents)
+  tests: .skills/threat-modeling/tests/golden.yaml

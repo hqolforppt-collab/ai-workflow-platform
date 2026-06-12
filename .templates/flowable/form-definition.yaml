@@ -1,0 +1,41 @@
+id: flowable/form-definition
+title: Flowable Form Definition Template
+description: Specifications for Flowable form models (FormLayout, FormField, validation rules, styling)
+usage: Use when defining user-facing forms in Flowable engine (login, data entry, surveys)
+fields:
+  id: unique form identifier (kebab-case)
+  title: human-readable form name
+  description: form purpose and use case
+  sections: array of form sections (logical grouping)
+  fields: array of form fields (text, select, radio, checkbox, date, file, etc.)
+  validations: rules per field (required, minLength, maxLength, regex, custom)
+  styling: theme, layout mode (vertical/horizontal), responsive breakpoints
+  permissions: roles with access to each field (optional)
+example: |
+  id: user-login-form
+  title: User Login
+  sections:
+    - id: credentials
+      title: Credentials
+      description: Enter your credentials
+  fields:
+    - id: username
+      type: text
+      label: Username
+      required: true
+      validations:
+        minLength: 3
+        regex: '^[a-zA-Z0-9_]+$'
+    - id: password
+      type: password
+      label: Password
+      required: true
+      validations:
+        minLength: 8
+    - id: captcha
+      type: custom
+      component: reCAPTCHA
+  styling:
+    theme: light
+    layout: vertical
+    responsive: true

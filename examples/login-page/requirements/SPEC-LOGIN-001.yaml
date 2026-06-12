@@ -1,0 +1,105 @@
+id: SPEC-LOGIN-001
+title: User Login API Specification
+type: functional-requirement
+status: approved
+created: 2026-06-12
+owner: tech-lead@company.com
+traces_to: REQ-LOGIN-001
+
+description: |
+  Technical specification for the login API endpoint. Defines request/response formats,
+  error handling, authentication flow, session management, and security headers.
+
+api_endpoint:
+  method: POST
+  path: /auth/login
+  version: v1
+  protocol: HTTPS only
+
+request:
+  content_type: application/json
+  headers:
+    Content-Type: application/json
+    X-Request-ID: uuid (for tracing)
+  body:
+    email:
+      type: string
+      format: email
+      required: true
+      validation: valid email format, max 255 chars
+    password:
+      type: string
+      required: true
+      validation: min 8 chars, max 128 chars
+    rememberMe:
+      type: boolean
+      required: false
+      default: false
+      effect: if true, extend session to 30 days
+
+response_success:
+  status: 200 OK
+  headers:
+    Set-Cookie: "session_id=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=86400"
+    X-Request-ID: echo request ID
+  body:
+    status: success
+    user_id: uuid
+    email: string
+    roles: array of strings
+    session_expires_at: ISO 8601 timestamp
+    mfa_required: boolean (if user has MFA enabled)
+
+response_errors:
+  - status: 400 Bad Request
+    reason: Missing email/password or invalid format
+    body:
+      error: validation_error
+      message: "Email is required and must be valid"
+
+  - status: 401 Unauthorized
+    reason: Invalid credentials (user not found or password mismatch)
+    body:
+      error: invalid_credentials
+      message: "Email or password is incorrect"
+
+  - status: 429 Too Many Requests
+    reason: Rate limit exceeded (>5 failed attempts in 5 minutes)
+    body:
+      error: rate_limit_exceeded
+      message: "Too many login attempts. Try again in 15 minutes."
+
+  - status: 500 Internal Server Error
+    reason: Server error
+    body:
+      error: internal_error
+      message: "An error occurred processing your request"
+
+security:
+  - HTTPS required
+  - Password never logged or returned
+  - Session token in HttpOnly cookie only (no JavaScript access)
+  - Rate limiting: 5 failures → 15 min lockout
+  - All requests logged (audit trail)
+  - CORS restricted to approved domains
+
+workflow:
+  - step: 1
+    description: Receive email and password
+  - step: 2
+    description: Validate input format
+  - step: 3
+    description: Query user by email
+  - step: 4
+    description: Compare password hash (bcrypt)
+  - step: 5
+    description: Check account status (active, locked, suspended)
+  - step: 6
+    description: Create session token (JWT)
+  - step: 7
+    description: Set HttpOnly cookie + audit log
+  - step: 8
+    description: Return 200 OK + session info
+
+trace_id: SPEC-LOGIN-001
+created_at: 2026-06-12T10:30:00Z

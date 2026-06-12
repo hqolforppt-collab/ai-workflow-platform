@@ -1,0 +1,17 @@
+# Golden tests: security/threat-modeling
+tests:
+  - id: GT-THREAT-001
+    name: login flow gets full STRIDE pass
+    given:
+      architecture: login workflow with credential store trust boundary
+    expect:
+      - STRIDE matrix covering the credential boundary (all 6 categories)
+      - spoofing + information-disclosure mitigations mandatory
+      - residual risk table with severity
+  - id: GT-THREAT-002
+    name: unmitigated HIGH risk blocks G4
+    given:
+      threat-model: HIGH risk "plaintext password logging" unmitigated
+    expect:
+      - security-verdict: BLOCK
+      - G4 evidence packet marks gate as not approvable

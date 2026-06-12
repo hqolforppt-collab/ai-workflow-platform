@@ -1,0 +1,29 @@
+name: Validate Repository OS
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate YAML schemas
+        run: bash .tools/validate-spec.sh
+
+      - name: Lint governance gates
+        run: bash .tools/validate-gates.sh
+
+      - name: Adapter drift detection
+        run: bash .tools/adapter-sync.sh --check
+
+      - name: Secret scan (Constitution C5)
+        run: |
+          if grep -rEn "(password|secret|api[_-]?key)\s*[:=]\s*['\"][^'\"]{8,}" \
+            .ai .agents .governance .skills .templates .memory .commands 2>/dev/null; then
+            echo "Potential secret found in OS artifacts (Constitution C5)"; exit 1
+          fi
+          echo "No secrets detected."

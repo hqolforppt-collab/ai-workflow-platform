@@ -1,0 +1,65 @@
+id: REQ-LOGIN-001
+title: User Login System
+type: business-requirement
+status: approved
+priority: critical
+created: 2026-06-12
+owner: product@company.com
+description: |
+  Implement a secure user login system that allows customers to authenticate
+  using email and password, with optional MFA support and comprehensive audit logging.
+
+stakeholders:
+  - role: Product Manager
+    name: pm@company.com
+  - role: Security Officer
+    name: security@company.com
+  - role: Compliance Officer
+    name: compliance@company.com
+
+business_context: |
+  Users need a secure, reliable way to access their accounts. The system must
+  prevent unauthorized access while maintaining a smooth user experience.
+  Compliance requires audit trails and rate limiting for brute-force protection.
+
+acceptance_criteria:
+  - id: AC-1
+    description: User can log in with valid email and password
+    criteria: Valid credentials → 200 OK + session token
+
+  - id: AC-2
+    description: User cannot log in with invalid credentials
+    criteria: Invalid password → 401 Unauthorized, no token issued
+
+  - id: AC-3
+    description: System prevents brute-force attacks
+    criteria: 5+ failed attempts within 5 minutes → 429 Too Many Requests + 15-min lockout
+
+  - id: AC-4
+    description: Session tokens are secure and expire appropriately
+    criteria: Valid token → 200, expired token (>24h) → 401, token in HttpOnly cookie
+
+  - id: AC-5
+    description: All login attempts are audited
+    criteria: Every login (success/failure) logged with timestamp, IP, user-agent, outcome
+
+constraints:
+  - Must use HTTPS only (TLS 1.2+)
+  - Password hashing: bcrypt with min 12 rounds
+  - Session token: JWT HS256, 24-hour expiry
+  - Rate limit: max 5 failed attempts / 5 minutes per IP
+  - OWASP Top 10 compliant (no injection, XSS, CSRF, etc.)
+
+success_metrics:
+  - Login success rate: >99.9% uptime
+  - Average response time: <500ms
+  - Zero security incidents (breach, leak, injection)
+  - Audit log 100% coverage (all attempts logged)
+
+dependencies:
+  - Database (PostgreSQL)
+  - Rate limiting service (Redis or in-memory)
+  - Email service (optional, for password reset)
+
+trace_id: REQ-LOGIN-001
+created_at: 2026-06-12T10:00:00Z

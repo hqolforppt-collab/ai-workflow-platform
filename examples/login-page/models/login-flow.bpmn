@@ -1,0 +1,149 @@
+id: login-flow
+title: User Login Process
+type: bpmn-process
+status: approved
+created: 2026-06-12
+
+description: |
+  BPMN process for the login flow. Handles credential validation, authentication,
+  session creation, and audit logging. Includes error paths for invalid credentials,
+  rate limiting, and account lockout.
+
+diagram: |
+  Start → Validate Input → User Lookup → Password Verify → MFA Check?
+    → Session Create → Set Cookie → Audit Log → End (Success)
+    [Error paths: Invalid Input, User Not Found, Password Mismatch, Rate Limited, Account Locked]
+
+steps:
+  - id: start
+    type: start_event
+    description: User submits login form (email + password)
+
+  - id: validate_input
+    type: user_task
+    description: Validate email format and password length
+    transitions:
+      valid: password_verify
+      invalid: error_invalid_input
+
+  - id: user_lookup
+    type: service_task
+    description: Query database for user by email
+    transitions:
+      found: password_verify
+      not_found: error_user_not_found
+
+  - id: password_verify
+    type: service_task
+    description: Compare password hash using bcrypt
+    transitions:
+      match: check_account_status
+      mismatch: error_invalid_password
+
+  - id: check_account_status
+    type: gateway_decision
+    description: Is account active and not locked?
+    transitions:
+      active: check_mfa
+      locked: error_account_locked
+      suspended: error_account_suspended
+
+  - id: check_mfa
+    type: gateway_decision
+    description: Does user have MFA enabled?
+    transitions:
+      yes: mfa_challenge
+      no: session_create
+
+  - id: mfa_challenge
+    type: subprocess
+    description: Execute MFA verification subprocess
+    transitions:
+      success: session_create
+      failure: error_mfa_failed
+
+  - id: session_create
+    type: service_task
+    description: Generate JWT token and create session
+    output:
+      token: JWT HS256
+      expires_at: current_time + 24 hours
+
+  - id: set_cookie
+    type: service_task
+    description: Set HttpOnly, Secure, SameSite=Strict cookie
+    transition: audit_log
+
+  - id: audit_log
+    type: service_task
+    description: Log successful login (user_id, IP, user-agent, timestamp)
+    transition: success
+
+  - id: success
+    type: end_event
+    description: Return 200 OK + session info
+
+  - id: error_invalid_input
+    type: end_event_error
+    status: 400 Bad Request
+    description: Invalid email or password format
+
+  - id: error_user_not_found
+    type: end_event_error
+    status: 401 Unauthorized
+    description: Email not found
+
+  - id: error_invalid_password
+    type: service_task
+    description: Increment failed attempt counter, check rate limit
+    transitions:
+      under_limit: audit_log_failure
+      rate_limited: error_rate_limit
+
+  - id: error_rate_limit
+    type: end_event_error
+    status: 429 Too Many Requests
+    description: Too many failed attempts, account locked for 15 minutes
+
+  - id: error_account_locked
+    type: end_event_error
+    status: 403 Forbidden
+    description: Account is locked due to failed attempts
+
+  - id: error_account_suspended
+    type: end_event_error
+    status: 403 Forbidden
+    description: Account is suspended
+
+  - id: error_mfa_failed
+    type: end_event_error
+    status: 401 Unauthorized
+    description: MFA verification failed
+
+  - id: audit_log_failure
+    type: service_task
+    description: Log failed login attempt (email, IP, reason)
+    transition: error_invalid_password
+
+gateways:
+  - id: account_status_check
+    type: exclusive
+    outgoing_conditions:
+      - active
+      - locked
+      - suspended
+
+  - id: mfa_check
+    type: exclusive
+    outgoing_conditions:
+      - mfa_enabled
+      - mfa_disabled
+
+  - id: rate_limit_check
+    type: exclusive
+    outgoing_conditions:
+      - under_limit
+      - rate_limited
+
+trace_id: login-flow-bpmn
+created_at: 2026-06-12T12:00:00Z

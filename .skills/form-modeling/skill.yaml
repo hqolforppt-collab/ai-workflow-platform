@@ -1,0 +1,24 @@
+skill:
+  id: flowable/form-modeling
+  version: 1.0.0
+  status: approved
+  description: Generate Flowable form definitions bound to user tasks and case stages.
+  licensed-agents: [dev]
+  preconditions:
+    - G3-data-model approved (form fields must map to data dictionary)
+    - G4-security approved (PII handling rules known)
+  inputs:
+    - user-stories
+    - data-dictionary
+    - bpmn/cmmn model references
+  outputs:
+    - form-definition-yaml (field types, validation, bindings)
+  templates:
+    - .templates/flowable/form-definition.yaml
+  knowledge:
+    - .knowledge/flowable/schemas/form.yaml
+  constraints:
+    - every field binds to a data-dictionary entry
+    - PII fields must declare masking/retention per threat model
+    - validation rules mirror acceptance criteria
+  tests: .skills/form-modeling/tests/golden.yaml

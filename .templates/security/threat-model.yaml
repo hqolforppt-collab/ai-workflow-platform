@@ -1,0 +1,56 @@
+id: security/threat-model
+title: STRIDE Threat Model Template
+description: Systematic threat modeling using STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege)
+usage: Use for security analysis of APIs, architectures, and systems before design review (Gate G4)
+fields:
+  title: threat model name
+  scope: system/component being analyzed
+  version: model version
+  assets: critical assets to protect (data, systems, services)
+  threatActors: potential adversaries and their capabilities
+  threats: array of identified threats per STRIDE category
+  mitigations: controls and mitigations per threat
+  riskMatrix: likelihood × impact ranking
+  reviewDate: last reviewed date
+example: |
+  title: Login API Threat Model
+  scope: User authentication API endpoint
+  version: 1.0
+  assets:
+    - name: User credentials
+      criticality: critical
+    - name: Session tokens
+      criticality: critical
+    - name: User PII
+      criticality: high
+  threatActors:
+    - name: Unauthenticated attacker
+      capabilities: network access, password guessing
+    - name: Insider threat
+      capabilities: database access, code access
+  threats:
+    - category: Spoofing
+      id: S1
+      description: Attacker impersonates valid user
+      likelihood: medium
+      impact: high
+      mitigation: 'Implement MFA, rate limiting'
+    - category: Tampering
+      id: T1
+      description: Attacker modifies session token in transit
+      likelihood: low
+      impact: high
+      mitigation: 'Use HTTPS, token signing (JWT HS256)'
+    - category: Denial of Service
+      id: D1
+      description: Attacker brute-forces login endpoint
+      likelihood: high
+      impact: high
+      mitigation: 'Rate limiting, account lockout, CAPTCHA'
+  riskMatrix:
+    - threat: S1
+      riskLevel: MEDIUM
+    - threat: T1
+      riskLevel: LOW
+    - threat: D1
+      riskLevel: MEDIUM

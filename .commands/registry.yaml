@@ -1,0 +1,63 @@
+# Command Registry — all executable commands across platforms.
+# Authority: .ai/constitution.md. Source design: docs/oss-transformation/09-command-architecture.md
+registry:
+  version: 1.0.0
+
+commands:
+  # Bootstrap
+  - id: awp-init
+    description: Boot the repository OS — verify constitution digest, hydrate memory, load agents
+    agents: [all]
+    invocation: "/awp-init"
+    spec: .commands/awp-init/command.yaml
+
+  # Workflow
+  - id: discover
+    description: Start discovery (S01) — elicit scope, stakeholders, domains
+    agents: [analyst]
+    invocation: "/discover <brief>"
+  - id: specify
+    description: Generate specification set (S02) from discovery output
+    agents: [analyst, po]
+    invocation: "/specify"
+  - id: architect
+    description: Produce architecture spec + root model selection (S03-S04); requires G1 approved
+    agents: [architect]
+    invocation: "/architect"
+  - id: generate
+    description: Generate Flowable models/code (S08); HARD-BLOCKED unless G1-G4 approved
+    agents: [dev]
+    invocation: "/generate"
+  - id: gate
+    description: Assemble evidence packet for a gate and request human approval
+    agents: [governance]
+    invocation: "/gate <G1|G2|G3|G4|G5>"
+
+  # Validation
+  - id: validate-spec
+    description: Validate artifacts against their registered template schemas
+    agents: [all]
+    invocation: "/validate-spec [path]"
+    tooling: .tools/validate-spec.sh
+  - id: lint-gates
+    description: Verify gate preconditions and approval records
+    agents: [governance]
+    invocation: "/lint-gates"
+    tooling: .tools/validate-gates.sh
+  - id: audit-trace
+    description: Audit full trace chains; report broken links
+    agents: [governance]
+    invocation: "/audit-trace"
+    tooling: .tools/trace-audit.sh
+
+  # System
+  - id: adapter-sync
+    description: Regenerate platform adapters from .ai/manifest.yaml
+    agents: [maintainers]
+    invocation: "npm run sync-adapters"
+    tooling: .tools/adapter-sync.sh
+  - id: memory-sync
+    description: Hydrate memory index; detect orphaned memories
+    agents: [all]
+    invocation: "/memory-sync"
+    tooling: .tools/memory-sync.sh

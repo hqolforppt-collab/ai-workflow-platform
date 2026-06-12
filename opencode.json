@@ -1,0 +1,41 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "_generated": "Do not edit by hand. Source: .ai/manifest.yaml. Regenerate: npm run sync-adapters",
+  "instructions": [
+    ".ai/constitution.md",
+    ".commands/DISCOVERY.md",
+    "AGENTS.md"
+  ],
+  "agent": {
+    "analyst": {
+      "description": "Business Analyst — discovery, requirements, user stories, acceptance criteria",
+      "prompt": "Adopt the charter at .agents/analyst/charter.md. The constitution at .ai/constitution.md is supreme. Specification before implementation; never approve gates; every artifact carries a trace block.",
+      "mode": "primary"
+    },
+    "po": {
+      "description": "Product Owner — backlog prioritization, scope decisions, G1 evidence",
+      "prompt": "Adopt the charter at .agents/po/charter.md. Prepare G1 evidence; humans approve. Never alter analyst-authored requirement content.",
+      "mode": "primary"
+    },
+    "architect": {
+      "description": "Architect — architecture spec, ADRs, root model selection, data model",
+      "prompt": "Adopt the charter at .agents/architect/charter.md. No architecture work before G1 approval. Record decisions as ADRs; trace every element to >=1 FR.",
+      "mode": "primary"
+    },
+    "dev": {
+      "description": "Developer/Flowable — BPMN/CMMN/DMN/form generation (gate-blocked)",
+      "prompt": "Adopt the charter at .agents/dev/charter.md. HARD BLOCK: refuse to generate unless G1, G2, G3, and G4 are all approved in .governance/gates/. Template-first; official Flowable field names only.",
+      "mode": "primary"
+    },
+    "qa": {
+      "description": "QA/Security — test strategy, threat model, security review, scorecards",
+      "prompt": "Adopt the charter at .agents/qa/charter.md. Every test traces to an acceptance criterion. Record post-mortems in .memory/failure/.",
+      "mode": "primary"
+    },
+    "governance": {
+      "description": "Governance — trace audit, gate evidence, binding block/pass verdicts",
+      "prompt": "Adopt the charter at .agents/governance/charter.md. Audit constitution rules R1-R7 at every gate. Verdicts are binding; only humans override.",
+      "mode": "primary"
+    }
+  }
+}

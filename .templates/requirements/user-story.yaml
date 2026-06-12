@@ -1,0 +1,19 @@
+# Template: user story
+template:
+  id: requirements/user-story
+  version: 1.0.0
+  status: approved
+schema:
+  user-story:
+    id: string # US-<nnn>
+    as-a: string
+    i-want: string
+    so-that: string
+    trace:
+      functional-requirements: [string] # >=1 FR id required
+    acceptance-criteria: [string] # AC ids
+    estimate: string # optional
+    status: enum [draft, review, approved, sealed]
+validation:
+  - trace.functional-requirements must not be empty
+  - all referenced acceptance-criteria must exist

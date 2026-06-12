@@ -1,0 +1,21 @@
+skill:
+  id: testing/test-strategy
+  version: 1.0.0
+  status: approved
+  description: Define the test approach per initiative — levels, coverage targets, golden-test scope, regression plan.
+  licensed-agents: [qa]
+  preconditions:
+    - G1-requirements approved
+  inputs:
+    - functional-requirements
+    - acceptance-criteria
+    - architecture-spec (when available)
+  outputs:
+    - test-strategy (levels, coverage, tooling, golden-test inventory)
+  templates:
+    - .templates/testing/test-strategy.yaml
+  constraints:
+    - every acceptance criterion maps to at least one planned test
+    - golden tests required for all generated Flowable artifacts
+    - strategy is a G5 release-gate input
+  tests: .skills/test-strategy/tests/golden.yaml

@@ -1,0 +1,28 @@
+id: memory-sync
+name: memory-sync
+description: Synchronize memory tiers with session logs and decision artifacts
+purpose: Populate .memory/ tiers (strategic, domain, pattern, decision, project, session, failure) from logs
+usage: |
+  awp memory-sync --tier=decision --import=/path/to/logs.txt
+  awp memory-sync --all --from=session.log
+  awp memory-sync --export=decisions-export.yaml
+inputs:
+  tier: memory tier to sync (strategic, domain, pattern, decision, project, session, failure)
+  import: import from log file
+  from: source log file
+  all: sync all tiers
+  export: export memory to YAML
+outputs:
+  memory_files: updated .memory/<tier>/ artifacts
+  summary: count of entries per tier
+  exit_code: 0 (success), 1 (error)
+example: |
+  $ awp memory-sync --all --from=session.log
+  Syncing memory from session.log...
+  Strategic: +0 entries
+  Domain: +3 entries (bpmn, ddd)
+  Decision: +8 entries
+  Session: +15 entries
+  Memory synchronized.
+lifecycle: alpha
+version: 1.0.0

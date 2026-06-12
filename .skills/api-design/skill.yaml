@@ -1,0 +1,22 @@
+skill:
+  id: architecture/api-design
+  version: 1.0.0
+  status: draft
+  description: Design REST/event API contracts for workflow services, aligned to bounded contexts.
+  licensed-agents: [architect, dev]
+  preconditions:
+    - G2-architecture approved
+    - G3-data-model approved (payloads bind to data dictionary)
+  inputs:
+    - architecture-spec
+    - bounded-context-map
+    - data-dictionary
+  outputs:
+    - api-contract (OpenAPI-style spec with trace blocks)
+  templates:
+    - .templates/architecture/architecture-spec.yaml # api-contract section
+  constraints:
+    - contract-first: no endpoint without a traced functional requirement
+    - payload fields reference data-dictionary entries only
+    - breaking changes require major version bump + G2 re-approval
+  tests: .skills/api-design/tests/golden.yaml

@@ -1,0 +1,29 @@
+id: discover
+name: discover
+description: Scan repository to discover existing skills, templates, models, agents, and workflows
+purpose: Catalog all registered and unregistered system components for audit and discovery
+usage: |
+  awp discover --model=bpmn --depth=full
+  awp discover --skills-only
+  awp discover --output=json > inventory.json
+inputs:
+  model: filter by type (bpmn, form, cmmn, dmn, skill, template, command, agent, workflow)
+  depth: discovery depth (quick, full)
+  output: output format (text, json, yaml)
+outputs:
+  inventory: JSON/YAML registry of discovered artifacts
+  counts: summary counts per category
+  missing: registry entries without files
+example: |
+  $ awp discover --depth=full --output=json
+  {
+    "skills": 20,
+    "templates": 12,
+    "commands": 11,
+    "agents": 6,
+    "workflows": 2,
+    "models": {"bpmn": 5, "form": 3, "dmn": 2},
+    "missing": ["flowable/rule-engine", "agent/reviewer"]
+  }
+lifecycle: stable
+version: 1.0.0

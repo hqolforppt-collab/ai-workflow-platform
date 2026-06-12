@@ -1,0 +1,27 @@
+id: specify
+name: specify
+description: Requirements elicitation and user story generation with template guidance
+purpose: Help analysts and POs write well-structured requirements and user stories using approved templates
+usage: |
+  awp specify --template=user-story --stakeholder=pm
+  awp specify --template=functional-requirement --domain=payments
+  awp specify --from=epic.md --generate=user-stories
+inputs:
+  template: template to use (user-story, functional-requirement, business-requirement, acceptance-criteria)
+  stakeholder: role guiding the conversation (pm, analyst, architect)
+  domain: business domain context (optional)
+  from: input file to transform (optional)
+  interactive: use interactive mode (true/false)
+outputs:
+  requirement: generated .yaml requirement file in docs/requirements/
+  id: assigned requirement ID (REQ-XXX)
+  trace_id: auto-generated traceability ID
+example: |
+  $ awp specify --template=user-story --stakeholder=pm
+  > Title: User Login
+  > As a: customer
+  > I want to: log in with email/password
+  > So that: I can access my account
+  Generated: docs/requirements/REQ-0042-user-login.yaml
+lifecycle: beta
+version: 1.0.0

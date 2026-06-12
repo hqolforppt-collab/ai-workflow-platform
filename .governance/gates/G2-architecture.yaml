@@ -1,0 +1,23 @@
+gate:
+  id: G2-architecture
+  name: Architecture Approval
+  version: 1.0.0
+  mandatory: true
+  approver: human
+  preparing-agents: [architect]
+  preconditions:
+    - G1-requirements approved
+    - architecture spec complete (template: architecture/architecture-spec)
+    - root model selection recorded (BPMN / CMMN / DMN)
+    - ADRs recorded for all significant decisions (template: architecture/adr)
+    - every architecture element traces to >=1 FR
+  evidence-packet:
+    - architecture specification
+    - ADR set
+    - root model selection rationale
+    - rules-of-severity report (errors must be zero or have recorded exceptions)
+  outputs:
+    - approval record in projects/<id>/gates/G2.yaml
+    - sealed architecture spec
+  on-rejection: return-with-findings (max 3 cycles, then escalate)
+  unblocks: [S05-data-model, S06-security, flowable-agent]

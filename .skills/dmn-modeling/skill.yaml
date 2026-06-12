@@ -1,0 +1,25 @@
+skill:
+  id: flowable/dmn-modeling
+  version: 1.0.0
+  status: draft
+  description: Generate Flowable-compatible DMN 1.3 decision tables and decision services.
+  licensed-agents: [dev, architect]
+  preconditions:
+    - G2-architecture approved (decision logic identified)
+    - G3-data-model approved
+    - G4-security approved
+  inputs:
+    - architecture-spec
+    - decision-requirements (from functional requirements)
+    - data-dictionary
+  outputs:
+    - dmn-decision-yaml (hit policy explicit, official Flowable field names)
+  templates:
+    - .templates/flowable/dmn-decision.yaml
+  knowledge:
+    - .knowledge/flowable/schemas/dmn.yaml
+  constraints:
+    - every decision table declares an explicit hit policy
+    - input/output expressions reference data-dictionary entries only
+    - decision rules carry trace blocks to functional requirements
+  tests: .skills/dmn-modeling/tests/golden.yaml

@@ -1,0 +1,17 @@
+# Template: business requirement
+template:
+  id: requirements/business-requirement
+  version: 1.0.0
+  status: approved
+schema:
+  business-requirement:
+    id: string # BR-<nnn>
+    title: string
+    business-goal: string
+    stakeholders: [string]
+    success-metrics: [string]
+    constraints: [string]
+    status: enum [draft, review, approved, sealed]
+validation:
+  - business-goal must be measurable via success-metrics
+  - status sealed only after G1 approval

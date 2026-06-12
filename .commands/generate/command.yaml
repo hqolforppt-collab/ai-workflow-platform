@@ -1,0 +1,22 @@
+id: generate
+name: generate
+description: Generate code, models, and migrations from specifications
+purpose: Transform requirements, architecture, and models into executable artifacts (BPMN, forms, SQL, code)
+usage: |
+  awp generate --from=spec.yaml --to=bpmn
+  awp generate --from=login-form.spec --to=form
+  awp generate --from=data-model.yaml --to=migration
+inputs:
+  from: source specification file (.yaml, .spec, .md)
+  to: target format (bpmn, form, cmmn, dmn, migration, api, dataclass, test)
+  target_language: programming language (typescript, python, java)
+  output: output directory
+outputs:
+  generated_file: generated artifact (.bpmn, .form.json, .sql, .ts, etc.)
+  trace_id: links generation to source requirement
+example: |
+  $ awp generate --from=docs/requirements/login-spec.yaml --to=bpmn
+  Generated: models/login-flow.bpmn
+  Trace: REQ-0001 → MODEL-0001 → IMPL-0001
+lifecycle: alpha
+version: 1.0.0

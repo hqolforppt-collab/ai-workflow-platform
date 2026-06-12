@@ -1,0 +1,25 @@
+id: gate
+name: gate
+description: Governance gate evidence collection and approval
+purpose: Verify and approve passage through constitutional gates (G1-G5)
+usage: |
+  awp gate --gate=G2-architecture --review
+  awp gate --gate=G4-security --approve --evidence=threat-model.yaml
+  awp gate --status --all
+inputs:
+  gate: gate ID (G1-requirements, G2-architecture, G3-data-model, G4-security, G5-release)
+  review: review collected evidence
+  approve: submit approval with evidence
+  status: check gate status for feature
+  evidence: evidence file(s) to attach
+outputs:
+  approval: gate approval record with timestamp
+  trace_id: links to requirement/spec/design
+  blockers: any unmet criteria
+example: |
+  $ awp gate --gate=G2-architecture --approve --evidence=architecture-spec.yaml
+  Gate G2 (Architecture) approved
+  Evidence: ADR-0001, architecture-spec.yaml
+  Trace: REQ-0001 → SPEC-0001 → ARCH-0001 → GATE-G2-0001
+lifecycle: stable
+version: 1.0.0

@@ -1,0 +1,17 @@
+# Adapter source: GitHub Copilot. Generates .github/copilot-instructions.md from .ai/manifest.yaml.
+adapter:
+  id: copilot
+  platform: GitHub Copilot (chat + coding agent)
+  output: .github/copilot-instructions.md
+  format: markdown
+  generation:
+    sections:
+      - repository-purpose
+      - authority-chain (constitution first)
+      - gate-rules (no generation before G1-G4)
+      - template-first-rule
+      - traceability-rule
+  platform-mappings:
+    coding-agent: "Copilot coding agent must run /awp-init semantics before any task"
+    pull-requests: "Every PR description must include trace IDs; PR template enforces"
+  drift-detection: CI compares generated output hash against committed .github/copilot-instructions.md

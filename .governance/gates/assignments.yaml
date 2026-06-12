@@ -1,0 +1,23 @@
+# Gate assignments — which agents PREPARE evidence for each gate.
+# Per Constitution R1, agents never APPROVE gates. Approvers are always humans.
+assignments:
+  G1-requirements:
+    preparing-agents: [analyst, po]
+    approver-role: product-owner (human)
+  G2-architecture:
+    preparing-agents: [architect]
+    approver-role: lead-architect (human)
+  G3-data-model:
+    preparing-agents: [architect, dev]
+    approver-role: data-owner (human)
+  G4-security:
+    preparing-agents: [qa, governance]
+    approver-role: security-officer (human)
+  G5-release:
+    preparing-agents: [qa, governance]
+    approver-role: release-manager (human)
+
+audit:
+  agent: governance
+  scope: all gates
+  verdicts-binding: true # only a human can override; overrides are recorded

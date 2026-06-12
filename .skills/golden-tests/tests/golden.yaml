@@ -1,0 +1,15 @@
+# Golden tests: testing/golden-tests (meta-suite)
+tests:
+  - id: GT-GOLD-001
+    name: golden suite authored from acceptance criteria
+    given:
+      acceptance-criteria: AC-001 (successful login routes to dashboard)
+    expect:
+      - golden case with canonical input + pinned expected output
+      - case traces to AC-001
+  - id: GT-GOLD-002
+    name: changing a pinned expectation requires QA sign-off
+    given:
+      change: modify expected output of GT-FORM-001
+    expect:
+      - REFUSED without recorded QA approval in the change trace

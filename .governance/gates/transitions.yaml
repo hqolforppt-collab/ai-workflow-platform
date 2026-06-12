@@ -1,0 +1,35 @@
+# Valid stage transitions for the 12-stage delivery pipeline.
+# A transition is permitted only when its required gate (if any) is approved.
+transitions:
+  - from: S01-discovery
+    to: S02-requirements
+  - from: S02-requirements
+    to: S03-architecture
+    requires-gate: G1-requirements
+  - from: S03-architecture
+    to: S04-adr
+  - from: S04-adr
+    to: S05-data-model
+    requires-gate: G2-architecture
+  - from: S05-data-model
+    to: S06-security
+    requires-gate: G3-data-model
+  - from: S06-security
+    to: S07-test-strategy
+    requires-gate: G4-security
+  - from: S07-test-strategy
+    to: S08-generation
+  - from: S08-generation
+    to: S09-validation
+  - from: S09-validation
+    to: S10-integration
+  - from: S10-integration
+    to: S11-acceptance
+  - from: S11-acceptance
+    to: S12-release
+    requires-gate: G5-release
+
+rules:
+  - no skipping stages; rework returns to the owning stage
+  - rejected gates return artifacts with findings (max 3 cycles, then human escalation)
+  - sealed stages are immutable (Constitution R5)

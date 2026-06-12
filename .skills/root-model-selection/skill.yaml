@@ -1,0 +1,21 @@
+skill:
+  id: flowable/root-model-selection
+  version: 1.0.0
+  status: approved
+  description: Select the root Flowable model type (BPMN vs CMMN vs DMN) from requirement characteristics, with recorded rationale.
+  licensed-agents: [architect]
+  preconditions:
+    - G1-requirements approved
+  inputs:
+    - functional-requirements
+    - domain-model
+  outputs:
+    - root-model-selection (with decision rationale, recorded as ADR)
+  decision-heuristics:
+    - sequential, predictable flow with defined paths -> BPMN
+    - case-driven, milestone-based, ad-hoc human work -> CMMN
+    - rule/decision tables, input-output mappings -> DMN
+    - hybrid: BPMN root with CMMN/DMN child models
+  templates:
+    - .templates/architecture/adr.yaml
+  tests: .skills/root-model-selection/tests/golden.yaml

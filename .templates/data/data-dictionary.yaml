@@ -1,0 +1,61 @@
+id: data/data-dictionary
+title: Enterprise Data Dictionary Template
+description: Comprehensive data glossary defining entities, attributes, relationships, classifications, and data stewardship
+usage: Use to document enterprise data model (entities, attributes, ownership, sensitivity, lineage, retention)
+fields:
+  version: data dictionary version
+  lastUpdated: ISO 8601 date
+  owner: data governance team contact
+  entities: array of data entities (objects, tables, collections)
+  attributes: detailed attribute specifications per entity
+  relationships: cross-entity relationships and cardinality
+  classifications: data sensitivity (public, internal, confidential, restricted)
+  stewardship: data owner, custodian, quality rules per entity
+  lineage: upstream/downstream data flows and transformations
+example: |
+  version: 1.0.0
+  lastUpdated: '2026-06-12'
+  owner: data-governance@company.com
+  entities:
+    - id: customer
+      name: Customer
+      description: Customer master data
+      classification: internal
+      owner: sales-team@company.com
+    - id: transaction
+      name: Transaction
+      description: Financial transactions
+      classification: confidential
+      owner: finance-team@company.com
+  attributes:
+    - entity: customer
+      name: customer_id
+      type: string
+      format: UUID
+      required: true
+      description: Unique customer identifier
+      sensitivity: internal
+    - entity: customer
+      name: email
+      type: string
+      format: email
+      required: true
+      description: Customer contact email
+      sensitivity: confidential
+      retention: 'GDPR compliant (7 years)'
+    - entity: transaction
+      name: amount
+      type: decimal
+      precision: 19
+      scale: 2
+      description: Transaction amount in USD
+      sensitivity: confidential
+  relationships:
+    - from: transaction
+      to: customer
+      type: many-to-one
+      cardinality: N:1
+  lineage:
+    - entity: customer
+      upstream: 'CRM system (Salesforce)'
+      downstream: 'Analytics warehouse, reporting'

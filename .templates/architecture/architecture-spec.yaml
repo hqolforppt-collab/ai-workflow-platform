@@ -1,0 +1,27 @@
+# Template: architecture specification
+template:
+  id: architecture/architecture-spec
+  version: 1.0.0
+  status: approved
+schema:
+  architecture-spec:
+    id: string # ARCH-<nnn>
+    title: string
+    root-model: enum [bpmn, cmmn, dmn, hybrid]
+    root-model-rationale: string # ADR reference required
+    components:
+      - id: string
+        name: string
+        responsibility: string
+        trace:
+          functional-requirements: [string] # >=1 FR required per element
+    integrations: [string]
+    nfr-compliance:
+      - nfr: string
+        approach: string
+    adrs: [string] # ADR ids
+    status: enum [draft, review, approved, sealed]
+validation:
+  - every component traces to >=1 FR (Constitution R4)
+  - root-model-rationale must reference an accepted ADR
+  - status sealed only after G2 approval

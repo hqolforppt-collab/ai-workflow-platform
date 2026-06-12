@@ -1,0 +1,50 @@
+id: testing/test-strategy
+title: Comprehensive Test Strategy Template
+description: Full test strategy defining pyramid levels, coverage goals, test types, entry/exit criteria, and execution roadmap
+usage: Use to plan testing for features, APIs, and systems before development (Gate G3)
+fields:
+  title: strategy name
+  scope: what is being tested
+  version: strategy version
+  pyramid: test distribution (unit %, integration %, e2e %)
+  unitTests: unit test specifications (target coverage, frameworks, mocking strategy)
+  integrationTests: integration test specifications (test environments, databases, APIs)
+  e2eTests: end-to-end test specifications (user scenarios, browsers, environments)
+  performanceTests: load/stress testing specs (targets, tools, thresholds)
+  securityTests: security testing approach (OWASP top 10, penetration testing)
+  entryExit: entry conditions (what must be ready to start testing), exit criteria (what must pass to release)
+example: |
+  title: Payment Service Test Strategy
+  scope: Payment processing microservice
+  version: 1.0
+  pyramid:
+    unit: 70
+    integration: 20
+    e2e: 10
+  unitTests:
+    target_coverage: 85%
+    frameworks: [Jest, Mock]
+    strategy: Mock external APIs (payment gateway, bank)
+  integrationTests:
+    environments: [staging]
+    databases: [PostgreSQL]
+    external_services: [stubbed payment gateway]
+    scenarios:
+      - scenario: successful payment
+        steps: ['create order', 'call payment service', 'verify balance', 'confirm transaction']
+  e2eTests:
+    browsers: [Chrome, Firefox]
+    environments: [staging]
+    scenarios:
+      - scenario: user checkout flow
+        steps: ['add item to cart', 'checkout', 'enter payment', 'confirm receipt']
+  performanceTests:
+    target: 'handle 1000 TPS with < 500ms latency'
+    tool: k6
+    thresholds: {p95_latency: 500ms, error_rate: 0.1%}
+  securityTests:
+    owasp_top_10: true
+    penetration_testing: false
+  entryExit:
+    entry: ['feature complete', 'code review approved', 'design doc signed']
+    exit: ['all automated tests passing', 'manual tests complete', 'performance validated', 'security scan clean']

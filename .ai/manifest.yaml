@@ -1,0 +1,64 @@
+# AWP System Manifest — single source of truth for all system components.
+# All platform adapters (CLAUDE.md, opencode.json, copilot-instructions.md, AGENTS.md)
+# are GENERATED from this file. Never hand-edit generated adapters.
+manifest:
+  id: ai-workflow-platform
+  version: 1.0.0
+  status: active
+  constitution: .ai/constitution.md
+
+authority-chain:
+  - .ai/constitution.md
+  - .governance/policies/
+  - .governance/gates/
+  - .agents/*/charter.md
+  - .skills/*/skill.yaml
+  - project artifacts
+
+components:
+  agents:
+    registry: .agents/registry.yaml
+    members:
+      - analyst
+      - po
+      - architect
+      - dev
+      - qa
+      - governance
+  skills:
+    registry: .skills/registry.yaml
+  templates:
+    registry: .templates/registry.yaml
+  commands:
+    registry: .commands/registry.yaml
+  memory:
+    index: .memory/index.yaml
+    tiers: [strategic, domain, pattern, decision, project, session, failure]
+  governance:
+    gates: .governance/gates/
+    policy: .governance/GOVERNANCE.md
+  workflows:
+    - .workflows/greenfield-flowable.yaml
+    - .workflows/brownfield-flowable.yaml
+
+adapters:
+  claude:
+    output: CLAUDE.md
+    source: .ai/adapters/claude/
+  opencode:
+    output: opencode.json
+    source: .ai/adapters/opencode/
+  copilot:
+    output: .github/copilot-instructions.md
+    source: .ai/adapters/copilot/
+  agents-md: # Cursor, Codex, Gemini CLI
+    output: AGENTS.md
+    source: .ai/adapters/agents-md/
+  bmad:
+    output: .ai/adapters/bmad/agent-teams.yaml
+    source: .ai/adapters/bmad/
+
+rules:
+  - adapters are generated, never hand-edited (CI enforces drift detection)
+  - lower authority levels may never contradict higher levels
+  - conflicts halt execution and escalate to humans

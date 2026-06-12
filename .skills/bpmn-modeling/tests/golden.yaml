@@ -1,0 +1,22 @@
+# Golden test for flowable/bpmn-modeling
+golden-tests:
+  - id: gt-bpmn-001
+    name: simple approval process
+    input:
+      task-spec: |
+        Process: document approval. Start -> user task "Review Document"
+        (assignee: reviewer) -> exclusive gateway "Approved?" ->
+        [yes] service task "Publish" -> end; [no] user task "Revise" -> back to review.
+    expectations:
+      - output is valid YAML conforming to .templates/flowable/bpmn-process.yaml
+      - contains startEvent, userTask, exclusiveGateway, serviceTask, endEvent
+      - all field names match .knowledge/flowable/schemas/bpmn.yaml
+      - every element has a trace block referencing the task spec
+      - gateway has two sequenceFlows with conditionExpression
+  - id: gt-bpmn-002
+    name: precondition enforcement
+    input:
+      gates: { G2: approved, G3: pending, G4: approved }
+    expectations:
+      - skill refuses to execute (G3 not approved, Constitution R2)
+      - refusal includes the blocking gate id

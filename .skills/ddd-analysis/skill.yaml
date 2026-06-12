@@ -1,0 +1,23 @@
+skill:
+  id: architecture/ddd-analysis
+  version: 1.0.0
+  status: draft
+  description: Identify bounded contexts, aggregates, and a ubiquitous language from discovery + requirements.
+  licensed-agents: [architect]
+  preconditions:
+    - G1-requirements approved
+  inputs:
+    - business-requirements
+    - domain-glossary
+    - stakeholder-map
+  outputs:
+    - bounded-context-map
+    - aggregate-inventory
+    - ubiquitous-language-glossary
+  templates:
+    - .templates/architecture/architecture-spec.yaml # context-map section
+  constraints:
+    - context boundaries must align to team/process ownership, not technical layers
+    - every aggregate names its invariants
+    - glossary terms used consistently in all downstream artifacts
+  tests: .skills/ddd-analysis/tests/golden.yaml

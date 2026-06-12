@@ -1,0 +1,51 @@
+# Workflow: Brownfield Flowable Delivery
+# Authority: .ai/constitution.md. For changes to EXISTING workflows/models.
+workflow:
+  id: brownfield-flowable
+  version: 1.0.0
+  description: Spec-driven change pipeline for modifying existing Flowable models with impact analysis and regression safety.
+
+stages:
+  - id: B01-current-state-capture
+    agent: analyst
+    outputs: [as-is-model-inventory, current-trace-map]
+    gate: null
+  - id: B02-change-specification
+    agent: analyst
+    command: /specify
+    outputs: [change-requirements, impact-analysis]
+    gate: G1-requirements
+  - id: B03-impact-architecture
+    agent: architect
+    outputs: [delta-architecture-spec, migration-adrs]
+    gate: G2-architecture
+  - id: B04-data-migration-plan
+    agent: dev
+    skill: data/migration-planning
+    outputs: [migration-plan, rollback-plan]
+    gate: G3-data-model
+  - id: B05-security-regression
+    agent: qa
+    skill: security/owasp-review
+    outputs: [regression-threat-model]
+    gate: G4-security
+  - id: B06-delta-generation
+    agent: dev
+    command: /generate
+    precondition: gates G1, G2, G3, G4 all approved (HARD BLOCK)
+    outputs: [updated-flowable-models, regression-golden-tests]
+    gate: null
+  - id: B07-regression-verification
+    agent: qa
+    skills: [testing/golden-tests, governance/trace-audit]
+    outputs: [regression-report, trace-diff-report]
+    gate: G5-release
+  - id: B08-release
+    agent: governance
+    outputs: [release-record, version-bump, sealed-artifacts]
+    gate: null
+
+rules:
+  - existing golden tests must continue to pass (regression safety)
+  - every model change requires an impact analysis traced to a change requirement
+  - rollback plan is mandatory before G3 approval

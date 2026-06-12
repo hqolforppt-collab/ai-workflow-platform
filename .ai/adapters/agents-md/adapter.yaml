@@ -1,0 +1,19 @@
+# Adapter source: AGENTS.md standard. Generates AGENTS.md from .ai/manifest.yaml.
+# Covers: Cursor, OpenAI Codex, Gemini CLI, and any AGENTS.md-compatible tool.
+adapter:
+  id: agents-md
+  platform: AGENTS.md standard (Cursor, Codex, Gemini CLI, others)
+  output: AGENTS.md
+  format: markdown
+  generation:
+    sections:
+      - project-overview
+      - authority-chain
+      - setup (/awp-init)
+      - rules (gates, template-first, traceability)
+      - directory-map
+  platform-mappings:
+    cursor: "Reads AGENTS.md natively; .cursor/rules optional future enhancement"
+    codex: "Reads AGENTS.md natively at repo root"
+    gemini-cli: "Reads AGENTS.md via context file configuration"
+  drift-detection: CI compares generated output hash against committed AGENTS.md
