@@ -1,4 +1,4 @@
-# @awp/cli
+# awp-cli
 
 The command-line interface for the **AI Workflow Platform (AWP)** — a "Repository OS" for spec-driven, AI-assisted workflow engineering.
 
@@ -6,11 +6,13 @@ The CLI is a thin, dependency-light wrapper around the platform contracts that a
 
 ## Install
 
-The CLI is published as `@awp/cli`. You can run it without installing via `npx`:
+The CLI is published as `awp-cli` (the unscoped name `awp` is taken on npm). You can run it without installing via `npx`:
 
 \`\`\`bash
-npx @awp/cli <command>
+npx awp-cli <command>
 \`\`\`
+
+Releases are published automatically by `.github/workflows/release-cli.yml` when a `cli-v*` tag is pushed.
 
 Or, inside this monorepo, run it directly:
 

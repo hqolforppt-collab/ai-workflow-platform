@@ -57,25 +57,27 @@ CLI scaffold point at the new canonical home.
    the new slug and that the README badges resolve.
 8. **npm scope** — see below.
 
-## npm package scope
+## npm package
 
-The CLI is published as **`@awp/cli`** (scoped, `publishConfig.access: "public"`).
-The npm scope (`@awp`) is **independent of the GitHub org** — moving the repo does
-*not* change the package name. Notes:
+The CLI is published as **`awp-cli`** (unscoped; the bare name `awp` is already
+taken on npm). The npm package name is **independent of the GitHub org** — moving
+the repo does *not* change it. Notes:
 
-- The `@awp` npm org/scope must be claimed separately on npmjs.com by a maintainer.
 - `repository.url` in `packages/awp-cli/package.json` should track the GitHub slug,
-  but `name` (`@awp/cli`) stays stable across GitHub org moves so existing installs
+  but `name` (`awp-cli`) stays stable across GitHub org moves so existing installs
   keep working.
-- Nothing in this repo publishes automatically; `awp` is run via `npx @awp/cli` or
-  directly from the monorepo until a maintainer runs `npm publish`.
+- Publishing is automated by `.github/workflows/release-cli.yml`: pushing a
+  `cli-v<version>` tag validates the platform, checks the tag matches
+  `package.json`, smoke-tests the binary, and publishes with npm provenance.
+- One-time setup after any org move: re-add the `NPM_TOKEN` Actions secret
+  (transferred repos do not carry secrets).
 
 ## Post-migration smoke test
 
 \`\`\`bash
 node packages/awp-cli/bin/awp.js validate      # Repository OS integrity
-node .tools/bpmn-roundtrip.mjs                  # BPMN structural round-trip
-node .tools/flowable-import-check.mjs           # engine import check
+node scripts/bpmn-roundtrip.mjs                # BPMN structural round-trip + YAML sync
+node scripts/flowable-deploy-test.mjs          # live Flowable engine deployment (needs engine)
 \`\`\`
 
 All three must pass before declaring the migration complete.
