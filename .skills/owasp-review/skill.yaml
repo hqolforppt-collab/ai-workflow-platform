@@ -1,0 +1,21 @@
+skill:
+  id: security/owasp-review
+  version: 1.0.0
+  status: draft
+  description: OWASP Top 10 review of generated models, forms, and API contracts (regression-focused for brownfield).
+  licensed-agents: [qa]
+  preconditions:
+    - generated artifacts exist (S08/B06 output)
+  inputs:
+    - flowable-models
+    - form-definitions
+    - api-contract
+  outputs:
+    - owasp-findings (categorized by OWASP Top 10, severity-ranked)
+  templates:
+    - .templates/security/threat-model.yaml # findings section
+  constraints:
+    - injection review mandatory for any expression/script task
+    - auth flows checked against broken-access-control patterns
+    - findings of HIGH+ severity reopen G4
+  tests: .skills/owasp-review/tests/golden.yaml

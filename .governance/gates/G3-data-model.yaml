@@ -1,0 +1,21 @@
+gate:
+  id: G3-data-model
+  name: Data Model Approval
+  version: 1.0.0
+  mandatory: true
+  approver: human
+  preparing-agents: [architect, dev]
+  preconditions:
+    - G2-architecture approved
+    - data dictionary complete (template: data/data-dictionary)
+    - schema-impact report produced for brownfield changes
+    - migrations planned and reversible
+  evidence-packet:
+    - data dictionary
+    - schema-impact report
+    - migration plan
+  outputs:
+    - approval record in projects/<id>/gates/G3.yaml
+    - sealed data model
+  on-rejection: return-with-findings (max 3 cycles, then escalate)
+  unblocks: [S08-generation]

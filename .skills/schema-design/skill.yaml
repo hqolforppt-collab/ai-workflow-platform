@@ -1,0 +1,22 @@
+skill:
+  id: data/schema-design
+  version: 1.0.0
+  status: draft
+  description: Produce the data dictionary and schema spec that all forms, models, and APIs must bind to.
+  licensed-agents: [architect, dev]
+  preconditions:
+    - G2-architecture approved
+  inputs:
+    - architecture-spec
+    - bounded-context-map
+    - functional-requirements
+  outputs:
+    - data-dictionary (entities, fields, types, sensitivity classification)
+    - schema-spec
+  templates:
+    - .templates/data/data-dictionary.yaml
+  constraints:
+    - every field declares a sensitivity class (public, internal, pii, secret)
+    - naming follows the ubiquitous-language glossary
+    - output is the G3 evidence packet core
+  tests: .skills/schema-design/tests/golden.yaml

@@ -1,0 +1,48 @@
+# Skill Registry — master directory of all versioned skills.
+# Lifecycle: draft -> review -> approved -> deprecated -> retired
+# Authority: .ai/constitution.md. Source design: docs/oss-transformation/07-skill-architecture.md
+registry:
+  version: 1.0.0
+  lifecycle: [draft, review, approved, deprecated, retired]
+
+skills:
+  # Domain: Flowable Modeling
+  - { id: flowable/bpmn-modeling,       version: 1.0.0, status: approved, agents: [dev, architect], spec: .skills/bpmn-modeling/skill.yaml }
+  - { id: flowable/cmmn-modeling,       version: 1.0.0, status: draft,    agents: [dev, architect], spec: .skills/cmmn-modeling/skill.yaml }
+  - { id: flowable/dmn-modeling,        version: 1.0.0, status: draft,    agents: [dev, architect], spec: .skills/dmn-modeling/skill.yaml }
+  - { id: flowable/form-modeling,       version: 1.0.0, status: approved, agents: [dev],            spec: .skills/form-modeling/skill.yaml }
+  - { id: flowable/root-model-selection, version: 1.0.0, status: approved, agents: [architect],     spec: .skills/root-model-selection/skill.yaml }
+
+  # Domain: Requirements & Analysis
+  - { id: requirements/elicitation,     version: 1.0.0, status: approved, agents: [analyst],        spec: .skills/requirements-elicitation/skill.yaml }
+  - { id: requirements/user-stories,    version: 1.0.0, status: approved, agents: [analyst, po],    spec: .skills/user-story-writing/skill.yaml }
+  - { id: requirements/acceptance-criteria, version: 1.0.0, status: approved, agents: [analyst, qa], spec: .skills/acceptance-criteria/skill.yaml }
+
+  # Domain: Architecture
+  - { id: architecture/ddd-analysis,    version: 1.0.0, status: draft,    agents: [architect],      spec: .skills/ddd-analysis/skill.yaml }
+  - { id: architecture/api-design,      version: 1.0.0, status: draft,    agents: [architect, dev], spec: .skills/api-design/skill.yaml }
+  - { id: architecture/adr-writing,     version: 1.0.0, status: approved, agents: [architect],      spec: .skills/adr-writing/skill.yaml }
+
+  # Domain: Security
+  - { id: security/threat-modeling,     version: 1.0.0, status: approved, agents: [qa],             spec: .skills/threat-modeling/skill.yaml }
+  - { id: security/owasp-review,        version: 1.0.0, status: draft,    agents: [qa],             spec: .skills/owasp-review/skill.yaml }
+
+  # Domain: Testing
+  - { id: testing/test-strategy,        version: 1.0.0, status: approved, agents: [qa],             spec: .skills/test-strategy/skill.yaml }
+  - { id: testing/golden-tests,         version: 1.0.0, status: approved, agents: [qa, dev],        spec: .skills/golden-tests/skill.yaml }
+
+  # Domain: Data
+  - { id: data/schema-design,           version: 1.0.0, status: draft,    agents: [architect, dev], spec: .skills/schema-design/skill.yaml }
+  - { id: data/migration-planning,      version: 1.0.0, status: draft,    agents: [dev],            spec: .skills/migration-planning/skill.yaml }
+
+  # Domain: Governance
+  - { id: governance/trace-audit,       version: 1.0.0, status: approved, agents: [governance],     spec: .skills/trace-audit/skill.yaml }
+  - { id: governance/gate-evidence,     version: 1.0.0, status: approved, agents: [governance],     spec: .skills/gate-evidence/skill.yaml }
+
+  # Domain: Documentation
+  - { id: docs/architecture-docs,       version: 1.0.0, status: draft,    agents: [architect],      spec: .skills/architecture-docs/skill.yaml }
+
+rules:
+  - agents may only invoke skills licensed in their charter/registry entry
+  - breaking contract changes bump major version and require governance approval
+  - every approved skill must ship golden tests (.skills/<skill>/tests/golden.yaml)

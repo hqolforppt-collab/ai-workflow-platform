@@ -1,0 +1,22 @@
+skill:
+  id: requirements/elicitation
+  version: 1.0.0
+  status: approved
+  description: Transform a user brief or discovery report into structured business and functional requirements with full BR->FR traceability.
+  licensed-agents: [analyst]
+  preconditions: []
+  inputs:
+    - user-brief
+    - discovery-report
+  outputs:
+    - business-requirements
+    - functional-requirements (each tracing to >=1 BR)
+    - open-questions-log
+  templates:
+    - .templates/requirements/business-requirement.yaml
+    - .templates/requirements/functional-requirement.yaml
+  constraints:
+    - no solutioning; requirements describe WHAT, never HOW
+    - ambiguities become open questions, never assumptions
+    - consult .memory/failure/ for known elicitation pitfalls first (Constitution R7)
+  tests: .skills/requirements-elicitation/tests/golden.yaml

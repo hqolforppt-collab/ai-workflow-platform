@@ -1,0 +1,21 @@
+gate:
+  id: G1-requirements
+  name: Requirements Approval
+  version: 1.0.0
+  mandatory: true # Constitution R3 — cannot be removed
+  approver: human # Constitution R1 — agents never approve
+  preparing-agents: [analyst, po]
+  preconditions:
+    - business requirements documented (template: requirements/business-requirement)
+    - functional requirements with acceptance criteria (template: requirements/functional-requirement)
+    - each FR traces to >=1 BR (Constitution R4)
+    - NFRs captured or explicitly waived
+  evidence-packet:
+    - specification set (BRs, FRs, user stories, acceptance criteria)
+    - traceability matrix (BR -> FR)
+    - open questions log (must be empty or accepted)
+  outputs:
+    - approval record in projects/<id>/gates/G1.yaml
+    - sealed specification set (Constitution R5)
+  on-rejection: return-with-findings (max 3 cycles, then escalate)
+  unblocks: [S03-architecture]

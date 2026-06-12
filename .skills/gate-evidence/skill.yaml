@@ -1,0 +1,19 @@
+skill:
+  id: governance/gate-evidence
+  version: 1.0.0
+  status: approved
+  description: Assemble the evidence packet a human approver needs to decide a gate (G1-G5).
+  licensed-agents: [governance]
+  preconditions:
+    - target gate's input artifacts exist
+  inputs:
+    - gate definition (.governance/gates/G*.yaml)
+    - stage artifacts for the gate
+    - trace-audit report
+  outputs:
+    - evidence-packet (checklist results, artifact links, open risks, recommendation)
+  constraints:
+    - agents NEVER approve gates; packet ends with a request to a named human approver
+    - missing checklist items are listed, never hidden
+    - packet is stored with the gate record for audit
+  tests: .skills/gate-evidence/tests/golden.yaml

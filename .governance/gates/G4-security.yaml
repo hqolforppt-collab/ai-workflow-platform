@@ -1,0 +1,22 @@
+gate:
+  id: G4-security
+  name: Security Approval
+  version: 1.0.0
+  mandatory: true
+  approver: human
+  preparing-agents: [qa, governance]
+  preconditions:
+    - G2-architecture approved
+    - threat model complete (template: security/threat-model)
+    - OWASP / NIST checklist executed
+    - security NFRs validated against architecture and models
+    - failure memory consulted (Constitution R7)
+  evidence-packet:
+    - threat model
+    - security review with findings and dispositions
+    - checklist results
+  outputs:
+    - approval record in projects/<id>/gates/G4.yaml
+    - security findings registered in .memory/failure/ where applicable
+  on-rejection: return-with-findings (max 3 cycles, then escalate)
+  unblocks: [S08-generation]

@@ -1,0 +1,18 @@
+# Golden tests: flowable/form-modeling
+tests:
+  - id: GT-FORM-001
+    name: login form from user story
+    given:
+      user-story: US-001 (login with email + password)
+      data-dictionary: [user.email, user.password]
+    expect:
+      - form-definition with fields [email, password]
+      - email field type=email with required validation
+      - password field type=password, masked, never logged
+      - trace block referencing US-001
+  - id: GT-FORM-002
+    name: reject field without data-dictionary binding
+    given:
+      form-request: field "nickname" not present in data dictionary
+    expect:
+      - generation REFUSED with pointer to G3 data-model gate

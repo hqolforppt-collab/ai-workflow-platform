@@ -1,0 +1,24 @@
+# Template: functional requirement
+template:
+  id: requirements/functional-requirement
+  version: 1.0.0
+  status: approved
+schema:
+  functional-requirement:
+    id: string # FR-<nnn>
+    title: string
+    description: string # WHAT, never HOW
+    trace:
+      business-requirements: [string] # >=1 BR id required (Constitution R4)
+    acceptance-criteria: # >=1 required
+      - id: string # AC-<nnn>
+        given: string
+        when: string
+        then: string
+    priority: enum [must, should, could, wont]
+    nfr-links: [string] # optional
+    status: enum [draft, review, approved, sealed]
+validation:
+  - trace.business-requirements must not be empty
+  - acceptance-criteria must not be empty
+  - status sealed only after G1 approval

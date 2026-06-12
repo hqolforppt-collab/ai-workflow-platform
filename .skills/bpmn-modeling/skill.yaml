@@ -1,0 +1,25 @@
+skill:
+  id: flowable/bpmn-modeling
+  version: 1.0.0
+  status: approved
+  description: Generate Flowable-compatible BPMN 2.0 process definitions from approved architecture and task specs.
+  licensed-agents: [dev, architect]
+  preconditions:
+    - G2-architecture approved (root model = BPMN)
+    - G3-data-model approved
+    - G4-security approved
+  inputs:
+    - architecture-spec
+    - task-specs
+    - data-dictionary
+  outputs:
+    - bpmn-process-yaml (meta-model conformant, official Flowable field names)
+  templates:
+    - .templates/flowable/bpmn-process.yaml
+  knowledge:
+    - .knowledge/flowable/schemas/bpmn.yaml
+  constraints:
+    - use only official Flowable field names
+    - every element carries a trace block to its task spec
+    - no free-form generation; template-first
+  tests: .skills/bpmn-modeling/tests/golden.yaml

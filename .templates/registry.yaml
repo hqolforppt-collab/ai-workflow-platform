@@ -1,0 +1,30 @@
+# Template Registry — template-first generation: no AI output without a registered template.
+# Authority: .ai/constitution.md. Source design: docs/oss-transformation/10-template-architecture.md
+registry:
+  version: 1.0.0
+  rule: every generated artifact MUST start from a registered template (CI-enforced)
+
+templates:
+  # Requirements
+  - { id: requirements/business-requirement,   path: .templates/requirements/business-requirement.yaml,   status: approved }
+  - { id: requirements/functional-requirement, path: .templates/requirements/functional-requirement.yaml, status: approved }
+  - { id: requirements/user-story,             path: .templates/requirements/user-story.yaml,             status: approved }
+
+  # Architecture
+  - { id: architecture/architecture-spec,      path: .templates/architecture/architecture-spec.yaml,      status: approved }
+  - { id: architecture/adr,                    path: .templates/architecture/adr.yaml,                    status: approved }
+
+  # Flowable
+  - { id: flowable/bpmn-process,               path: .templates/flowable/bpmn-process.yaml,               status: approved }
+  - { id: flowable/form-definition,            path: .templates/flowable/form-definition.yaml,            status: draft }
+  - { id: flowable/cmmn-case,                  path: .templates/flowable/cmmn-case.yaml,                  status: draft }
+  - { id: flowable/dmn-decision,               path: .templates/flowable/dmn-decision.yaml,               status: draft }
+
+  # Data
+  - { id: data/data-dictionary,                path: .templates/data/data-dictionary.yaml,                status: draft }
+
+  # Security
+  - { id: security/threat-model,               path: .templates/security/threat-model.yaml,               status: draft }
+
+  # Testing
+  - { id: testing/test-strategy,               path: .templates/testing/test-strategy.yaml,               status: draft }

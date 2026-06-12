@@ -1,0 +1,14 @@
+# Adapter source: OpenCode. Generates opencode.json from .ai/manifest.yaml.
+adapter:
+  id: opencode
+  platform: OpenCode
+  output: opencode.json
+  format: json
+  generation:
+    instructions-field: points to .ai/constitution.md and AGENTS.md
+    agents-field: maps .agents/registry.yaml members to OpenCode agent modes
+    commands-field: maps .commands/registry.yaml to OpenCode custom commands
+  platform-mappings:
+    modes: "analyst/po/architect/qa map to plan-capable modes; dev maps to build mode (post G1-G4 only)"
+    permissions: "generation commands gated by .governance/gates/ state"
+  drift-detection: CI compares generated output hash against committed opencode.json

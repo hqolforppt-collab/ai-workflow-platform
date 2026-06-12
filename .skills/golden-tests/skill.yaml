@@ -1,0 +1,19 @@
+skill:
+  id: testing/golden-tests
+  version: 1.0.0
+  status: approved
+  description: Author and execute golden tests — canonical input/expected-output pairs that pin generated artifact behavior.
+  licensed-agents: [qa, dev]
+  preconditions:
+    - generated artifacts or skills exist to pin
+  inputs:
+    - acceptance-criteria
+    - generated artifacts (models, forms, decisions)
+  outputs:
+    - golden-test-suites (.skills/<skill>/tests/golden.yaml or examples/<x>/tests/)
+    - test-report (pass/fail per golden case)
+  constraints:
+    - golden tests are append-mostly; changing an expectation requires QA sign-off
+    - every approved skill must ship at least one golden suite
+    - failures block G5 release
+  tests: .skills/golden-tests/tests/golden.yaml

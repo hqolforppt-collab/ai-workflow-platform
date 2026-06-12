@@ -1,0 +1,22 @@
+# Golden tests: flowable/root-model-selection
+tests:
+  - id: GT-ROOT-001
+    name: sequential approval flow selects BPMN
+    given:
+      requirements: ordered steps, deterministic routing, human approvals
+    expect:
+      - verdict: BPMN
+      - rationale references determinism and ordering signals
+      - ADR drafted via architecture/adr-writing
+  - id: GT-ROOT-002
+    name: knowledge work with optional activities selects CMMN
+    given:
+      requirements: case worker chooses activities, milestones, no fixed order
+    expect:
+      - verdict: CMMN
+  - id: GT-ROOT-003
+    name: rule-dense logic selects DMN-first hybrid
+    given:
+      requirements: 30+ business rules, simple 3-step process
+    expect:
+      - verdict: hybrid (BPMN + DMN), rules externalized to decision tables

@@ -1,0 +1,18 @@
+# Adapter source: Claude Code. Generates CLAUDE.md from .ai/manifest.yaml.
+adapter:
+  id: claude
+  platform: Claude Code
+  output: CLAUDE.md
+  format: markdown
+  generation:
+    sections:
+      - bootstrap (constitution -> manifest -> /awp-init)
+      - non-negotiable-rules (gates, template-first, traceability, memory discipline)
+      - personas (from .agents/registry.yaml)
+      - commands (from .commands/registry.yaml)
+      - repository-map
+  platform-mappings:
+    persona-adoption: "Adopt agent role from .agents/<id>/charter.md based on user intent"
+    commands: "Slash commands map 1:1 to .commands/registry.yaml invocations"
+    memory: "Read .memory/ tiers directly; write only to .memory/session/ by default"
+  drift-detection: CI compares generated output hash against committed CLAUDE.md

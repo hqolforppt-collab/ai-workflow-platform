@@ -1,0 +1,40 @@
+# Memory Index — registry of all stored memories across the 7 tiers.
+# Authority: .ai/constitution.md (P5: no learning is lost; R7: failure memory before pattern memory)
+tiers:
+  strategic:
+    path: .memory/strategic/
+    purpose: OSS governance principles, mission-level decisions
+    write-access: [humans, governance-board]
+  domain:
+    path: .memory/domain/
+    purpose: Flowable / BPMN / CMMN / DMN domain knowledge and patterns
+    write-access: [humans; agents may propose]
+  pattern:
+    path: .memory/pattern/
+    purpose: reusable solution patterns
+    write-access: [humans; agents may propose]
+  decision:
+    path: .memory/decision/
+    purpose: ADRs and approved architecture decisions
+    write-access: [architect (approved decisions), humans]
+  project:
+    path: .memory/project/
+    purpose: per-project context, sealed artifacts, gate records
+    write-access: [agents during runs (projects/<id> only)]
+  session:
+    path: .memory/session/
+    purpose: scratch space for active agent sessions
+    write-access: [all agents] # only unrestricted write area (Constitution C4)
+  failure:
+    path: .memory/failure/
+    purpose: post-mortems, lessons learned, recurring defects
+    write-access: [qa, humans]
+
+consultation-order:
+  - failure # always first (Constitution R7)
+  - pattern
+  - domain
+  - decision
+  - strategic
+
+entries: [] # appended by .tools/memory-sync.sh as memories are stored

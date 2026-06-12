@@ -1,0 +1,23 @@
+skill:
+  id: data/migration-planning
+  version: 1.0.0
+  status: draft
+  description: Plan schema/process-instance migrations for brownfield changes, with mandatory rollback plans.
+  licensed-agents: [dev]
+  preconditions:
+    - brownfield workflow active (B04)
+    - delta-architecture-spec exists
+  inputs:
+    - as-is data-dictionary
+    - target data-dictionary
+    - in-flight process instance inventory
+  outputs:
+    - migration-plan (steps, ordering, instance handling)
+    - rollback-plan (mandatory)
+  templates:
+    - .templates/data/data-dictionary.yaml # delta section
+  constraints:
+    - in-flight Flowable process instances must have an explicit migration or drain strategy
+    - rollback plan is mandatory before G3 approval
+    - destructive steps require named human approval in the plan
+  tests: .skills/migration-planning/tests/golden.yaml

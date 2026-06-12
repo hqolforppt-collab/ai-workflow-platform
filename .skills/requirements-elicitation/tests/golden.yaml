@@ -1,0 +1,18 @@
+# Golden tests: requirements/elicitation
+tests:
+  - id: GT-ELIC-001
+    name: login feature brief produces structured requirements
+    given:
+      brief: "Users should be able to log in with email and password"
+    expect:
+      - business-requirement BR-xxx with measurable objective
+      - functional requirements covering happy path, invalid credentials, lockout
+      - non-functional requirements (auth latency, password storage) surfaced as questions
+      - every FR traces to BR
+  - id: GT-ELIC-002
+    name: ambiguous brief triggers clarifying questions, not invention
+    given:
+      brief: "Make onboarding better"
+    expect:
+      - NO requirements generated
+      - structured clarifying questions (scope, users, success metric)

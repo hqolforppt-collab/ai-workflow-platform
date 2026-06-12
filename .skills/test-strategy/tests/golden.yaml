@@ -1,0 +1,15 @@
+# Golden tests: testing/test-strategy
+tests:
+  - id: GT-TS-001
+    name: every AC maps to a planned test
+    given:
+      acceptance-criteria: [AC-001, AC-002, AC-003]
+    expect:
+      - strategy table mapping each AC to >=1 test case
+      - golden-test inventory listing generated-artifact suites
+  - id: GT-TS-002
+    name: unmapped AC fails strategy validation
+    given:
+      acceptance-criteria: [AC-004 with no planned test]
+    expect:
+      - validation FAILURE listing AC-004 as uncovered

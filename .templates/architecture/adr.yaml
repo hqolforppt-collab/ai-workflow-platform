@@ -1,0 +1,22 @@
+# Template: architecture decision record
+template:
+  id: architecture/adr
+  version: 1.0.0
+  status: approved
+schema:
+  adr:
+    id: string # ADR-<nnn>
+    title: string
+    status: enum [proposed, accepted, superseded, deprecated]
+    context: string
+    decision: string
+    consequences: [string]
+    alternatives-considered:
+      - option: string
+        rejected-because: string
+    trace:
+      functional-requirements: [string]
+      architecture-elements: [string]
+validation:
+  - accepted ADRs are written to .memory/decision/
+  - superseding an ADR requires a link to the new ADR

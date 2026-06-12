@@ -1,0 +1,20 @@
+skill:
+  id: architecture/adr-writing
+  version: 1.0.0
+  status: approved
+  description: Record architecture decisions with context, options, consequences, and trace links.
+  licensed-agents: [architect]
+  preconditions:
+    - a decision point exists (root model choice, integration pattern, data strategy, etc.)
+  inputs:
+    - architecture-spec (draft)
+    - decision context and considered options
+  outputs:
+    - adr (template-conformant, immutable once accepted)
+  templates:
+    - .templates/architecture/adr.yaml
+  constraints:
+    - minimum 2 considered options with explicit trade-offs
+    - accepted ADRs are immutable; changes require a superseding ADR
+    - every ADR links to the requirement(s) that forced the decision
+  tests: .skills/adr-writing/tests/golden.yaml

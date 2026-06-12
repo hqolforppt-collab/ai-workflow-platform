@@ -1,0 +1,77 @@
+# Agent Registry — single source of truth for all agents.
+# Lifecycle: proposed -> reviewed -> approved -> active -> deprecated -> retired
+# Authority: .ai/constitution.md (agents NEVER approve gates — R1; never generate code without approvals — R2)
+agents:
+  - id: analyst
+    name: Business Analyst Agent
+    version: 1.0.0
+    status: active
+    charter: .agents/analyst/charter.md
+    inputs: [discovery-report, user-brief]
+    outputs: [business-requirements, functional-requirements, user-stories, acceptance-criteria]
+    gates-prepared: [G1-requirements]
+    memory-access: { read: [strategic, domain, project, pattern, failure], write: [session] }
+
+  - id: po
+    name: Product Owner Agent
+    version: 1.0.0
+    status: active
+    charter: .agents/po/charter.md
+    inputs: [business-requirements, functional-requirements]
+    outputs: [prioritized-backlog, scope-decisions, gate-evidence]
+    gates-prepared: [G1-requirements]
+    memory-access: { read: [strategic, project, decision], write: [session] }
+
+  - id: architect
+    name: Architect Agent
+    version: 1.0.0
+    status: active
+    charter: .agents/architect/charter.md
+    inputs: [functional-requirements, nfr, domain-model]
+    outputs: [architecture-spec, adr, root-model-selection, data-dictionary]
+    gates-prepared: [G2-architecture, G3-data-model]
+    memory-access: { read: [strategic, domain, project, decision, pattern, failure], write: [session, decision] }
+
+  - id: dev
+    name: Developer / Flowable Agent
+    version: 1.0.0
+    status: active
+    charter: .agents/dev/charter.md
+    inputs: [approved-architecture, approved-data-model, task-specs]
+    outputs: [model-yaml-hierarchy, bpmn, cmmn, dmn, forms, code]
+    gates-prepared: [G3-data-model]
+    blocked-until: [G1-requirements, G2-architecture, G3-data-model, G4-security] # Constitution R2
+    memory-access: { read: [domain, project, pattern, failure], write: [session] }
+
+  - id: qa
+    name: QA / Security Agent
+    version: 1.0.0
+    status: active
+    charter: .agents/qa/charter.md
+    inputs: [specs, models, code, architecture-spec]
+    outputs: [test-strategy, test-suites, threat-model, security-review, scorecards]
+    gates-prepared: [G4-security, G5-release]
+    memory-access: { read: [domain, project, pattern, failure], write: [session, failure] }
+
+  - id: governance
+    name: Governance Agent
+    version: 1.0.0
+    status: active
+    charter: .agents/governance/charter.md
+    inputs: [all-artifacts]
+    outputs: [gate-evidence, audit-report, block-pass-verdicts]
+    gates-prepared: [G4-security, G5-release]
+    verdicts-binding: true
+    memory-access: { read: [strategic, domain, project, decision, pattern, failure], write: [session] }
+
+hard-boundaries:
+  - no agent approves a gate (Constitution R1)
+  - no agent writes outside its declared memory-access.write
+  - no agent invokes a skill not licensed in its skills.yaml
+  - dev agent cannot generate before required gate approvals (Constitution R2)
+  - governance agent verdicts are binding; only humans can override (recorded)
+
+collaboration:
+  protocol: artifact handoffs, never shared mutable state
+  rejection-loops: bounded at 3 cycles, then escalate to human
+  parallelism: agents with disjoint inputs may run concurrently

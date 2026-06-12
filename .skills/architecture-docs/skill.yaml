@@ -1,0 +1,21 @@
+skill:
+  id: docs/architecture-docs
+  version: 1.0.0
+  status: draft
+  description: Generate human-readable architecture documentation (C4-style narrative) from approved specs.
+  licensed-agents: [architect]
+  preconditions:
+    - G2-architecture approved
+  inputs:
+    - architecture-spec
+    - adrs
+    - bounded-context-map
+  outputs:
+    - architecture-doc (markdown, diagrams-as-text, linked ADR index)
+  templates:
+    - .templates/architecture/architecture-spec.yaml # narrative section
+  constraints:
+    - documentation derives from specs; never introduces undocumented decisions
+    - every diagram element traces to a spec element
+    - regenerated docs replace stale docs (no manual drift)
+  tests: .skills/architecture-docs/tests/golden.yaml

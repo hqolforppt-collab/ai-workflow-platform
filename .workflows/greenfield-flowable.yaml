@@ -1,0 +1,63 @@
+# Workflow: Greenfield Flowable Delivery
+# Authority: .ai/constitution.md. Source design: docs/ai-delivery-os/ + docs/architecture/
+workflow:
+  id: greenfield-flowable
+  version: 1.0.0
+  description: Full spec-driven delivery pipeline from idea to deployed Flowable models for a new initiative.
+
+stages:
+  - id: S01-discovery
+    agent: analyst
+    command: /discover
+    outputs: [discovery-brief, stakeholder-map, domain-glossary]
+    gate: null
+  - id: S02-specification
+    agent: analyst
+    command: /specify
+    outputs: [business-requirements, functional-requirements, user-stories, acceptance-criteria]
+    gate: G1-requirements   # HUMAN approval required before S03
+  - id: S03-architecture
+    agent: architect
+    command: /architect
+    outputs: [architecture-spec, adrs]
+    gate: null
+  - id: S04-root-model-selection
+    agent: architect
+    skill: flowable/root-model-selection
+    outputs: [root-model-decision]   # BPMN | CMMN | DMN | hybrid
+    gate: G2-architecture   # HUMAN approval required before S05
+  - id: S05-data-model
+    agent: architect
+    skill: data/schema-design
+    outputs: [data-dictionary, schema-spec]
+    gate: G3-data-model     # HUMAN approval required before S06
+  - id: S06-security-review
+    agent: qa
+    skill: security/threat-modeling
+    outputs: [threat-model, security-verdict]
+    gate: G4-security       # HUMAN approval required before S07
+  - id: S07-task-breakdown
+    agent: po
+    outputs: [task-specs]
+    gate: null
+  - id: S08-generation
+    agent: dev
+    command: /generate
+    skills: [flowable/bpmn-modeling, flowable/cmmn-modeling, flowable/dmn-modeling, flowable/form-modeling]
+    precondition: gates G1, G2, G3, G4 all approved (HARD BLOCK)
+    outputs: [flowable-models, golden-tests]
+    gate: null
+  - id: S09-verification
+    agent: qa
+    skills: [testing/golden-tests, governance/trace-audit]
+    outputs: [test-report, trace-audit-report]
+    gate: G5-release        # HUMAN approval required before S10
+  - id: S10-release
+    agent: governance
+    outputs: [release-record, sealed-artifacts]
+    gate: null
+
+rules:
+  - no stage may start before its predecessor's gate is approved
+  - gate approvals are recorded in .governance/gates/ with named human approvers
+  - every output carries a trace block to its upstream artifact
