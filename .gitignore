@@ -9,6 +9,9 @@ __v0_jsx-dev-runtime.ts
 # Environment variables
 .env*.local
 
+# AWP CLI configuration (contains env-var names, not values; still git-ignored per C5)
+.awp/
+
 # Common ignores
 node_modules
 .next/

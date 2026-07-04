@@ -1,0 +1,109 @@
+# Schema summary for small-model tier (~800 tokens)
+# Condensed from schema.yaml v2.0 — section names, required fields, types only.
+# Golden test: every `required: true` field in schema.yaml MUST appear here.
+id: workflow-blueprint-summary
+version: 2.0.0
+source: ".schemas/workflow-blueprint/schema.yaml"
+
+sections:
+  "1. project": |
+    name: string, id: string (BLU-*), blueprint-schema-version: semver
+    maturity-level: L1|L2|L3|L4|L5|L6, story: string, summary: string
+    scope: { in-scope: string[], out-of-scope: string[] }
+    stakeholders: string[], created: date
+
+  "2. domains": |
+    functional: [{id, name: string, source: user|discovery, rationale?: string}]
+    cross-cutting: [{id, name: string, discovery-rule: string, criticality: mandatory|recommended|optional}]  # min 12
+
+  "3. requirements": |
+    explicit & hidden: [{id: REQ-*, title, description: string, domain: ref, source: user|discovery/*, priority: must|should|could|wont, acceptance-criteria: string[] min 1 G/W/T, depends-on: ref[], risks: ref[]}]
+
+  "4. actors": |
+    [{id: ACT-*, name, type: human|system|service|scheduler, description: string, goals: string[], interactions: ref[]}]
+
+  "5. roles": |
+    [{id: ROLE-*, name, inherits?: ref, permissions: string[] (resource:action), assigned-actors: ref[], separation-of-duties: ref[]}]
+
+  "6. security": |
+    authentication: {methods, password-policy: {min-length,complexity,history,max-age-days}, mfa: {required,methods,enrollment}, session: {storage,ttl-minutes,idle-timeout-minutes,refresh-strategy,revocation}, account-lockout: {threshold,window-minutes,lockout-minutes,notification}, rate-limiting: {scope,limit,window,response}}
+    authorization: {model: rbac|abac|rebac|hybrid, enforcement-points: string[]}
+    data-protection: {encryption-at-rest, encryption-in-transit, secrets-management: string}
+    threat-controls: [{threat, mitigation, owner: string}]
+
+  "7. audit": |
+    events: [{id: AUD-*, event, trigger: string, captured-fields: string[], actor-recorded: bool}]
+    retention: string, immutability: string, access: ref[]
+
+  "8. logging": |
+    categories: [{name, level: debug|info|warn|error, sink, retention: string, pii-policy: string}]
+    correlation: string, structured: bool
+
+  "9. monitoring": |
+    metrics: [{name, type: counter|gauge|histogram, purpose: string, labels: string[]}]
+    alerts: [{name, condition: string, severity: critical|warning|info, channel: string, runbook: ref}]
+    slos: [{name, target, window, error-budget: string}], dashboards: string[]
+
+  "10. notifications": |
+    [{id: NOT-*, trigger, channel: email|sms|push|in-app|webhook, recipient: ref, template: string, locale-support: bool, retry-policy: string}]
+
+  "11. data-model": |
+    entities: [{id: ENT-*, name, description: string, attributes: [{name, type, required, pii, unique, default, validation}], relationships: [{target: ref, cardinality: 1-1|1-n|n-n, on-delete}], retention, classification: public|internal|confidential|restricted}]
+
+  "12. master-data": |
+    [{name, values: list, owner: string, change-process: string}]
+
+  "13. workflows": |
+    [{id: WF-*, name, trigger: string, actors: ref[], requirements: ref[], steps: [{id, name, type: user-action|system-action|decision|notification|integration|timer, actor?: ref, inputs: string[], outputs: string[], on-success: ref, on-failure: string (never undefined), audit-event?: ref}], exceptions: [{id, condition, handling, notification: ref}], sla: string}]
+
+  "14. forms": |
+    [{id: FRM-*, name, used-in: ref[], fields: [{name, label, type: text|email|password|number|date|select|checkbox|file|hidden, required: bool, validation: string, error-message: string, accessibility?: string}], submit-behavior: string, security: string[]}]
+
+  "15. pages": |
+    [{id: PG-*, name, route: string, access: ref[], states: string[], components: string[], navigation: {entry-points, exit-points}}]
+
+  "16. api": |
+    [{id: API-*, method: GET|POST|PUT|PATCH|DELETE, path, description: string, auth-required: bool, roles: ref[], request: {content-type, schema, validation}, responses: [{status, condition, schema}] min 2 incl non-2xx, rate-limit: string, idempotency: string, errors: string[]}]
+
+  "17. events": |
+    [{id: EVT-*, name: domain.entity.action, producer: string, consumers: string[], payload: object, delivery: at-least-once|at-most-once|exactly-once, pii-in-payload: bool}]
+
+  "18. integrations": |
+    [{id: INT-*, system, purpose, protocol: string, direction: inbound|outbound|bidirectional, auth: string, failure-mode: string, data-shared: string[]}]
+
+  "19. testing": |
+    strategy: string, coverage-targets: {unit, integration, e2e}
+    golden-scenarios: [{id, name, given, when, then, requirement: ref}] min 3
+    security-tests: string[], performance-tests: string[]
+
+  "20. deployment": |
+    environments: string[], pipeline: string[], rollout: blue-green|canary|rolling|recreate
+    rollback: string, feature-flags?: string[], configuration: string[]
+
+  "21. operations": |
+    runbooks: [{id, scenario, steps, owner}], capacity: {expected-load, peak-load, scaling-strategy}
+    maintenance: string[], on-call: string
+
+  "22. support": |
+    tiers: string[], escalation: string, common-issues: [{issue, resolution, kb-ref}], user-impact-comms: string
+
+  "23. documentation": |
+    [{type: user-guide|admin-guide|api-reference|runbook|architecture|onboarding, audience, owner, location: string, update-trigger: string}]
+
+  "24. knowledge": |
+    glossary: [{term, definition}], domain-concepts: string[], references: string[]
+
+  "25. risks": |
+    [{id: RSK-*, description: string, category: security|technical|operational|compliance|business, likelihood: low|medium|high, impact: low|medium|high|critical, mitigation: string, owner: string}]
+
+  "26. assumptions": |
+    [{id: ASM-*, statement: string, impact-if-wrong: string, validation-needed: string}]
+
+  "27. governance": |
+    approvals: [{gate: ref, approver-role: string, status: pending|approved|rejected}]
+    lifecycle: draft|in-review|approved|deprecated, version: semver, change-policy: string, traceability: string
+
+  "28. compliance": |
+    regulations: [{name: GDPR|SOC2|HIPAA|PCI-DSS, applicable: bool, rationale: string, obligations?: string[]}]
+    privacy: {pii-inventory: ref[], consent: string, data-subject-rights: string[]}
+    backup: {strategy, rpo, rto}, disaster-recovery: {plan, test-frequency}

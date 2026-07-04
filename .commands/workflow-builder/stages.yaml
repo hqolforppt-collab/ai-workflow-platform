@@ -1,0 +1,53 @@
+# /workflow-builder — 6-stage generation pipeline
+# Maps each stage to the schema sections it authors and defines
+# the dependency chain. Stages run strictly sequentially.
+id: workflow-builder-stages
+version: 1.0.0
+output_layout: directory
+aggregate_file: blueprint.yaml
+
+stages:
+  - id: stage-01
+    name: Initialized
+    file: 01-initialized.yaml
+    pipeline_steps: [parse-story]
+    schema_sections: [project, domains]
+    depends_on: []
+
+  - id: stage-02
+    name: In Progress
+    file: 02-in-progress.yaml
+    pipeline_steps: [classify-domains, expand-hidden, resolve-constraints]
+    schema_sections: [requirements, risks, assumptions]
+    kb_slice: [trigger-map, implication-map]
+    depends_on: [stage-01]
+
+  - id: stage-03
+    name: Generating App
+    file: 03-generating-app.yaml
+    pipeline_steps: [populate-schema]
+    schema_sections: [actors, roles, data-model, master-data, knowledge]
+    depends_on: [stage-02]
+
+  - id: stage-04
+    name: Root Models
+    file: 04-root-models.yaml
+    pipeline_steps: [populate-schema]
+    schema_sections: [workflows, security, api, events, integrations]
+    workflows_scope: root
+    depends_on: [stage-03]
+
+  - id: stage-05
+    name: Dependent Models
+    file: 05-dependent-models.yaml
+    pipeline_steps: [populate-schema]
+    schema_sections: [workflows, notifications, monitoring, logging, audit]
+    workflows_scope: dependent
+    depends_on: [stage-04]
+
+  - id: stage-06
+    name: Forms
+    file: 06-forms.yaml
+    pipeline_steps: [populate-schema, emit-and-validate]
+    schema_sections: [forms, pages, testing, deployment, operations, support, documentation, governance, compliance]
+    depends_on: [stage-04, stage-05]

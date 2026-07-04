@@ -1,0 +1,52 @@
+# /workflow-builder — Model tiers for prompt shaping
+# Every model.id is matched against the globs in match[] to determine
+# its tier. Resolution order: --model-tier flag → .awp/config.yaml
+# tier_override → glob match → default_tier.
+id: workflow-builder-tiers
+version: 1.0.0
+default_tier: medium
+
+tiers:
+  - id: small
+    max_context_tokens: 8000
+    match:
+      - "gpt-3.5*"
+      - "gpt-4o-mini*"
+      - "llama*8b*"
+      - "claude-haiku*"
+      - "claude-3-5-haiku*"
+      - "mistral*7b*"
+      - "qwen*7b*"
+      - "gemini-1.5-flash*"
+    schema: .schemas/workflow-blueprint/schema-summary.yaml
+    strategy: per-stage-sliced
+    max_maturity: L3
+  - id: medium
+    max_context_tokens: 32000
+    match:
+      - "gpt-4o"
+      - "gpt-4.1*"
+      - "claude-sonnet*"
+      - "claude-3-5-sonnet*"
+      - "deepseek-v3*"
+      - "deepseek-r1*"
+      - "llama*70b*"
+      - "qwen*32b*"
+      - "qwen*72b*"
+      - "gemini-1.5-pro*"
+      - "gemini-2.0-flash*"
+    schema: .schemas/workflow-blueprint/schema.yaml
+    strategy: per-stage-sliced
+    max_maturity: L6
+  - id: large
+    max_context_tokens: 100000
+    match:
+      - "gpt-4.5*"
+      - "claude-opus*"
+      - "claude-fable*"
+      - "deepseek-v4*"
+      - "gemini-2.0-pro*"
+      - "gemini-2.5*"
+    schema: .schemas/workflow-blueprint/schema.yaml
+    strategy: staged-or-monolithic
+    max_maturity: L6
