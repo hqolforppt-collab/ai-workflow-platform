@@ -1,0 +1,111 @@
+# 05-dependent-models.yaml — Stage 5/6 (Dependent Models)
+# Sections: workflows (dependent scope), decision-tables, notifications, monitoring, logging, audit
+_meta:
+  blueprint_id: BLU-LOGIN-REG-001
+  stage: stage-05
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-04]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml, 03-generating-app.yaml, 04-root-models.yaml]
+
+workflows:
+  dependent:
+    - id: WF-002
+      name: Login and Session Issuance
+      trigger: "User submits the login form (FRM-002)"
+      actors: [ACT-001, ACT-002, ACT-003, ACT-005]
+      requirements: [REQ-002, REQ-011, REQ-012, REQ-015, REQ-018, REQ-017]
+      steps:
+        - { id: S1, name: Rate-limit check,        type: system-action, actor: ACT-003, inputs: [ip, email], outputs: [allowed], on-success: S2, on-failure: "EX-101 (429 Retry-After)" }
+        - { id: S2, name: Lockout check,           type: decision,      actor: ACT-003, inputs: [email], outputs: [lock-state], on-success: S3, on-failure: "EX-102 (generic 401; lock not disclosed)" }
+        - { id: S3, name: Verify credentials,      type: system-action, actor: ACT-003, inputs: [email, password], outputs: [user-id], on-success: S4, on-failure: "EX-103 (401 + failed-attempt counter + AUD-004)", audit-event: AUD-003 }
+        - { id: S4, name: Anomaly scoring,         type: system-action, actor: ACT-003, inputs: [ip, device-fingerprint, geo], outputs: [risk-score], on-success: S5, on-failure: "S5 (scoring failure never blocks login; logged at warn)" }
+        - { id: S5, name: Issue session,           type: system-action, actor: ACT-003, inputs: [user-id, risk-score], outputs: [access-jwt, refresh-cookie], on-success: S6, on-failure: "EX-104 (500; no partial session persisted)" }
+        - { id: S6, name: Notify if anomalous,     type: notification,  actor: ACT-003, inputs: [risk-score], outputs: [notice-sent], on-success: END, on-failure: "END (notification failure logged, never blocks login)" }
+      exceptions:
+        - { id: EX-101, condition: "rate limit exceeded",     handling: "429 + Retry-After; metric auth_rate_limited_total", notification: null }
+        - { id: EX-102, condition: "account locked",          handling: "generic 401; remaining lock time NOT disclosed; AUD-004", notification: null }
+        - { id: EX-103, condition: "invalid credentials",     handling: "constant-time generic 401; increment lockout window counter; lock + NOT-003 at threshold (AUD-007)", notification: NOT-003 }
+        - { id: EX-104, condition: "session store failure",   handling: "500 with request-id; on-call paged via ALT-001 if sustained", notification: null }
+      sla: "login submit -> session issued: 2 seconds (p95)"
+    - id: WF-003
+      name: Password Reset
+      trigger: "User requests reset from /login (forgot-password)"
+      actors: [ACT-001, ACT-002, ACT-003, ACT-004]
+      requirements: [REQ-019, REQ-010, REQ-018]
+      steps:
+        - { id: S1, name: Accept reset request,  type: system-action, actor: ACT-003, inputs: [email], outputs: [queued], on-success: S2, on-failure: "EX-201 (uniform response regardless of account existence)" }
+        - { id: S2, name: Send reset email,      type: notification,  actor: ACT-004, inputs: [reset-token], outputs: [delivery-receipt], on-success: S3, on-failure: "EX-202 (retry queue; uniform UX)" }
+        - { id: S3, name: Set new password,      type: user-action,   actor: ACT-001, inputs: [token, new-password], outputs: [password-updated], on-success: S4, on-failure: "EX-203 (expired/used token -> restart flow)", audit-event: AUD-005 }
+        - { id: S4, name: Revoke all sessions,   type: system-action, actor: ACT-003, inputs: [user-id], outputs: [sessions-revoked], on-success: END, on-failure: "EX-204 (revocation MUST succeed; retry then page on-call)" }
+      exceptions:
+        - { id: EX-201, condition: "email not registered",  handling: "uniform 'check your email' response; nothing sent; attempt logged", notification: null }
+        - { id: EX-202, condition: "email provider down",   handling: "queued retry per NOT-002 policy", notification: null }
+        - { id: EX-203, condition: "token expired or used", handling: "400 with restart link; single-use enforced via used_at", notification: null }
+        - { id: EX-204, condition: "session revocation failure", handling: "blocking retry x3 then page on-call; password change is rolled back if revocation impossible", notification: null }
+      sla: "reset request -> email sent: 60 seconds (p95)"
+
+# DMN decision service invoked by WF-002 step S4 (Anomaly scoring). Converted to
+# <key>.dmn by `awp flowable convert`.
+decision-tables:
+  - id: DEC-001
+    name: Login Risk Decision
+    hit-policy: FIRST
+    trace: { requirement: REQ-015, invoked-by: WF-002.S4 }
+    inputs:
+      - { id: input1, label: "New device", expression: is_new_device, type: boolean }
+      - { id: input2, label: "Impossible travel", expression: impossible_travel, type: boolean }
+      - { id: input3, label: "IP reputation", expression: ip_reputation, type: string }
+    outputs:
+      - { id: output1, label: "Action", name: action, type: string }
+    rules:
+      - { when: "is_new_device = true", then: "notify-and-flag" }
+      - { when: "impossible_travel = true", then: "step-up-challenge" }
+      - { when: "ip_reputation = 'tor'", then: "block-and-alert" }
+      - { when: "otherwise", then: "allow" }
+
+notifications:
+  - { id: NOT-001, trigger: "registration created (AUD-001)",      channel: email, recipient: ACT-001, template: verify-email-v1,      locale-support: true, retry-policy: "3 attempts, exponential backoff, DLQ after 1h" }
+  - { id: NOT-002, trigger: "password reset requested",            channel: email, recipient: ACT-002, template: reset-password-v1,    locale-support: true, retry-policy: "3 attempts, exponential backoff, DLQ after 1h" }
+  - { id: NOT-003, trigger: "account locked (AUD-007)",            channel: email, recipient: ACT-002, template: account-locked-v1,    locale-support: true, retry-policy: "3 attempts, exponential backoff" }
+  - { id: NOT-004, trigger: "anomalous login detected (REQ-015)",  channel: email, recipient: ACT-002, template: new-device-login-v1,  locale-support: true, retry-policy: "3 attempts, exponential backoff" }
+  - { id: NOT-005, trigger: "registration with existing email",    channel: email, recipient: ACT-002, template: was-this-you-v1,      locale-support: true, retry-policy: "1 attempt, best effort" }
+
+monitoring:
+  metrics:
+    - { name: auth_login_attempts_total,   type: counter,   purpose: "login volume by outcome",            labels: [outcome, method] }
+    - { name: auth_registrations_total,    type: counter,   purpose: "funnel top — registrations by state", labels: [state] }
+    - { name: auth_rate_limited_total,     type: counter,   purpose: "abuse pressure on auth endpoints",    labels: [endpoint] }
+    - { name: auth_login_duration_seconds, type: histogram, purpose: "login latency distribution",          labels: [outcome] }
+    - { name: auth_active_sessions,        type: gauge,     purpose: "live session count",                  labels: [] }
+  alerts:
+    - { name: ALT-001, condition: "login success-rate < 95% over 5m", severity: critical, channel: oncall-pager, runbook: RB-001 }
+    - { name: ALT-002, condition: "email verification deliveries failing > 5% over 15m", severity: warning, channel: team-chat, runbook: RB-002 }
+    - { name: ALT-003, condition: "auth_rate_limited_total spike > 10x baseline over 10m", severity: warning, channel: security-chat, runbook: RB-001 }
+  slos:
+    - { name: login-availability, target: "99.9%", window: 30d, error-budget: "43m/month" }
+    - { name: login-latency-p95,  target: "< 2s",  window: 30d, error-budget: "5% of requests" }
+  dashboards: [auth-overview, auth-security-signals, registration-funnel]
+
+logging:
+  categories:
+    - { name: application, level: info,  sink: "stdout -> log pipeline", retention: 30d,  pii-policy: "emails masked to f***@domain; no tokens/passwords ever" }
+    - { name: security,    level: info,  sink: "SIEM stream",            retention: 365d, pii-policy: "IP retained (legitimate interest, privacy notice §4); emails hashed" }
+    - { name: access,      level: info,  sink: "gateway access logs",    retention: 90d,  pii-policy: "IP truncated to /24 after 7 days" }
+    - { name: performance, level: warn,  sink: "APM",                    retention: 14d,  pii-policy: "no user identifiers" }
+  correlation: "W3C traceparent propagated from edge through auth-service to email provider; request-id echoed in error responses"
+  structured: true
+
+audit:
+  events:
+    - { id: AUD-001, event: user.registered,          trigger: "successful registration submit",   captured-fields: [user-id, email-hash, ip, user-agent, consent-version, timestamp], actor-recorded: true }
+    - { id: AUD-002, event: user.email-verified,      trigger: "verification link consumed",       captured-fields: [user-id, token-id, ip, timestamp], actor-recorded: true }
+    - { id: AUD-003, event: user.login-succeeded,     trigger: "credentials accepted",              captured-fields: [user-id, ip, user-agent, device-fingerprint, geo, timestamp], actor-recorded: true }
+    - { id: AUD-004, event: user.login-failed,        trigger: "credentials rejected or locked",    captured-fields: [email-hash, failure-reason, attempt-count, ip, timestamp], actor-recorded: false }
+    - { id: AUD-005, event: user.password-reset,      trigger: "password changed via reset flow",   captured-fields: [user-id, token-id, ip, sessions-revoked-count, timestamp], actor-recorded: true }
+    - { id: AUD-006, event: session.replay-detected,  trigger: "refresh token reuse",               captured-fields: [user-id, session-family-id, ip, timestamp], actor-recorded: true }
+    - { id: AUD-007, event: account.locked,           trigger: "lockout threshold reached",         captured-fields: [user-id, window-attempts, lock-duration, timestamp], actor-recorded: false }
+  retention: "7 years (SOC2 + statutory limitation periods)"
+  immutability: "append-only table with hash chaining; no UPDATE/DELETE grants; WORM export monthly"
+  access: [ROLE-AUTH-ADMIN]

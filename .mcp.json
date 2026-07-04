@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "flowable": {
+      "command": "node",
+      "args": ["packages/flowable-mcp-server/src/index.js"],
+      "env": {
+        "FLOWABLE_URL": "${FLOWABLE_URL}",
+        "FLOWABLE_USER": "${FLOWABLE_USER}",
+        "FLOWABLE_PASS": "${FLOWABLE_PASS}"
+      }
+    }
+  }
+}

@@ -23,7 +23,7 @@ outputs:
   blueprint: complete YAML file conforming to .schemas/workflow-blueprint/schema.yaml
   coverage-report: domains activated, hidden requirements added, assumptions needing review
 exit-conditions:
-  success: blueprint passes all 16 rules in .schemas/workflow-blueprint/validation-rules.yaml
+  success: blueprint passes all 17 rules in .schemas/workflow-blueprint/validation-rules.yaml
   failure: validation errors listed; partial blueprint saved with status DRAFT-INVALID
 dependencies:
   schema: .schemas/workflow-blueprint/schema.yaml
@@ -38,7 +38,7 @@ example: |
   $ /workflow-builder Create Login and Registration Feature
   Discovering domains... 27 activated (2 explicit, 25 hidden)
   Generating blueprint... 28 sections populated
-  Validating... 16/16 rules passed
+  Validating... 17/17 rules passed
   Written: blueprints/login-and-registration.yaml (1,240 lines)
   Review needed: 6 assumptions in section 'assumptions'
 lifecycle: stable

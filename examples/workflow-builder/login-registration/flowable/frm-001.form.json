@@ -1,0 +1,27 @@
+{
+  "key": "FRM-001",
+  "name": "Registration Form",
+  "fields": [
+    {
+      "id": "email",
+      "name": "Email address",
+      "type": "email",
+      "required": true,
+      "placeholder": "Email address"
+    },
+    {
+      "id": "password",
+      "name": "Password",
+      "type": "password",
+      "required": true,
+      "placeholder": "Password"
+    },
+    {
+      "id": "consent",
+      "name": "I agree to the privacy notice",
+      "type": "checkbox",
+      "required": true,
+      "placeholder": "I agree to the privacy notice"
+    }
+  ]
+}

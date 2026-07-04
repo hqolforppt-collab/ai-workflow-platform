@@ -1,0 +1,20 @@
+{
+  "key": "FRM-002",
+  "name": "Login Form",
+  "fields": [
+    {
+      "id": "email",
+      "name": "Email address",
+      "type": "email",
+      "required": true,
+      "placeholder": "Email address"
+    },
+    {
+      "id": "password",
+      "name": "Password",
+      "type": "password",
+      "required": true,
+      "placeholder": "Password"
+    }
+  ]
+}

@@ -37,7 +37,7 @@ Canonical set in `.commands/registry.yaml`: `/workflow-builder`, `/awp-init`, `/
 
 ## Flagship: /workflow-builder
 
-`/workflow-builder <user story>` (slash command in `.claude/commands/workflow-builder.md`) turns one line into a complete enterprise-grade workflow blueprint YAML — 28 sections covering security, audit, logging, monitoring, compliance, testing, deployment, operations, and 20+ other domains the user did not mention. Canonical prompt: `.commands/workflow-builder/prompt.md` (6-step pipeline, maturity levels L1-L6, default L6). Output conforms to `.schemas/workflow-blueprint/schema.yaml` and must pass all 16 validation rules. Golden example: `examples/workflow-builder/login-registration/`.
+`/workflow-builder <user story>` (slash command in `.claude/commands/workflow-builder.md`) turns one line into a complete enterprise-grade workflow blueprint YAML — 28 sections covering security, audit, logging, monitoring, compliance, testing, deployment, operations, and 20+ other domains the user did not mention. Canonical prompt: `.commands/workflow-builder/prompt.md` (6-step pipeline, maturity levels L1-L6, default L6). Output conforms to `.schemas/workflow-blueprint/schema.yaml` and must pass all 17 validation rules (run `awp validate <blueprint-dir>`). Golden example: `examples/workflow-builder/login-registration/`.
 
 ## Repository map
 

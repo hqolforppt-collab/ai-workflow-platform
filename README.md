@@ -9,9 +9,9 @@
 ```
 Domains activated:     27 (2 explicit, 25 hidden)
 Hidden requirements:   10 added across 10 domains
-Validation:            16/16 rules passed
+Validation:            17/17 rules passed
 Assumptions to review: 6
-Written:               blueprints/login-and-registration.yaml (640 lines)
+Written:               blueprints/login-and-registration/ (6 staged files)
 ```
 
 You asked for login. You got password policy, account lockout, rate limiting, fraud
@@ -59,10 +59,34 @@ any implementation must pass.
 2. **Discover** what you forgot — a [25+ domain knowledge base](.memory/domain-knowledge/index.yaml) with trigger keywords and an implication map, closed to a fixpoint by the [hidden-requirement-discovery skill](.skills/hidden-requirement-discovery/skill.yaml).
 3. **Resolve** constraints with precedence: your story > compliance > security > defaults.
 4. **Populate** the [28-section blueprint schema](.schemas/workflow-blueprint/schema.yaml) — failures defined, IDs everywhere, no placeholders.
-5. **Validate** against [16 machine-checkable rules](.schemas/workflow-blueprint/validation-rules.yaml) — broken output is never emitted silently.
+5. **Validate** against [17 machine-checkable rules](.schemas/workflow-blueprint/validation-rules.yaml) — broken output is never emitted silently.
 
 Pick your depth with [maturity levels](.commands/workflow-builder/maturity-levels.yaml)
 `L1` (sketch) to `L6` (enterprise, default): `/workflow-builder --level=L3 <story>`.
+
+## CLI (`awp`) — execute, validate, deploy
+
+The command works inline in any AI tool, but the `awp` CLI runs the same pipeline
+end-to-end and adds deterministic validation and Flowable deployment:
+
+```bash
+awp build "Create Login and Registration" --execute --staged   # 6 staged YAML files, [STAGE n/6] progress
+awp build --aggregate blueprints/<slug>/                        # merge staged files → one blueprint.yaml
+awp validate blueprints/<slug>/                                 # deterministic 17-rule engine (exit != 0 on failure)
+awp flowable convert blueprints/<slug>/                         # → BPMN 2.0 / CMMN / DMN / Form JSON
+awp flowable deploy  blueprints/<slug>/                         # gate-checked (G1–G4) deploy to a Flowable engine
+```
+
+- **Model tiers** ([`tiers.yaml`](.commands/workflow-builder/tiers.yaml)) route cheap models
+  (Haiku/GPT-3.5 for L1–L3) vs. capable models (Sonnet/Opus for L4–L6); config lives in a
+  git-ignored `.awp/config.yaml` (see [`.awp.config.example.yaml`](.awp.config.example.yaml)) that
+  holds env-var **names**, never secrets.
+- **Governance is fail-closed**: `awp flowable deploy` and the mutating
+  [Flowable MCP tools](packages/flowable-mcp-server/README.md) refuse unless G1–G4 are
+  approved for the blueprint (Constitution R2), via the shared
+  [`@awp/governance`](packages/awp-governance/) module.
+- **`.mcp.json`** registers the Flowable MCP server so Claude Code and other MCP clients
+  can validate and deploy blueprints as tools.
 
 ## Guarantees
 

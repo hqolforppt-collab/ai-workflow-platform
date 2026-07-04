@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://flowable.org/process">
+  <process id="WF-003" name="Password Reset" isExecutable="true">
+    <startEvent id="start" name="Start"/>
+    <serviceTask id="S1" name="Accept reset request"/>
+    <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
+    <sendTask id="S2" name="Send reset email"/>
+    <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
+    <userTask id="S3" name="Set new password" flowable:assignee="ACT-001"/>
+    <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
+    <serviceTask id="S4" name="Revoke all sessions"/>
+    <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
+    <endEvent id="end" name="End"/>
+    <sequenceFlow id="flow_S4_end" sourceRef="S4" targetRef="end"/>
+  </process>
+</definitions>

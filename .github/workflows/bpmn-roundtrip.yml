@@ -50,12 +50,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Deploy models to Flowable
         run: node scripts/flowable-deploy-test.mjs
+        env:
+          FLOWABLE_URL: http://localhost:8080/flowable-rest
+          FLOWABLE_USER: rest-admin
+          FLOWABLE_PASS: test
+
+      - name: Convert golden example to Flowable artifacts
+        run: node packages/awp-cli/bin/awp.js flowable convert examples/workflow-builder/login-registration --out=/tmp/awp-flowable
+
+      - name: Validate converted artifacts against the live engine (no mutation)
+        run: node packages/awp-cli/bin/awp.js flowable validate examples/workflow-builder/login-registration
         env:
           FLOWABLE_URL: http://localhost:8080/flowable-rest
           FLOWABLE_USER: rest-admin

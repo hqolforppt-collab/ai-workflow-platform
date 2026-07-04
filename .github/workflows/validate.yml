@@ -28,3 +28,17 @@ jobs:
 
       - name: Blueprint integrity (awp build --check)
         run: node packages/awp-cli/bin/awp.js build --check
+
+      - name: Unit tests (governance, CLI, MCP client)
+        run: pnpm -r test
+
+      - name: Golden blueprint deterministic validation (17/17)
+        run: node packages/awp-cli/bin/awp.js validate examples/workflow-builder/login-registration --story="Create Login and Registration Feature" --level=L6
+
+      - name: Staged aggregation round-trips
+        run: |
+          node packages/awp-cli/bin/awp.js build --aggregate --out=examples/workflow-builder/login-registration
+          git diff --exit-code examples/workflow-builder/login-registration/blueprint.yaml
+
+      - name: Flowable conversion emits artifacts
+        run: node packages/awp-cli/bin/awp.js flowable convert examples/workflow-builder/login-registration --out=/tmp/awp-flowable-out

@@ -10,11 +10,28 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { z } from "zod"
 import { tryReadYaml } from "./lib/repo.js"
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
+
+// Resolved config shape. A malformed .awp/config.yaml produces a clear warning
+// rather than a downstream crash (the defaults still apply).
+const ConfigSchema = z.object({
+  provider: z.enum(["anthropic", "openai", "ollama", "mock"]),
+  modelId: z.string().min(1),
+  apiKeyEnv: z.string().min(1),
+  baseUrl: z.string().nullable(),
+  tierOverride: z.string().nullable(),
+  maturityLevel: z.string().regex(/^L[1-6]$/),
+  staged: z.boolean(),
+  outputDir: z.string().min(1),
+  flowableUrlEnv: z.string(),
+  flowableUserEnv: z.string(),
+  flowablePassEnv: z.string(),
+})
 
 export function loadModelConfig(root) {
   const cfgPath = join(root, ".awp", "config.yaml")
@@ -23,7 +40,7 @@ export function loadModelConfig(root) {
   const flowable = cfg.flowable || {}
   const defaults = cfg.defaults || {}
 
-  return {
+  const resolved = {
     provider: model.provider || "anthropic",
     modelId: model.id || "claude-sonnet-5",
     apiKeyEnv: model.api_key_env || "ANTHROPIC_API_KEY",
@@ -36,6 +53,14 @@ export function loadModelConfig(root) {
     flowableUserEnv: flowable.user_env || "FLOWABLE_USER",
     flowablePassEnv: flowable.pass_env || "FLOWABLE_PASS",
   }
+
+  const parsed = ConfigSchema.safeParse(resolved)
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
+    console.warn(`[WARN] .awp/config.yaml has invalid values (${issues}); using them as-is.`)
+  }
+
+  return resolved
 }
 
 // ---------------------------------------------------------------------------
@@ -76,14 +101,33 @@ function matchGlob(text, pattern) {
  * @returns {AsyncIterable<{stage:number, name:string, status:string, summary:string, content:string|null, error:string|null}>}
  */
 export async function* streamModelCall(opts) {
-  const { systemPrompt, userPrompt, config, tier } = opts
+  const { systemPrompt, userPrompt, config, tier, stageFile } = opts
+  const provider = config.provider
+
+  // Mock provider — deterministic, no API key. Returns canned per-stage YAML
+  // from AWP_MOCK_DIR/<stageFile> when present, else a minimal valid stub.
+  // This is what lets CI run `build --execute --staged --resume-from` E2E
+  // with no secrets.
+  if (provider === "mock") {
+    let content = `# mock output${stageFile ? ` for ${stageFile}` : ""}\n`
+    const mockDir = process.env.AWP_MOCK_DIR
+    if (mockDir && stageFile) {
+      try {
+        content = readFileSync(join(mockDir, stageFile), "utf8")
+      } catch {
+        /* fall back to stub */
+      }
+    }
+    yield { stage: 0, name: "mock", status: "done", summary: "mock responded", content, error: null }
+    return
+  }
+
   const apiKey = process.env[config.apiKeyEnv]
   if (!apiKey) {
     yield { stage: 0, name: "setup", status: "error", summary: "", content: null, error: `env var ${config.apiKeyEnv} not set` }
     return
   }
 
-  const provider = config.provider
   let url, headers, body
 
   if (provider === "anthropic") {
@@ -127,13 +171,7 @@ export async function* streamModelCall(opts) {
   }
 
   try {
-    const res = await fetch(url, { method: "POST", headers, body })
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "")
-      yield { stage: 0, name: "setup", status: "error", summary: "", content: null, error: `HTTP ${res.status}: ${errText.slice(0, 500)}` }
-      return
-    }
-    const data = await res.json()
+    const data = await fetchWithRetry(url, { method: "POST", headers, body })
 
     let content
     if (provider === "anthropic") {
@@ -148,4 +186,33 @@ export async function* streamModelCall(opts) {
   } catch (err) {
     yield { stage: 0, name: "setup", status: "error", summary: "", content: null, error: err.message }
   }
+}
+
+/**
+ * POST with bounded exponential backoff. Retries transient failures only
+ * (429 + 5xx + network errors); 4xx (other than 429) fail fast. Resolves the
+ * parsed JSON body or throws a descriptive Error after the final attempt.
+ */
+async function fetchWithRetry(url, init, { attempts = 3, baseDelayMs = 500 } = {}) {
+  let lastErr
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await fetch(url, init)
+      if (res.ok) return await res.json()
+
+      const errText = await res.text().catch(() => "")
+      const retriable = res.status === 429 || res.status >= 500
+      lastErr = new Error(`HTTP ${res.status}: ${errText.slice(0, 500)}`)
+      if (!retriable || attempt === attempts) throw lastErr
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err))
+      if (attempt === attempts) throw lastErr
+    }
+    await sleep(baseDelayMs * 2 ** (attempt - 1))
+  }
+  throw lastErr
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

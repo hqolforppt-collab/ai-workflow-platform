@@ -11,6 +11,7 @@ const HELP = `awp ${VERSION} — AI Workflow Platform CLI
 Usage:
   awp discover [--model=<type>] [--skills-only] [--depth=quick|full] [--output=text|json|yaml]
   awp validate [--only=spec,gates,adapters,memory,trace,secrets]
+  awp validate <blueprint-dir|blueprint.yaml> [--story=<text>] [--level=L1..L6]
   awp build <story> [--level=L1..L6] [--out=<path>] [--execute] [--staged]
                     [--model-tier=small|medium|large] [--resume-from=stage-0N]
                     [--no-validate] [--check] [--aggregate]

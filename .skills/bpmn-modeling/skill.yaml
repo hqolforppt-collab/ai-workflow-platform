@@ -22,4 +22,8 @@ skill:
     - use only official Flowable field names
     - every element carries a trace block to its task spec
     - no free-form generation; template-first
+  mcp:
+    server: flowable
+    verify-with: validate_bpmn   # dry-run deploy the generated BPMN to catch parse errors
+    when: after-generation
   tests: .skills/bpmn-modeling/tests/golden.yaml

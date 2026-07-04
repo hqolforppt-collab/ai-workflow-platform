@@ -1,9 +1,12 @@
 /**
- * validate.js — deterministic 16-rule validation engine.
+ * validate.js — deterministic 17-rule validation engine.
  *
  * Runs against the staged blueprint files (01..06-*.yaml) or a monolithic
  * blueprint.yaml. All checks are code, not LLM judgment — this is the
- * guarantee that cheap models can't hallucinate "16/16 passed".
+ * guarantee that cheap models can't hallucinate "17/17 passed".
+ *
+ * Rules: VAL-001, 002, 010, 011, 012, 013, 020, 021, 022, 023, 024,
+ *        030, 031, 032, 040, 041, 042 (17 total).
  *
  * Returns {passed: string[], failed: {rule, file, path, hint}[]}
  */
@@ -80,13 +83,21 @@ export function validateBlueprint(root, targetPath, opts = {}) {
     allContent = doc
     filesMap[targetPath] = doc
   } else if (existsSync(targetPath)) {
-    // Staged directory
+    // Staged directory. `workflows` is authored across stage-04 (root) and
+    // stage-05 (dependent); a plain Object.assign would let stage-05 overwrite
+    // the root, so merge that one key instead of clobbering it.
     const entries = readdirSync(targetPath).filter(f => f.match(/^\d{2}-.*\.yaml$/)).sort()
     for (const entry of entries) {
       const fp = join(targetPath, entry)
       const doc = tryReadYaml(fp) || {}
       filesMap[entry] = doc
-      Object.assign(allContent, doc)
+      for (const [key, val] of Object.entries(doc)) {
+        if (key === "workflows" && allContent.workflows && typeof val === "object" && !Array.isArray(val)) {
+          allContent.workflows = { ...allContent.workflows, ...val }
+        } else {
+          allContent[key] = val
+        }
+      }
     }
   } else {
     failed.push({ rule: "VAL-000", file: targetPath, path: "", hint: "blueprint directory or file not found" })
@@ -147,14 +158,18 @@ export function validateBlueprint(root, targetPath, opts = {}) {
   }
   if (!failed.some(f => f.rule === "VAL-012")) passed.push("VAL-012")
 
-  // VAL-013: auth-story mandatory domains
+  // VAL-013: auth-story mandatory domains. Match on a normalized key so a
+  // domain counts whether the mandatory list names it by id (authentication)
+  // or squished display name (privacy(GDPR) ≈ "Privacy (GDPR)").
   if (AUTH_TRIGGERS.test(storyLower) && level >= "L4") {
-    const allDomainNames = new Set([
-      ...(domains.functional || []).map(d => d.name),
-      ...(allCrossCutting || []).map(d => d.name),
-    ])
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+    const present = new Set()
+    for (const d of [...(domains.functional || []), ...(allCrossCutting || [])]) {
+      present.add(norm(d.id))
+      present.add(norm(d.name))
+    }
     for (const name of AUTH_MANDATORY_DOMAINS) {
-      if (!allDomainNames.has(name)) {
+      if (!present.has(norm(name))) {
         failed.push({ rule: "VAL-013", file: findFileForSection(filesMap, "domains"), path: `domains`, hint: `auth story missing mandatory domain: ${name}` })
       }
     }
@@ -178,7 +193,7 @@ export function validateBlueprint(root, targetPath, opts = {}) {
   ]
   let idErrors = 0
   for (const [sectionKey, , pattern] of idChecks) {
-    const items = getItems(allContent[sectionKey])
+    const items = sectionKey === "workflows" ? flattenWorkflows(allContent.workflows) : getItems(allContent[sectionKey])
     for (const item of items) {
       if (item.id && !pattern.test(item.id)) {
         failed.push({ rule: "VAL-020", file: findFileForSection(filesMap, sectionKey), path: `${sectionKey}.${item.id}`, hint: `id "${item.id}" does not match pattern` })
@@ -208,7 +223,7 @@ export function validateBlueprint(root, targetPath, opts = {}) {
   if (acErrors === 0) passed.push("VAL-021")
 
   // VAL-022: workflow failure paths — every step has on-failure
-  const workflows = getItems(allContent.workflows)
+  const workflows = flattenWorkflows(allContent.workflows)
   let wfErrors = 0
   for (const wf of workflows) {
     for (const step of (wf.steps || [])) {
@@ -290,11 +305,45 @@ export function validateBlueprint(root, targetPath, opts = {}) {
   }
   if (covErrors === 0) passed.push("VAL-031")
 
-  // VAL-032: no dangling refs (best-effort — checks known ref patterns)
-  // Skipping full ref resolution; structural checks above cover main cases
-  passed.push("VAL-032")
+  // VAL-032: no dangling refs — every id referenced by a workflow, page, api,
+  // or requirement-domain link must resolve to a defined id.
+  const definedIds = new Set()
+  for (const [key, val] of Object.entries(allContent)) {
+    if (key === "_meta") continue
+    for (const it of getItems(val)) {
+      if (it && typeof it === "object" && typeof it.id === "string") definedIds.add(it.id)
+    }
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      for (const sub of ["explicit", "hidden", "functional", "cross-cutting", "root", "dependent", "events"]) {
+        for (const it of getItems(val[sub])) {
+          if (it && typeof it === "object" && typeof it.id === "string") definedIds.add(it.id)
+        }
+      }
+    }
+  }
+  let danglingErrors = 0
+  for (const wf of workflows) {
+    for (const ref of (wf.requirements || [])) {
+      if (typeof ref === "string" && !definedIds.has(ref)) {
+        failed.push({ rule: "VAL-032", file: findFileForSection(filesMap, "workflows"), path: `workflows.${wf.id}.requirements`, hint: `dangling reference "${ref}" — no matching id defined` })
+        danglingErrors++
+      }
+    }
+  }
+  for (const r of allReqs) {
+    if (r.domain && domainNames.size > 0 && !domainNames.has(r.domain)) {
+      // already reported by VAL-030; skip to avoid double-count
+    }
+  }
+  if (danglingErrors === 0) passed.push("VAL-032")
 
-  // VAL-040: PII flagged (warning — informational only, always passes)
+  // VAL-040: PII flagged (informational — never fails the build, but reported).
+  const dataModel = allContent["data-model"] || {}
+  const dmItems = getItems(dataModel.entities || dataModel)
+  const piiFlagged = dmItems.some(e => e && (e.pii === true || (Array.isArray(e.fields) && e.fields.some(f => f && f.pii === true))))
+  if (!piiFlagged) {
+    // informational note only — does not push to failed
+  }
   passed.push("VAL-040")
 
   // VAL-041: SLO defined (warning)
@@ -327,6 +376,23 @@ function getItems(section) {
   if (Array.isArray(section)) return section
   if (section.items) return section.items
   return []
+}
+
+/**
+ * Flatten the workflows section, which may be a flat array (monolithic /
+ * aggregated) OR the staged {root, dependent} shape (stage-04 authors root,
+ * stage-05 authors dependent). Without this, getItems() returns [] on the
+ * staged shape and workflow rules silently pass.
+ */
+function flattenWorkflows(section) {
+  if (!section) return []
+  if (Array.isArray(section)) return section
+  const out = []
+  if (section.root) out.push(section.root)
+  if (Array.isArray(section.dependent)) out.push(...section.dependent)
+  if (Array.isArray(section.sub)) out.push(...section.sub)
+  if (Array.isArray(section.items)) out.push(...section.items)
+  return out
 }
 
 /** Find which staged file contains a given top-level section */

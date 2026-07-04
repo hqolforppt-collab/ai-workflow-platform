@@ -51,7 +51,7 @@ steps:
   - step: 6
     id: emit-and-validate
     action: >
-      Validate against all 16 rules in validation-rules.yaml. On pass, write
+      Validate against all 17 rules in validation-rules.yaml. On pass, write
       the blueprint file and print the coverage report (domains activated,
       hidden requirements added, assumptions needing human review).
     output: blueprint file + coverage-report

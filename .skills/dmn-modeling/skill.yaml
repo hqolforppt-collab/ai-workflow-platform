@@ -22,4 +22,8 @@ skill:
     - every decision table declares an explicit hit policy
     - input/output expressions reference data-dictionary entries only
     - decision rules carry trace blocks to functional requirements
+  mcp:
+    server: flowable
+    verify-with: validate_bpmn   # dry-run deploy the generated DMN to catch parse errors
+    when: after-generation
   tests: .skills/dmn-modeling/tests/golden.yaml

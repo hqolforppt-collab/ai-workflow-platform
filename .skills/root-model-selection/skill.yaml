@@ -18,4 +18,8 @@ skill:
     - hybrid: BPMN root with CMMN/DMN child models
   templates:
     - .templates/architecture/adr.yaml
+  mcp:
+    server: flowable
+    verify-with: list_processes  # detect existing definitions in brownfield engines before selecting
+    when: before-generation
   tests: .skills/root-model-selection/tests/golden.yaml

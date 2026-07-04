@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20191111/MODEL"
+             namespace="http://flowable.org/dmn">
+  <decision id="DEC-001" name="Login Risk Decision">
+    <decisionTable id="DEC-001Table">
+      <input id="input1" label="Input"/>
+      <output id="output1" label="Output" typeRef="string"/>
+    </decisionTable>
+  </decision>
+</definitions>

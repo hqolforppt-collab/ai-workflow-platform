@@ -1,0 +1,141 @@
+# 02-in-progress.yaml — Stage 2/6 (In Progress)
+# Sections: requirements, risks, assumptions
+_meta:
+  blueprint_id: BLU-LOGIN-REG-001
+  stage: stage-02
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-01]
+  trace:
+    requirement_source: 01-initialized.yaml
+    upstream: [01-initialized.yaml]
+
+requirements:
+  explicit:
+    - id: REQ-001
+      title: User registration with email and password
+      description: A visitor can create an account by providing email and password; the account is unusable until the email is verified.
+      domain: identity-management
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given a visitor on the registration page, When they submit a unique email and a policy-compliant password, Then an account is created in state PENDING_VERIFICATION and a verification email is sent within 60 seconds."
+        - "Given a visitor submits an email that already exists, When the form is processed, Then the response is identical to the success response (no account-enumeration) and the existing owner receives a 'was this you?' notice."
+      depends-on: []
+      risks: [RSK-002]
+    - id: REQ-002
+      title: User login with credentials
+      description: A registered, verified user can log in with email and password and receive an authenticated session.
+      domain: authentication
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given a verified user, When they submit correct credentials, Then a session is issued (access JWT 15 min, refresh cookie 30 days) and the user lands on /dashboard within 2 seconds (p95)."
+        - "Given any user, When they submit wrong credentials, Then the response is a generic 401 'invalid email or password' with no field-level hint, in constant time (±50ms)."
+      depends-on: [REQ-001]
+      risks: [RSK-001]
+  hidden:
+    - id: REQ-010
+      title: Password policy enforcement
+      description: Passwords must meet minimum strength and must be rejected if found in known-breach corpora.
+      domain: password-policy
+      source: discovery/password-policy
+      priority: must
+      acceptance-criteria:
+        - "Given a password shorter than 12 characters or present in the breached-password list, When submitted on registration or reset, Then it is rejected with a specific, actionable error and the attempt is logged at level info."
+      risks: [RSK-001]
+    - id: REQ-011
+      title: Account lockout on repeated failures
+      description: Throttle credential-stuffing by locking accounts after repeated failed logins.
+      domain: account-lockout
+      source: discovery/account-lockout
+      priority: must
+      acceptance-criteria:
+        - "Given 5 failed login attempts for one account within 15 minutes, When the 6th attempt arrives, Then the account locks for 30 minutes, the owner is emailed (NOT-003), and audit event AUD-004 is recorded."
+      risks: [RSK-001]
+    - id: REQ-012
+      title: Rate limiting on auth endpoints
+      description: All authentication endpoints are rate limited per IP and per account.
+      domain: rate-limiting
+      source: discovery/rate-limiting
+      priority: must
+      acceptance-criteria:
+        - "Given more than 10 requests/minute per IP to any /auth/* endpoint, When the limit is exceeded, Then the API returns 429 with Retry-After and the event increments metric auth_rate_limited_total."
+      risks: [RSK-001]
+    - id: REQ-013
+      title: Email verification before first login
+      description: Accounts must verify ownership of their email before the first successful login.
+      domain: email-verification
+      source: discovery/email-verification
+      priority: must
+      acceptance-criteria:
+        - "Given a PENDING_VERIFICATION account, When the user clicks the emailed link within 24 hours, Then the account transitions to ACTIVE; expired links offer a one-click resend."
+      risks: [RSK-002]
+    - id: REQ-014
+      title: Complete audit trail for auth events
+      description: Every security-relevant event is captured immutably with actor, timestamp, IP, and outcome.
+      domain: audit
+      source: discovery/audit
+      priority: must
+      acceptance-criteria:
+        - "Given any event in the audit.events catalog, When it occurs, Then an append-only audit record exists within 5 seconds containing every captured-field defined for that event."
+      risks: [RSK-003]
+    - id: REQ-015
+      title: Login anomaly detection
+      description: Detect and react to suspicious logins (new device, impossible travel, TOR exit nodes).
+      domain: fraud-detection
+      source: discovery/fraud-detection
+      priority: should
+      acceptance-criteria:
+        - "Given a successful login from a device or geo never seen for that account, When the session is issued, Then the user receives a security notification (NOT-004) and the login is flagged for the risk dashboard."
+      risks: [RSK-001]
+    - id: REQ-016
+      title: GDPR-compliant handling of personal data
+      description: Email, name, and IP addresses are inventoried as PII with consent capture and data-subject rights support.
+      domain: privacy
+      source: discovery/privacy
+      priority: must
+      acceptance-criteria:
+        - "Given a registration, When the account is created, Then consent (version + timestamp) is stored, and a verified erasure request purges PII from primary store and backups within 30 days."
+      risks: [RSK-004]
+    - id: REQ-017
+      title: Auth observability — metrics, alerts, SLOs
+      description: Login/registration health is measurable and alertable before users complain.
+      domain: monitoring
+      source: discovery/monitoring
+      priority: must
+      acceptance-criteria:
+        - "Given the production environment, When login success-rate (5-min window) drops below 95%, Then alert ALT-001 fires to the on-call channel with runbook RB-001 linked."
+      risks: [RSK-003]
+    - id: REQ-018
+      title: Secure session lifecycle
+      description: Sessions are revocable, idle-expire, and refresh tokens rotate on every use.
+      domain: session-management
+      source: discovery/session-management
+      priority: must
+      acceptance-criteria:
+        - "Given an issued refresh token, When it is used twice (replay), Then the entire session family is revoked, the user is logged out everywhere, and audit event AUD-006 is recorded."
+      risks: [RSK-001]
+    - id: REQ-019
+      title: Password reset flow
+      description: Users can recover access via a time-boxed, single-use emailed reset link.
+      domain: authentication
+      source: discovery/authentication
+      priority: must
+      acceptance-criteria:
+        - "Given a reset request, When the user opens the link within 30 minutes, Then they may set a new policy-compliant password; all existing sessions are revoked on success."
+      risks: [RSK-002]
+
+risks:
+  - { id: RSK-001, description: "Credential-stuffing campaign overwhelms lockout/rate-limit tuning", category: security,    likelihood: high,   impact: high,     mitigation: "layered controls (REQ-010..012, REQ-015) + captcha flag + RB-001", owner: security-officer }
+  - { id: RSK-002, description: "Email deliverability issues block registrations and resets",         category: operational, likelihood: medium, impact: high,     mitigation: "retry queue + DLQ + secondary provider failover (RB-002)", owner: sre-lead }
+  - { id: RSK-003, description: "Audit/monitoring gaps discovered during SOC2 audit",                 category: compliance,  likelihood: low,    impact: critical, mitigation: "audit event catalog reviewed at G4; quarterly evidence dry-run", owner: security-officer }
+  - { id: RSK-004, description: "PII retained in backups beyond GDPR erasure deadline",               category: compliance,  likelihood: medium, impact: high,     mitigation: "30-day backup purge cycle aligned to erasure SLA (RB-003)", owner: data-protection-officer }
+
+assumptions:
+  - { id: ASM-001, statement: "Email + password is the only authentication method for launch", impact-if-wrong: "OAuth/social providers require new flows, consent screens, and account-linking design", validation-needed: "Confirm with product-owner: are social logins required for v1?" }
+  - { id: ASM-002, statement: "GDPR applies (EU users are in scope)",                            impact-if-wrong: "consent capture and erasure flows could be simplified; retention values change", validation-needed: "Confirm target markets with legal." }
+  - { id: ASM-003, statement: "No enterprise SSO/SAML tenants at launch",                        impact-if-wrong: "identity architecture needs federation layer before GA", validation-needed: "Confirm sales pipeline has no enterprise commitments." }
+  - { id: ASM-004, statement: "MFA is policy-ready but UI is deferred post-launch",              impact-if-wrong: "launch scope grows by enrollment + recovery-codes flows", validation-needed: "Confirm risk appetite with security-officer." }
+  - { id: ASM-005, statement: "Expected peak of 500 logins/sec covers marketing events",          impact-if-wrong: "capacity plan and rate-limit thresholds need retuning", validation-needed: "Validate against marketing launch forecasts." }
+  - { id: ASM-006, statement: "7-year audit retention satisfies all applicable jurisdictions",    impact-if-wrong: "retention and storage costs change; possible legal exposure", validation-needed: "Confirm retention schedule with legal/compliance." }

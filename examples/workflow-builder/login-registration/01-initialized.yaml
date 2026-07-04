@@ -1,0 +1,70 @@
+# 01-initialized.yaml — Stage 1/6 (Initialized)
+# Sections: project, domains
+_meta:
+  blueprint_id: BLU-LOGIN-REG-001
+  stage: stage-01
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: []
+  trace:
+    story: "Create Login and Registration Feature"
+
+project:
+  name: Login and Registration Feature
+  id: BLU-LOGIN-REG-001
+  blueprint-schema-version: 2.0.0
+  maturity-level: L6
+  story: "Create Login and Registration Feature"
+  summary: >
+    Self-service account registration with email verification and credential-based
+    login. Discovery expanded the one-line story into 27 domains: the user asked
+    for 2 (authentication, identity-management); 25 hidden domains were added
+    covering security hardening (password policy, lockout, rate limiting, fraud
+    detection), observability (audit, logging, monitoring, analytics), resilience
+    (backup, disaster recovery), and obligations (GDPR privacy, SOC2 compliance,
+    documentation, operations).
+  scope:
+    in-scope:
+      - Email + password registration with mandatory email verification
+      - Credential login with session issuance (JWT access + rotating refresh cookie)
+      - Password reset via time-boxed email link
+      - Account lockout, rate limiting, and login-anomaly detection
+      - Audit trail, structured logging, metrics, alerts, and SLOs for all auth events
+    out-of-scope:
+      - Social login / OAuth federation (not requested; see ASM-003)
+      - Multi-factor authentication enrollment UI (policy defined, UI deferred; see ASM-004)
+      - Account deletion self-service flow (GDPR erasure handled via support runbook RB-003)
+      - Single sign-on (SSO/SAML) for enterprise tenants
+  stakeholders: [product-owner, security-officer, data-protection-officer, sre-lead, support-lead]
+  created: 2026-06-12
+
+domains:
+  functional:
+    - { id: authentication,      name: Authentication,       source: user }
+    - { id: identity-management, name: Identity Management,  source: user }
+    - { id: session-management,  name: Session Management,   source: discovery, rationale: "implication-map: authentication -> session-management" }
+    - { id: user-management,     name: User Management,      source: discovery, rationale: "implication-map: identity-management -> user-management" }
+    - { id: email,               name: Email Delivery,       source: discovery, rationale: "implication-map: identity-management -> email (verification, reset)" }
+    - { id: authorization,       name: Authorization,        source: discovery, rationale: "implication-map: user-management -> authorization" }
+  cross-cutting:   # 21 entries — VAL-010 requires >= 12; VAL-013 list fully covered
+    - { id: security,           name: Security,                 source: discovery, discovery-rule: discovery/authentication/AUTH-IMP-01, criticality: mandatory }
+    - { id: password-policy,    name: Password Policy,          source: discovery, discovery-rule: discovery/authentication/AUTH-IMP-02, criticality: mandatory }
+    - { id: account-lockout,    name: Account Lockout,          source: discovery, discovery-rule: discovery/authentication/AUTH-IMP-03, criticality: mandatory }
+    - { id: rate-limiting,      name: Rate Limiting,            source: discovery, discovery-rule: discovery/authentication/AUTH-IMP-04, criticality: mandatory }
+    - { id: fraud-detection,    name: Fraud Detection,          source: discovery, discovery-rule: discovery/authentication/AUTH-IMP-05, criticality: mandatory }
+    - { id: audit,              name: Audit Trail,              source: discovery, discovery-rule: discovery/authentication/AUTH-IMP-06, criticality: mandatory }
+    - { id: email-verification, name: Email Verification,       source: discovery, discovery-rule: discovery/identity-management/IDM-IMP-01, criticality: mandatory }
+    - { id: privacy,            name: Privacy (GDPR),           source: discovery, discovery-rule: discovery/identity-management/IDM-IMP-02, criticality: mandatory }
+    - { id: compliance,         name: Compliance (SOC2),        source: discovery, discovery-rule: discovery/privacy/PRV-IMP-01, criticality: mandatory }
+    - { id: logging,            name: Logging,                  source: discovery, discovery-rule: discovery/baseline/ANY-UF-01, criticality: mandatory }
+    - { id: monitoring,         name: Monitoring,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-02, criticality: mandatory }
+    - { id: notification,       name: Notifications,            source: discovery, discovery-rule: discovery/email/EML-IMP-01, criticality: mandatory }
+    - { id: error-management,   name: Error Management,         source: discovery, discovery-rule: discovery/baseline/ANY-UF-03, criticality: mandatory }
+    - { id: observability,      name: Observability,            source: discovery, discovery-rule: discovery/baseline/ANY-UF-04, criticality: mandatory }
+    - { id: analytics,          name: Analytics,                source: discovery, discovery-rule: discovery/baseline/ANY-UF-05, criticality: recommended }
+    - { id: documentation,      name: Documentation,            source: discovery, discovery-rule: discovery/baseline/ANY-UF-06, criticality: mandatory }
+    - { id: testing,            name: Testing,                  source: discovery, discovery-rule: discovery/baseline/ANY-UF-07, criticality: mandatory }
+    - { id: deployment,         name: Deployment,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-08, criticality: mandatory }
+    - { id: operations,         name: Operations,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-09, criticality: mandatory }
+    - { id: backup,             name: Backup,                   source: discovery, discovery-rule: discovery/baseline/ANY-UF-10, criticality: mandatory }
+    - { id: disaster-recovery,  name: Disaster Recovery,        source: discovery, discovery-rule: discovery/baseline/ANY-UF-11, criticality: mandatory }

@@ -11,8 +11,13 @@
     "url": "https://github.com/hqolforppt-collab/ai-workflow-platform.git",
     "directory": "packages/flowable-mcp-server"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
+    "@awp/governance": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "yaml": "^2.9.0",
     "zod": "^3.23.0"
   },
   "engines": {

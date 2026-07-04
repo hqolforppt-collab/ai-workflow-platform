@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs"
-import { join, relative } from "node:path"
+import { join, relative, isAbsolute } from "node:path"
 import YAML from "yaml"
 import { requireRepoRoot, listFiles, tryReadYaml } from "../lib/repo.js"
+import { validateBlueprint } from "../validate.js"
 
 /**
  * awp validate — Node port of the .tools/*.sh validators so the suite is
@@ -13,6 +14,14 @@ import { requireRepoRoot, listFiles, tryReadYaml } from "../lib/repo.js"
  */
 export async function validate(flags) {
   const root = requireRepoRoot()
+
+  // Blueprint mode: `awp validate <blueprint-dir|blueprint.yaml>` runs the
+  // deterministic rule engine (validate.js). No positional arg → platform-OS
+  // validation (below), preserving v0.1 behavior.
+  if (flags._ && flags._.length > 0) {
+    return validateBlueprintCli(root, flags)
+  }
+
   const only = typeof flags.only === "string" ? flags.only.split(",").map((s) => s.trim()) : null
   const checks = {
     spec: checkSpec,
@@ -43,6 +52,41 @@ export async function validate(flags) {
   }
   console.log("\nawp validate: PASS")
   return 0
+}
+
+/**
+ * Blueprint-mode validation: run the deterministic rule engine against a
+ * staged directory or a monolithic blueprint.yaml, and print the coverage
+ * report (§5.4 format). Exits non-zero on any failed rule so it can gate CI
+ * and the DRAFT-INVALID → repair → re-validate loop.
+ */
+async function validateBlueprintCli(root, flags) {
+  const target = flags._[0]
+  const targetPath = isAbsolute(target) ? target : join(root, target)
+  if (!existsSync(targetPath)) {
+    console.error(`awp validate: path not found: ${targetPath}`)
+    return 1
+  }
+
+  const story = typeof flags.story === "string" ? flags.story : ""
+  const level = typeof flags.level === "string" ? flags.level.toUpperCase() : "L6"
+
+  const { passed, failed } = validateBlueprint(root, targetPath, { story, level })
+  const total = passed.length + failed.length
+
+  if (failed.length === 0) {
+    console.log(`✓ Validation: ${total}/${total} rules passed (deterministic)`)
+    return 0
+  }
+
+  console.log(`✗ Validation: ${passed.length}/${total} rules passed`)
+  console.log("")
+  console.log("FAILED RULES")
+  for (const f of failed) {
+    console.log(`  ${f.rule.padEnd(8)} ${String(f.file).padEnd(26)} ${String(f.path).padEnd(40)} → ${f.hint}`)
+  }
+  console.log(`\nStatus: DRAFT-INVALID (fix the above, then re-run awp validate)`)
+  return 1
 }
 
 const OS_DIRS = [".ai", ".agents", ".governance", ".skills", ".templates", ".memory", ".commands"]

@@ -1,11 +1,24 @@
 # Golden tests for /workflow-builder
 # Any implementation of the command (on any platform) must reproduce a blueprint
-# for the story below that passes ALL of these assertions. The reference output
-# is blueprint.yaml in this directory.
+# for the story below that passes ALL of these assertions.
+#
+# Reference output (v2.1): the staged 6-file blueprint in this directory
+# (01-initialized.yaml … 06-forms.yaml). `awp build --aggregate` deterministically
+# merges them into blueprint.yaml; `awp validate <dir>` reports 17/17 rules passing;
+# `awp flowable convert <dir>` emits 6 Flowable artifacts into flowable/.
 id: workflow-builder-golden-tests
-version: 1.0.0
+version: 1.1.0
 story: "Create Login and Registration Feature"
-reference: examples/workflow-builder/login-registration/blueprint.yaml
+reference:
+  staged:
+    - examples/workflow-builder/login-registration/01-initialized.yaml
+    - examples/workflow-builder/login-registration/02-in-progress.yaml
+    - examples/workflow-builder/login-registration/03-generating-app.yaml
+    - examples/workflow-builder/login-registration/04-root-models.yaml
+    - examples/workflow-builder/login-registration/05-dependent-models.yaml
+    - examples/workflow-builder/login-registration/06-forms.yaml
+  aggregate: examples/workflow-builder/login-registration/blueprint.yaml
+  flowable: examples/workflow-builder/login-registration/flowable/
 
 tests:
   - id: GT-001
@@ -56,8 +69,17 @@ tests:
 
   - id: GT-009
     name: references-resolve
-    asserts: "All ref values (requirements in workflows, actors in steps, runbooks in alerts, roles in pages, notifications in exceptions) resolve to ids defined in the same blueprint."
+    asserts: "All ref values (requirements in workflows, actors in steps, runbooks in alerts, roles in pages, notifications in exceptions) resolve to ids defined in the same blueprint; every must-priority requirement is covered by a workflow, api, or page."
     maps-to: [VAL-030, VAL-031, VAL-032]
+
+  - id: GT-013
+    name: staged-aggregation-and-flowable-convert
+    asserts: >
+      The 6 staged files aggregate (awp build --aggregate) into a single 28+ section
+      blueprint.yaml with no id collisions, and awp flowable convert emits 6 artifacts:
+      wf-001 (root BPMN), wf-002 + wf-003 (dependent BPMN), dec-001 (DMN), and
+      frm-001 + frm-002 (form.json), plus a deploy-manifest.json carrying blueprint_id.
+    maps-to: [E5, E3]
 
   - id: GT-010
     name: pii-inventoried
@@ -77,5 +99,6 @@ tests:
 expected-coverage-report:
   domains-activated: 27        # 2 explicit, 25 hidden/discovered (incl. functional expansions)
   hidden-requirements: 10
-  validation: 16/16
+  validation: 17/17            # deterministic; run `awp validate <dir>`
   assumptions-for-review: 6
+  flowable-artifacts: 6        # 3 BPMN (1 root + 2 dependent) + 1 DMN + 2 forms

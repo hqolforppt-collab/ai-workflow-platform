@@ -22,4 +22,8 @@ skill:
     - use only official Flowable field names
     - plan items, sentries, and milestones carry trace blocks to task specs
     - prefer CMMN only when work is genuinely case-driven (root-model-selection verdict)
+  mcp:
+    server: flowable
+    verify-with: validate_bpmn   # dry-run deploy the generated CMMN to catch parse errors
+    when: after-generation
   tests: .skills/cmmn-modeling/tests/golden.yaml

@@ -14,6 +14,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 
 import { join, basename } from "node:path"
 import { requireRepoRoot, tryReadYaml } from "../lib/repo.js"
 import { loadModelConfig } from "../model.js"
+import { checkGates, resolveBlueprintId } from "../../../awp-governance/src/index.js"
 
 // ---------------------------------------------------------------------------
 // convert
@@ -36,65 +37,52 @@ export async function flowableConvert(flags) {
   const outDir = typeof flags.out === "string" ? flags.out : join(bpDir, "flowable")
   mkdirSync(outDir, { recursive: true })
 
-  // Read staged files
-  const stagedFiles = {}
-  const entries = readdirSync(bpDir).filter(f => f.match(/^\d{2}-.*\.yaml$/)).sort()
-  for (const entry of entries) {
-    stagedFiles[entry] = tryReadYaml(join(bpDir, entry)) || {}
+  // Load sections from staged files OR a monolithic blueprint.yaml (G6).
+  const { sections, blueprintId } = loadBlueprintSections(bpDir)
+  const manifest = { blueprint_id: blueprintId, deployed_at: new Date().toISOString(), artifacts: [] }
+
+  const emit = (file, type, key, content) => {
+    const fp = join(outDir, file)
+    writeFileSync(fp, content)
+    manifest.artifacts.push({ file: basename(fp), type, key })
   }
 
-  const manifest = { deployed_at: new Date().toISOString(), artifacts: [] }
+  const bpSlug = slugify((blueprintId || "workflow").replace(/^BLU-/i, ""))
+  const workflows = sections.workflows || {}
+  const rootModelType = sections.root_model?.type || sections._meta?.root_model_type || "BPMN"
 
-  // Convert root workflow (stage 04)
-  const rootModels = stagedFiles["04-root-models.yaml"] || stagedFiles[Object.keys(stagedFiles).find(k => k.includes("root"))] || {}
-  const rootWf = rootModels.workflows || {}
-
-  // Determine root model type
-  const rootModelType = rootModels.root_model?.type || rootModels._meta?.root_model_type || "BPMN"
-  const rootKey = slugify(rootModels.project?.name || rootModels._meta?.blueprint_id || "root")
-
-  if (rootModelType === "BPMN" || rootModelType === "bpmn") {
-    const xml = yamlToBpmn(rootWf, rootKey)
-    const fp = join(outDir, `${rootKey}.bpmn20.xml`)
-    writeFileSync(fp, xml)
-    manifest.artifacts.push({ file: basename(fp), type: "bpmn20.xml", key: rootKey })
-  } else if (rootModelType === "CMMN" || rootModelType === "cmmn") {
-    const xml = yamlToCmmn(rootWf, rootKey)
-    const fp = join(outDir, `${rootKey}.cmmn.xml`)
-    writeFileSync(fp, xml)
-    manifest.artifacts.push({ file: basename(fp), type: "cmmn.xml", key: rootKey })
+  // Root workflow: workflows.root, else first entry of a flat workflows list.
+  const flatWfs = getItems(workflows)
+  const rootWf = workflows.root || (flatWfs.length ? flatWfs[0] : null)
+  if (rootWf) {
+    const key = workflowKey(rootWf, `${bpSlug}-root`)
+    if (/cmmn|case/i.test(rootModelType)) {
+      emit(`${key}.cmmn.xml`, "cmmn.xml", key, yamlToCmmn(rootWf, key))
+    } else {
+      emit(`${key}.bpmn20.xml`, "bpmn20.xml", key, yamlToBpmn(rootWf, key))
+    }
   }
 
-  // Convert dependent workflows (stage 05)
-  const depModels = stagedFiles["05-dependent-models.yaml"] || stagedFiles[Object.keys(stagedFiles).find(k => k.includes("dependent"))] || {}
-  const depWfs = getItems(depModels.workflows || {})
-  for (const wf of depWfs) {
-    const key = wf.id ? wf.id.toLowerCase() : slugify(wf.name || "dependent")
-    const xml = yamlToBpmn(wf, key)
-    const fp = join(outDir, `${key}.bpmn20.xml`)
-    writeFileSync(fp, xml)
-    manifest.artifacts.push({ file: basename(fp), type: "bpmn20.xml", key })
+  // Dependent workflows: workflows.dependent[]/sub[], else remaining flat entries.
+  const depWfs = getItems(workflows.dependent || workflows.sub)
+  const flatDeps = workflows.root ? [] : flatWfs.slice(1)
+  for (const wf of [...depWfs, ...flatDeps]) {
+    const key = workflowKey(wf, slugify(wf.name || "dependent"))
+    emit(`${key}.bpmn20.xml`, "bpmn20.xml", key, yamlToBpmn(wf, key))
   }
 
-  // Convert DMN decision tables (stage 05)
-  const dmnTables = getItems(depModels["decision-tables"] || depModels.dmn || {})
+  // DMN decision tables (top-level or nested under workflows).
+  const dmnTables = getItems(sections["decision-tables"] || sections.dmn || workflows["decision-tables"])
   for (const dt of dmnTables) {
-    const key = dt.id ? dt.id.toLowerCase() : slugify(dt.name || "decision")
-    const xml = yamlToDmn(dt, key)
-    const fp = join(outDir, `${key}.dmn`)
-    writeFileSync(fp, xml)
-    manifest.artifacts.push({ file: basename(fp), type: "dmn", key })
+    const key = workflowKey(dt, slugify(dt.name || "decision"))
+    emit(`${key}.dmn`, "dmn", key, yamlToDmn(dt, key))
   }
 
-  // Convert forms (stage 06)
-  const formModels = stagedFiles["06-forms.yaml"] || stagedFiles[Object.keys(stagedFiles).find(k => k.includes("form"))] || {}
-  const forms = getItems(formModels.forms || {})
+  // Forms (stage 06).
+  const forms = getItems(sections.forms)
   for (const form of forms) {
-    const key = form.id ? form.id.toLowerCase() : slugify(form.name || "form")
-    const json = yamlToFormJson(form, key)
-    const fp = join(outDir, `${key}.form.json`)
-    writeFileSync(fp, JSON.stringify(json, null, 2))
-    manifest.artifacts.push({ file: basename(fp), type: "form.json", key })
+    const key = workflowKey(form, slugify(form.name || "form"))
+    emit(`${key}.form.json`, "form.json", key, JSON.stringify(yamlToFormJson(form, key), null, 2))
   }
 
   // Write manifest
@@ -128,15 +116,15 @@ export async function flowableDeploy(flags) {
     return 1
   }
 
-  // Gate check
-  const gateStatus = checkGates(root, bpDir)
+  // Gate check (shared, fail-closed — same module the MCP server uses)
+  const blueprintId = resolveBlueprintId(bpDir)
+  const gateStatus = checkGates(root, { bpDir, blueprintId })
   if (!gateStatus.ok) {
     console.error(`awp flowable deploy: GATE CHECK FAILED`)
     console.error(`  ${gateStatus.reason}`)
-    console.error("  Approve gates G1-G4 before deploying. See .governance/gates/")
     return 1
   }
-  console.log(`  gate-check: ${gateStatus.summary}`)
+  console.log(`  gate-check: ${gateStatus.summary}  (blueprint ${gateStatus.blueprintId})`)
 
   // Ensure converted artifacts exist
   const flowableDir = join(bpDir, "flowable")
@@ -222,6 +210,7 @@ export async function flowableDeploy(flags) {
 
   // Write deploy report
   const report = {
+    blueprint_id: blueprintId,
     deployed_at: new Date().toISOString(),
     gateway: baseUrl,
     success,
@@ -331,42 +320,48 @@ function slugify(text) {
     .slice(0, 64)
 }
 
+/** Derive a stable Flowable definition key from a model's own id/name. */
+function workflowKey(model, fallback) {
+  if (model && model.id) return slugify(model.id)
+  if (model && model.name) return slugify(model.name)
+  return fallback
+}
+
 function basicAuth(user, pass) {
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64")
 }
 
-/** Check G1-G4 gate status for a blueprint */
-function checkGates(root, bpDir) {
-  const gatesDir = join(root, ".governance", "gates")
-  if (!existsSync(gatesDir)) {
-    // No gates configured — warn but allow
-    return { ok: true, summary: "no gate definitions found (deploy allowed)", reason: "" }
-  }
+/**
+ * Load blueprint sections from either staged files (01..06-*.yaml) or a
+ * monolithic blueprint.yaml. Returns a flat section map plus the resolved
+ * blueprint id so the converter behaves identically on both output shapes
+ * (the v2.0 converter only read staged files, so it emitted nothing useful on
+ * the monolithic golden example — audit gap G6).
+ */
+function loadBlueprintSections(bpDir) {
+  const staged = readdirSync(bpDir)
+    .filter((f) => /^\d{2}-.*\.yaml$/.test(f))
+    .sort()
 
-  const required = ["G1-requirements", "G2-architecture", "G3-data-model", "G4-security"]
-  const missing = []
-
-  for (const gate of required) {
-    const gatePath = join(gatesDir, `${gate}.yaml`)
-    if (!existsSync(gatePath)) {
-      missing.push(gate)
-      continue
+  const sections = {}
+  if (staged.length > 0) {
+    for (const entry of staged) {
+      const doc = tryReadYaml(join(bpDir, entry)) || {}
+      for (const [key, val] of Object.entries(doc)) {
+        // Merge the workflows key (root in stage-04, dependent in stage-05)
+        // instead of letting a later file clobber the root workflow.
+        if (key === "workflows" && sections.workflows && typeof val === "object" && !Array.isArray(val)) {
+          sections.workflows = { ...sections.workflows, ...val }
+        } else {
+          sections[key] = val
+        }
+      }
     }
-    const g = tryReadYaml(gatePath) || {}
-    if (g.status !== "approved") {
-      missing.push(gate)
-    }
+  } else {
+    const mono = join(bpDir, "blueprint.yaml")
+    if (existsSync(mono)) Object.assign(sections, tryReadYaml(mono) || {})
   }
-
-  if (missing.length > 0) {
-    return {
-      ok: false,
-      summary: "",
-      reason: `gates not approved: ${missing.join(", ")}. Approve in .governance/gates/`,
-    }
-  }
-
-  return { ok: true, summary: "G1✓ G2✓ G3✓ G4✓", reason: "" }
+  return { sections, blueprintId: resolveBlueprintId(bpDir) }
 }
 
 // ---------------------------------------------------------------------------
