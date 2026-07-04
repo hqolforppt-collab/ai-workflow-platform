@@ -7,30 +7,52 @@
  * Config via env vars: FLOWABLE_URL, FLOWABLE_USER, FLOWABLE_PASS.
  * Node 18+ — uses global fetch().
  */
+import { existsSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
+import { checkGates, checkRuntimeMutation } from "../../awp-governance/src/index.js"
+import { resolveFlowableEnv, makeClient } from "./client.js"
 
-const BASE = process.env.FLOWABLE_URL || "http://localhost:8080/flowable-rest"
-const USER = process.env.FLOWABLE_USER || "rest-admin"
-const PASS = process.env.FLOWABLE_PASS || "test"
+const { base: BASE, auth: AUTH } = resolveFlowableEnv()
+const client = makeClient({ base: BASE, auth: AUTH })
 
-const AUTH = "Basic " + Buffer.from(`${USER}:${PASS}`).toString("base64")
-
-async function api(method, path, body) {
-  const opts = { method, headers: { Authorization: AUTH } }
-  if (body) {
-    opts.headers["content-type"] = "application/json"
-    opts.body = JSON.stringify(body)
+/** Walk up from cwd to the repo root (the dir holding .governance/). */
+function findRepoRoot(start = process.cwd()) {
+  let dir = start
+  for (let i = 0; i < 40; i++) {
+    if (existsSync(join(dir, ".governance")) || existsSync(join(dir, ".ai"))) return dir
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
   }
-  const res = await fetch(`${BASE}${path}`, opts)
-  const text = await res.text().catch(() => "")
-  try {
-    return { status: res.status, data: JSON.parse(text) }
-  } catch {
-    return { status: res.status, data: text }
-  }
+  return start
 }
+
+const REPO_ROOT = findRepoRoot()
+
+/** Resolve a blueprint id from an explicit param or a deploy-manifest.json among the files. */
+function blueprintIdFromFiles(explicit, files) {
+  if (explicit) return explicit
+  for (const f of files || []) {
+    if (/deploy-manifest\.json$/.test(f.name)) {
+      try {
+        const m = JSON.parse(f.content)
+        if (m && m.blueprint_id) return m.blueprint_id
+      } catch {
+        /* ignore malformed manifest */
+      }
+    }
+  }
+  return null
+}
+
+function refusal(text) {
+  return { content: [{ type: "text", text: JSON.stringify({ refused: true, reason: text }, null, 2) }] }
+}
+
+const api = client.api
 
 const server = new McpServer({
   name: "flowable-mcp-server",
@@ -72,8 +94,20 @@ server.tool(
       content: z.string(),
     })),
     deployment_name: z.string().optional(),
+    blueprint_id: z.string().optional(),
   },
-  async ({ files, deployment_name }) => {
+  async ({ files, deployment_name, blueprint_id }) => {
+    // Fail-closed gate check (Constitution R2) — same module as the CLI.
+    const bpId = blueprintIdFromFiles(blueprint_id, files)
+    if (!bpId) {
+      return refusal(
+        "deploy blocked: no blueprint_id (pass blueprint_id, or include a deploy-manifest.json among files). " +
+        "Refusing to deploy an unidentifiable blueprint to a live engine."
+      )
+    }
+    const gate = checkGates(REPO_ROOT, { blueprintId: bpId })
+    if (!gate.ok) return refusal(`deploy blocked: ${gate.reason}`)
+
     const formData = new FormData()
     for (const f of files) {
       const mimeType = f.name.endsWith(".json") ? "application/json" : "text/xml"
@@ -195,8 +229,12 @@ server.tool(
     process_definition_key: z.string(),
     business_key: z.string().optional(),
     variables: z.record(z.unknown()).optional(),
+    blueprint_id: z.string().optional(),
   },
-  async ({ process_definition_key, business_key, variables }) => {
+  async ({ process_definition_key, business_key, variables, blueprint_id }) => {
+    const guard = checkRuntimeMutation(REPO_ROOT, { blueprintId: blueprint_id })
+    if (!guard.ok) return refusal(`start_process blocked: ${guard.reason}`)
+
     const body = {
       processDefinitionKey: process_definition_key,
       businessKey: business_key,
@@ -243,8 +281,12 @@ server.tool(
   {
     task_id: z.string(),
     variables: z.record(z.unknown()).optional(),
+    blueprint_id: z.string().optional(),
   },
-  async ({ task_id, variables }) => {
+  async ({ task_id, variables, blueprint_id }) => {
+    const guard = checkRuntimeMutation(REPO_ROOT, { blueprintId: blueprint_id })
+    if (!guard.ok) return refusal(`complete_task blocked: ${guard.reason}`)
+
     const body = {
       action: "complete",
       variables: variables ? Object.entries(variables).map(([k, v]) => ({ name: k, value: v })) : [],

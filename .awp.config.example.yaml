@@ -1,0 +1,29 @@
+# .awp.config.example.yaml — tracked template for .awp/config.yaml
+#
+# Copy this to `.awp/config.yaml` (which is git-ignored) and adjust:
+#     mkdir -p .awp && cp .awp.config.example.yaml .awp/config.yaml
+#
+# Constitution C5: this file records the NAMES of environment variables, never
+# secret values. The actual API key / Flowable credentials live only in the
+# environment (e.g. ANTHROPIC_API_KEY=sk-...), never in the repo.
+
+model:
+  provider: anthropic          # anthropic | openai | ollama | mock
+  id: claude-sonnet-5          # resolves tier=medium via tiers.yaml
+  api_key_env: ANTHROPIC_API_KEY   # NAME of the env var holding the key
+  base_url: null               # override for ollama / self-host; else provider default
+
+defaults:
+  maturity_level: L6
+  staged: true                 # emit 6 staged files (vs. one monolith)
+  output_dir: blueprints
+
+tier_override: null            # null = auto-detect from model.id via tiers.yaml
+
+flowable:
+  url_env: FLOWABLE_URL        # e.g. http://localhost:8080/flowable-rest
+  user_env: FLOWABLE_USER
+  pass_env: FLOWABLE_PASS
+
+# For keyless CI end-to-end runs, set provider: mock and export
+# AWP_MOCK_DIR=<dir of canned 0N-*.yaml stage files>.

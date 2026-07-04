@@ -21,4 +21,8 @@ skill:
     - every field binds to a data-dictionary entry
     - PII fields must declare masking/retention per threat model
     - validation rules mirror acceptance criteria
+  mcp:
+    server: flowable
+    verify-with: get_form        # confirm the deployed form definition resolves its fields
+    when: after-deployment
   tests: .skills/form-modeling/tests/golden.yaml

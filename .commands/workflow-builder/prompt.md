@@ -10,7 +10,7 @@ canonical prompt; all platform adapters (.claude/commands/, .opencode/, .cursor/
 
 - **Output schema (binding):** `.schemas/workflow-blueprint/schema.yaml` (28 sections, typed attributes)
 - **Schema summary (small models):** `.schemas/workflow-blueprint/schema-summary.yaml`
-- **Validation (binding):** `.schemas/workflow-blueprint/validation-rules.yaml` (16 rules)
+- **Validation (binding):** `.schemas/workflow-blueprint/validation-rules.yaml` (17 rules)
 - **Knowledge base:** `.memory/domain-knowledge/index.yaml` + one file per domain
 - **Discovery skill:** `.skills/hidden-requirement-discovery/skill.yaml`
 - **Maturity levels:** `.commands/workflow-builder/maturity-levels.yaml` (default **L6**)
@@ -95,7 +95,7 @@ Write `02-in-progress.yaml` with sections: `requirements`, `risks`, `assumptions
 5. **populate-schema** (slice 4) — Fill schema sections: `forms`, `pages`, `testing`,
    `deployment`, `operations`, `support`, `documentation`, `governance`, `compliance`.
 
-6. **emit-and-validate** — Check all 16 rules. On pass: print the coverage report.
+6. **emit-and-validate** — Check all 17 rules. On pass: print the coverage report.
    On fail: list the failing rules per file, mark output `status: DRAFT-INVALID`,
    and say so — never emit silently broken output.
 
@@ -122,7 +122,7 @@ Story:      "<story>"
 Maturity:   L<N> (<Name>)
 Domains:    <n> activated (<e> explicit, <h> hidden, <na> not-applicable)
 Hidden reqs: <n> across <d> domains
-Validation: <p>/16 rules passed
+Validation: <p>/17 rules passed
 Assumptions to review: <n>
 ─────────────────────────────────────────────────────────
 blueprints/<slug>/

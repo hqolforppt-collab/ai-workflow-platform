@@ -1,0 +1,109 @@
+# 06-forms.yaml — Stage 6/6 (Forms)
+# Sections: forms, pages, testing, deployment, operations, support, documentation, governance, compliance
+_meta:
+  blueprint_id: BLU-LOGIN-REG-001
+  stage: stage-06
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-04, stage-05]
+  trace:
+    upstream: [04-root-models.yaml, 05-dependent-models.yaml]
+
+forms:
+  - id: FRM-001
+    name: Registration Form
+    used-in: [WF-001, PG-001]
+    fields:
+      - { name: email,    label: "Email address", type: email,    required: true, validation: "RFC 5322, max 254", error-message: "Enter a valid email address.", accessibility: "autocomplete=email; described-by inline error" }
+      - { name: password, label: "Password",      type: password, required: true, validation: "min 12 chars, zxcvbn>=3, not breached", error-message: "Password must be at least 12 characters and not a commonly used password.", accessibility: "strength meter announced via aria-live=polite" }
+      - { name: consent,  label: "I agree to the privacy notice", type: checkbox, required: true, validation: "must be checked", error-message: "You must accept the privacy notice to create an account." }
+    submit-behavior: "POST API-001; disable submit while pending; uniform success view regardless of duplicate email"
+    security: [csrf-token, rate-limited, captcha-after-3-failures]
+  - id: FRM-002
+    name: Login Form
+    used-in: [WF-002, PG-002]
+    fields:
+      - { name: email,    label: "Email address", type: email,    required: true, validation: "RFC 5322", error-message: "Enter a valid email address.", accessibility: "autocomplete=email" }
+      - { name: password, label: "Password",      type: password, required: true, validation: "non-empty, max 256", error-message: "Enter your password.", accessibility: "autocomplete=current-password; show/hide toggle with aria-pressed" }
+    submit-behavior: "POST API-002; on 401 show single generic error above the form; never field-level hints"
+    security: [csrf-token, rate-limited, captcha-after-3-failures]
+
+pages:
+  - { id: PG-001, name: Registration,    route: /register,       access: [ROLE-ANONYMOUS], states: [default, submitting, success-check-email, error], components: [FRM-001, privacy-notice-link], navigation: { entry-points: [landing-header, /login], exit-points: [/login, /verify-email] } }
+  - { id: PG-002, name: Login,           route: /login,          access: [ROLE-ANONYMOUS], states: [default, submitting, error, locked-generic], components: [FRM-002, forgot-password-link], navigation: { entry-points: [landing-header, redirect-after-401], exit-points: [/dashboard, /register, /reset-password] } }
+  - { id: PG-003, name: Verify Email,    route: /verify-email,   access: [ROLE-ANONYMOUS], states: [verifying, success, expired-resend, invalid], components: [verification-status, resend-button], navigation: { entry-points: [email-link], exit-points: [/login] } }
+  - { id: PG-004, name: Reset Password,  route: /reset-password, access: [ROLE-ANONYMOUS], states: [request, email-sent, set-new-password, success, token-invalid], components: [reset-request-form, new-password-form], navigation: { entry-points: [/login], exit-points: [/login] } }
+
+testing:
+  strategy: "Test pyramid: unit (policy, hashing, token logic) > integration (API + datastore + email stub) > e2e (browser flows). Security tests run in CI on every PR; load test before each release."
+  coverage-targets: { unit: "90% on auth-service core", integration: "all 4 API endpoints x all documented responses", e2e: "WF-001, WF-002, WF-003 happy + primary failure paths" }
+  golden-scenarios:
+    - { id: GS-001, name: Registration happy path,  given: "a visitor with a unique email and policy-compliant password", when: "they register and click the emailed link within 24h", then: "account is ACTIVE and login succeeds", requirement: REQ-001 }
+    - { id: GS-002, name: Login happy path,         given: "a verified ACTIVE user", when: "they submit correct credentials", then: "200 with access JWT + refresh cookie, AUD-003 recorded, p95 < 2s", requirement: REQ-002 }
+    - { id: GS-003, name: Lockout engages,          given: "5 failed logins for one account within 15 minutes", when: "a 6th attempt arrives", then: "account locks 30 min, NOT-003 sent, AUD-007 recorded, response stays generic 401", requirement: REQ-011 }
+    - { id: GS-004, name: Refresh replay revokes,   given: "a refresh token already used once", when: "it is presented again", then: "401, entire session family revoked, AUD-006 recorded", requirement: REQ-018 }
+    - { id: GS-005, name: No account enumeration,   given: "one registered and one unknown email", when: "each is used on register, login, and reset-request", then: "responses are byte-identical in shape and constant-time (±50ms)", requirement: REQ-001 }
+  security-tests: [sql-injection-on-all-auth-inputs, xss-in-device-label, csrf-on-all-state-changing-endpoints, session-fixation, jwt-alg-none-rejection, timing-attack-on-login, rate-limit-bypass-via-header-spoofing]
+  performance-tests: [login-2s-p95-at-500rps, registration-burst-100rps-sustained-5min, refresh-storm-after-mass-revocation]
+
+deployment:
+  environments: [dev, staging, production]
+  pipeline: [lint, unit-tests, integration-tests, security-scan, build, deploy-staging, e2e-on-staging, manual-gate, deploy-production]
+  rollout: canary
+  rollback: "automatic on ALT-001 firing during canary window; otherwise one-click revert to previous image; DB migrations are expand-contract (never breaking)"
+  feature-flags: [anomaly-notification-enabled, captcha-after-failures, breach-check-enabled]
+  configuration: [DATABASE_URL, SESSION_SIGNING_KEY, EMAIL_PROVIDER_API_KEY, RATE_LIMIT_REDIS_URL, BREACH_API_BASE_URL]
+
+operations:
+  runbooks:
+    - { id: RB-001, scenario: "Login success-rate below SLO (ALT-001/ALT-003)", steps: ["check auth-overview dashboard for failing step", "inspect rate-limit and lockout counters for attack signature", "if attack: enable captcha-after-failures flag and tighten per-IP limits", "if infra: check session store and DB latency; scale per capacity plan", "post incident note in #auth-ops"], owner: sre-lead }
+    - { id: RB-002, scenario: "Verification/reset emails failing (ALT-002)", steps: ["check INT-001 provider status page", "inspect DLQ depth", "fail over to secondary template-compatible provider if outage > 30 min", "replay DLQ after recovery"], owner: sre-lead }
+    - { id: RB-003, scenario: "GDPR erasure request received", steps: ["verify requester identity via support flow", "execute erasure job (purges ENT-User PII + sessions + tokens)", "confirm backup purge within 30-day window", "record completion in audit trail"], owner: support-lead }
+  capacity: { expected-load: "50 logins/sec steady, 5 registrations/sec", peak-load: "500 logins/sec (marketing events)", scaling-strategy: "horizontal auto-scale on CPU+latency; session store sized for 10x steady state" }
+  maintenance: [weekly-dependency-patching, monthly-secret-rotation-check, quarterly-lockout-threshold-review-against-attack-data]
+  on-call: "platform on-call rota; auth-service pages route to backend-oncall with security-officer escalation for fraud signals"
+
+support:
+  tiers: [self-service-help-center, tier-1-support, tier-2-auth-team, security-escalation]
+  escalation: "tier-1 -> tier-2 within 4 business hours; suspected-compromise -> security-officer immediately (24/7)"
+  common-issues:
+    - { issue: "Verification email not received", resolution: "check spam guidance; resend from /verify-email; tier-1 can trigger manual resend", kb-ref: KB-AUTH-001 }
+    - { issue: "Account locked", resolution: "wait 30 minutes or tier-2 unlock after identity verification; never unlock on the first contact without verification", kb-ref: KB-AUTH-002 }
+    - { issue: "Password reset link expired", resolution: "request a new link; links live 30 minutes by design", kb-ref: KB-AUTH-003 }
+  user-impact-comms: "status page entry + in-app banner for auth incidents > 10 min; templated comms owned by support-lead"
+
+documentation:
+  - { type: user-guide,     audience: "end users",        owner: product-design,    location: help-center/auth/,             update-trigger: "any UX or policy change visible to users" }
+  - { type: api-reference,  audience: "client developers", owner: auth-service-team, location: docs/api/auth.md,              update-trigger: "any API contract change (CI-enforced)" }
+  - { type: runbook,        audience: "on-call engineers", owner: sre-lead,          location: operations.runbooks,           update-trigger: "every incident post-mortem" }
+  - { type: architecture,   audience: "engineers",         owner: architect,         location: docs/architecture/auth.md,     update-trigger: "any ADR affecting auth" }
+  - { type: onboarding,     audience: "new team members",  owner: auth-service-team, location: docs/onboarding/auth.md,       update-trigger: "quarterly review" }
+
+governance:
+  approvals:
+    - { gate: G1-requirements, approver-role: product-owner,    status: pending }
+    - { gate: G2-architecture, approver-role: architect,        status: pending }
+    - { gate: G3-data-model,   approver-role: architect,        status: pending }
+    - { gate: G4-security,     approver-role: security-officer, status: pending }
+  lifecycle: draft
+  version: 1.0.0
+  change-policy: "changes to must-priority requirements or security section reopen the affected gate; all changes via PR with trace update"
+  traceability: "every hidden requirement and cross-cutting domain cites discovery/<domain>/<rule-id>; explicit items cite the verbatim story; workflows reference requirement ids; audit/notification/runbook ids cross-link"
+
+compliance:
+  regulations:
+    - { name: GDPR,    applicable: true,  rationale: "EU users assumed in scope (ASM-002); PII processed (email, IP, device labels)", obligations: [lawful-basis-and-consent-capture, privacy-notice-versioning, data-subject-rights-support, 30-day-erasure-including-backups, breach-notification-72h] }
+    - { name: SOC2,    applicable: true,  rationale: "B2B customers expected to request SOC2 Type II reports", obligations: [logical-access-controls-CC6, audit-trail-retention, change-management-evidence, incident-response-runbooks] }
+    - { name: HIPAA,   applicable: false, rationale: "no health data processed by this feature" }
+    - { name: PCI-DSS, applicable: false, rationale: "no cardholder data; payments out of scope" }
+  privacy:
+    pii-inventory: [ENT-User.email, ENT-Session.ip, ENT-Session.device_label]
+    consent: "explicit checkbox at registration; consent version + timestamp stored on ENT-User; re-consent on material privacy-notice changes"
+    data-subject-rights: [access, rectification, erasure, portability]
+  backup:
+    strategy: "automated daily snapshots + continuous WAL archiving; encrypted at rest; cross-region copy"
+    rpo: "5 minutes"
+    rto: "1 hour"
+  disaster-recovery:
+    plan: "warm standby in secondary region; DNS failover; session store rebuilt from durable refresh-hash table (users transparently re-authenticate at worst)"
+    test-frequency: "twice yearly game-day, including restore-from-backup drill"

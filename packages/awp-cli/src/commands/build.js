@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync } from "node:fs"
 import { join, dirname } from "node:path"
+import YAML from "yaml"
 import { requireRepoRoot, tryReadYaml } from "../lib/repo.js"
 import { loadModelConfig, detectTier, streamModelCall } from "../model.js"
 import { runPipeline, assembleStagePrompt } from "../stages.js"
@@ -48,10 +49,20 @@ export async function build(flags) {
       console.error(`awp build --aggregate: directory not found: ${targetDir}`)
       return 1
     }
-    const agg = mergeStagedFiles(targetDir)
+    const { doc, collisions, files } = mergeStagedFiles(targetDir)
+    if (files.length === 0) {
+      console.error(`awp build --aggregate: no staged files (0N-*.yaml) in ${targetDir}`)
+      return 1
+    }
+    if (collisions.length > 0) {
+      console.error("awp build --aggregate: ID COLLISION — refusing to merge (VAL-020)")
+      for (const c of collisions) console.error(`  "${c.id}" defined in both ${c.files.join(" and ")}`)
+      return 1
+    }
     const outPath = join(targetDir, "blueprint.yaml")
-    writeFileSync(outPath, agg, "utf8")
-    console.log(`awp build --aggregate: merged staged files → ${outPath}`)
+    writeFileSync(outPath, YAML.stringify(doc), "utf8")
+    const sectionCount = Object.keys(doc).filter((k) => k !== "_meta").length
+    console.log(`awp build --aggregate: merged ${files.length} staged files → ${outPath} (${sectionCount} sections)`)
     return 0
   }
 
@@ -173,11 +184,13 @@ async function executeBuild(opts) {
 
   console.log(`/workflow-builder: ${story} (${maturityLevel}, tier=${tier})`)
 
-  // Check API key
-  const apiKey = process.env[config.apiKeyEnv]
-  if (!apiKey) {
-    console.error(`awp build --execute: env var ${config.apiKeyEnv} not set`)
-    return 1
+  // Check API key (the mock provider needs none — used for keyless CI E2E)
+  if (config.provider !== "mock") {
+    const apiKey = process.env[config.apiKeyEnv]
+    if (!apiKey) {
+      console.error(`awp build --execute: env var ${config.apiKeyEnv} not set`)
+      return 1
+    }
   }
 
   const outDir = typeof flags.out === "string" ? dirname(flags.out) : config.outputDir
@@ -200,7 +213,7 @@ async function executeBuild(opts) {
 
       // Call model
       let content = ""
-      for await (const ev of streamModelCall({ systemPrompt, userPrompt, config, tier })) {
+      for await (const ev of streamModelCall({ systemPrompt, userPrompt, config, tier, stageFile: stageDef.file })) {
         if (ev.error) throw new Error(ev.error)
         content = ev.content || content
       }
@@ -267,13 +280,91 @@ function slugify(text) {
     .slice(0, 64)
 }
 
-function mergeStagedFiles(dir) {
-  const { readdirSync: ls, readFileSync: rf } = require("node:fs")
-  const { join: j } = require("node:path")
-  const entries = ls(dir).filter(f => f.match(/^\d{2}-.*\.yaml$/)).sort()
-  const parts = []
-  for (const entry of entries) {
-    parts.push(rf(j(dir, entry), "utf8"))
+/**
+ * Merge staged files (01..06-*.yaml) into one blueprint document.
+ *
+ * - Strips each file's `_meta` envelope.
+ * - Shallow section union; `workflows` is the only split section (root in
+ *   stage-04, dependent in stage-05) and is merged key-wise (§7.5).
+ * - Asserts definition-id uniqueness across all sections (VAL-020); collisions
+ *   are returned so the caller can refuse rather than silently overwrite.
+ *
+ * @returns {{doc:object, collisions:{id:string,files:string[]}[], files:string[]}}
+ */
+export function mergeStagedFiles(dir) {
+  const files = readdirSync(dir).filter((f) => /^\d{2}-.*\.yaml$/.test(f)).sort()
+  const doc = {}
+  const idOwner = new Map() // id -> file that first defined it
+  const collisions = []
+  const provenance = []
+
+  for (const entry of files) {
+    const parsed = tryReadYaml(join(dir, entry)) || {}
+    provenance.push(entry)
+
+    for (const [key, val] of Object.entries(parsed)) {
+      if (key === "_meta") continue
+      if (key === "workflows") {
+        doc.workflows = mergeWorkflows(doc.workflows, val)
+      } else if (doc[key] === undefined) {
+        doc[key] = val
+      } else {
+        doc[key] = mergeSection(doc[key], val)
+      }
+    }
+
+    for (const id of collectDefinitionIds(parsed)) {
+      if (idOwner.has(id) && idOwner.get(id) !== entry) {
+        collisions.push({ id, files: [idOwner.get(id), entry] })
+      } else if (!idOwner.has(id)) {
+        idOwner.set(id, entry)
+      }
+    }
   }
-  return parts.join("\n---\n")
+
+  doc._meta = { aggregated_from: provenance, produced_by: "awp build --aggregate" }
+  return { doc, collisions, files }
+}
+
+function mergeWorkflows(a, b) {
+  if (!a) return b
+  if (Array.isArray(a) && Array.isArray(b)) return [...a, ...b]
+  if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
+    return { ...a, ...b }
+  }
+  return b
+}
+
+function mergeSection(a, b) {
+  if (Array.isArray(a) && Array.isArray(b)) return [...a, ...b]
+  if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
+    return { ...a, ...b }
+  }
+  return b
+}
+
+/** Collect ids of DEFINED items (objects with an `id`), never string references. */
+function collectDefinitionIds(doc) {
+  const ids = []
+  const items = (section) => {
+    if (!section) return []
+    if (Array.isArray(section)) return section
+    if (section.items && Array.isArray(section.items)) return section.items
+    return []
+  }
+  for (const [key, val] of Object.entries(doc)) {
+    if (key === "_meta") continue
+    for (const it of items(val)) {
+      if (it && typeof it === "object" && typeof it.id === "string") ids.push(it.id)
+    }
+    // requirements.explicit / requirements.hidden nesting
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      for (const sub of ["explicit", "hidden", "functional", "cross-cutting", "root", "dependent", "events"]) {
+        for (const it of items(val[sub])) {
+          if (it && typeof it === "object" && typeof it.id === "string") ids.push(it.id)
+        }
+      }
+    }
+  }
+  return ids
 }

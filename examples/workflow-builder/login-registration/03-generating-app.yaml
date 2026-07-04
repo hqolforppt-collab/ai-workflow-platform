@@ -1,0 +1,116 @@
+# 03-generating-app.yaml — Stage 3/6 (Generating App)
+# Sections: actors, roles, data-model, master-data, knowledge
+_meta:
+  blueprint_id: BLU-LOGIN-REG-001
+  stage: stage-03
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-02]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml]
+
+actors:
+  - id: ACT-001
+    name: Visitor
+    type: human
+    description: Unauthenticated person registering or attempting to log in.
+    goals: [create an account, regain access via password reset]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-002
+    name: Registered User
+    type: human
+    description: Verified account holder logging in and managing their session.
+    goals: [log in securely, stay logged in across visits, be alerted to suspicious activity]
+    interactions: [WF-002, WF-003]
+  - id: ACT-003
+    name: Auth Service
+    type: service
+    description: Backend service owning credentials, sessions, tokens, and lockout state.
+    goals: [issue and revoke sessions, enforce all security policies]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-004
+    name: Email Provider
+    type: system
+    description: External transactional email system (verification, reset, security notices).
+    goals: [deliver templated email within 60 seconds]
+    interactions: [WF-001, WF-003]
+  - id: ACT-005
+    name: Token Janitor
+    type: scheduler
+    description: Scheduled job purging expired verification/reset tokens and stale sessions.
+    goals: [keep token tables bounded, enforce retention]
+    interactions: [WF-002]
+
+roles:
+  - id: ROLE-ANONYMOUS
+    name: Anonymous
+    permissions: ["auth:register", "auth:login", "auth:request-reset"]
+    assigned-actors: [ACT-001]
+  - id: ROLE-USER
+    name: Authenticated User
+    inherits: ROLE-ANONYMOUS
+    permissions: ["session:refresh", "session:revoke-own", "profile:read-own"]
+    assigned-actors: [ACT-002]
+  - id: ROLE-AUTH-ADMIN
+    name: Auth Administrator
+    permissions: ["account:unlock", "account:suspend", "audit:read"]
+    assigned-actors: []
+    separation-of-duties: [ROLE-USER]   # an admin account may not be used as a daily-driver user account
+
+data-model:
+  entities:
+    - id: ENT-User
+      name: User
+      description: Account holder identity and credential record.
+      attributes:
+        - { name: id,             type: uuid,        required: true,  pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: email,          type: citext,      required: true,  pii: true,  unique: true,  default: null, validation: "RFC 5322; max 254 chars" }
+        - { name: password_hash,  type: text,        required: true,  pii: false, unique: false, default: null, validation: "argon2id encoded string" }
+        - { name: status,         type: enum,        required: true,  pii: false, unique: false, default: PENDING_VERIFICATION, validation: "one of master-data:account-status" }
+        - { name: consent_version, type: text,       required: true,  pii: false, unique: false, default: null, validation: "matches published privacy-notice version" }
+        - { name: created_at,     type: timestamptz, required: true,  pii: false, unique: false, default: now(), validation: "not in future" }
+      relationships:
+        - { target: ENT-Session, cardinality: 1-n, on-delete: cascade }
+        - { target: ENT-AuthToken, cardinality: 1-n, on-delete: cascade }
+      retention: "active accounts: lifetime; deleted accounts: PII purged within 30 days (REQ-016)"
+      classification: confidential
+    - id: ENT-Session
+      name: Session
+      description: Session family with rotating refresh tokens.
+      attributes:
+        - { name: id,             type: uuid,        required: true,  pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: user_id,        type: uuid,        required: true,  pii: false, unique: false, default: null, validation: "fk ENT-User" }
+        - { name: refresh_hash,   type: text,        required: true,  pii: false, unique: true,  default: null, validation: "sha256 of current refresh token" }
+        - { name: device_label,   type: text,        required: false, pii: true,  unique: false, default: null, validation: "max 120 chars, sanitized" }
+        - { name: ip,             type: inet,        required: true,  pii: true,  unique: false, default: null, validation: "valid IPv4/IPv6" }
+        - { name: expires_at,     type: timestamptz, required: true,  pii: false, unique: false, default: "now() + 30d", validation: "> now()" }
+        - { name: revoked_at,     type: timestamptz, required: false, pii: false, unique: false, default: null, validation: "nullable" }
+      relationships: []
+      retention: "90 days after expiry/revocation, then hard-deleted"
+      classification: confidential
+    - id: ENT-AuthToken
+      name: AuthToken
+      description: Single-use verification and reset tokens.
+      attributes:
+        - { name: id,         type: uuid,        required: true, pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: user_id,    type: uuid,        required: true, pii: false, unique: false, default: null, validation: "fk ENT-User" }
+        - { name: kind,       type: enum,        required: true, pii: false, unique: false, default: null, validation: "one of master-data:token-kind" }
+        - { name: token_hash, type: text,        required: true, pii: false, unique: true,  default: null, validation: "sha256; raw token never stored" }
+        - { name: expires_at, type: timestamptz, required: true, pii: false, unique: false, default: null, validation: "verify: +24h; reset: +30m" }
+        - { name: used_at,    type: timestamptz, required: false, pii: false, unique: false, default: null, validation: "single use; non-null blocks reuse" }
+      relationships: []
+      retention: "purged 7 days after expiry by ACT-005"
+      classification: restricted
+
+master-data:
+  - { name: account-status, values: [PENDING_VERIFICATION, ACTIVE, LOCKED, SUSPENDED, DELETED], owner: auth-service-team, change-process: "ADR + migration + G3 review" }
+  - { name: token-kind,     values: [EMAIL_VERIFY, PASSWORD_RESET],                              owner: auth-service-team, change-process: "ADR + migration + G3 review" }
+  - { name: email-templates, values: [verify-email-v1, reset-password-v1, account-locked-v1, new-device-login-v1, was-this-you-v1], owner: product-design, change-process: "template registry PR + legal review for compliance-relevant copy" }
+
+knowledge:
+  glossary:
+    - { term: session family, definition: "All refresh tokens descending from one login; revoked as a unit on replay detection." }
+    - { term: account enumeration, definition: "Inferring whether an email is registered from response differences; prevented by uniform responses." }
+    - { term: expand-contract migration, definition: "Two-phase schema change that keeps old and new code compatible during rollout." }
+  domain-concepts: [credential-stuffing, k-anonymity breach lookup, constant-time comparison, token rotation]
+  references: ["NIST SP 800-63B (password policy)", "OWASP ASVS v4 §2-3 (auth & session)", "GDPR Art. 5/6/17", "SOC2 CC6 (logical access)"]

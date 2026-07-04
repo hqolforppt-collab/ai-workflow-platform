@@ -1,0 +1,8 @@
+# Intentionally broken fixture — an actor whose id violates the ACT-<n> pattern (VAL-020).
+_meta: { blueprint_id: BLU-BROKEN, stage: stage-03 }
+actors:
+  - { id: ACTOR-1, name: Badly Identified Actor, type: human }
+roles: []
+data-model: {}
+master-data: []
+knowledge: {}

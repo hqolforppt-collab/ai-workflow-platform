@@ -5,6 +5,50 @@ All notable changes to the AI Workflow Platform are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-07-04
+
+Gap-remediation release closing the audit of the v2.0 `/workflow-builder` plan
+(`.hermes/reports/2026-07-04-v2-gap-report.md`). All items are additive; no
+existing path moved.
+
+### Added
+- **`@awp/governance`** — shared, fail-closed G1–G4 gate module imported by both
+  the CLI (`awp flowable deploy`) and the Flowable MCP server, so no mutating path
+  can bypass governance (Constitution R2). Missing/unapproved gate records now
+  refuse deployment instead of warning.
+- **Governance on MCP tools** — `deploy`, `start_process`, `complete_task` now
+  gate-check via `@awp/governance`; `deploy` refuses without a resolvable
+  `blueprint_id`. Runtime mutation requires an approved blueprint or an explicit
+  `AWP_ALLOW_RUNTIME_MUTATION=1` escape hatch.
+- **`.mcp.json`** — tracked registration so the Flowable MCP server is discoverable
+  by Claude Code and other MCP clients; server split into `client.js` + `index.js`
+  with `packages/flowable-mcp-server/README.md`.
+- **`awp validate <blueprint-dir|blueprint.yaml>`** — the deterministic 17-rule
+  engine is now a CLI command (was only reachable inside `build --execute`).
+- **Test harness** — `node:test` suites for governance, CLI (aggregate, validate,
+  tiers, stages, schema-summary sync), and the MCP client; a `mock` model provider
+  for keyless CI end-to-end runs; wired into both CI workflows.
+- **Staged golden example** — `examples/workflow-builder/login-registration/`
+  now ships the 6 staged files, the aggregated `blueprint.yaml`, and converted
+  `flowable/` artifacts; passes `awp validate` 17/17.
+- **`mcp:` delegation blocks** on the five modeling skills; `.awp.config.example.yaml`
+  config template; `zod` added to `awp-cli`.
+
+### Fixed
+- **`awp build --aggregate`** no longer crashes (`require` in an ESM module) and now
+  performs a real section union with root+dependent workflow merge and id-collision
+  refusal, emitting a single-document `blueprint.yaml`.
+- **Staged workflow merge** — reading staged files no longer lets stage-05 clobber
+  the stage-04 root workflow (affected the validator, the converter, and aggregation).
+- **`awp flowable convert`** uses per-model keys (never a generic `root`) and emits
+  root + dependent BPMN, DMN, and forms — 6 artifacts for the golden example (was 1).
+- **VAL-013** matches mandatory domains by normalized id-or-name (previously could
+  never pass); **VAL-032** is a real dangling-reference check; **VAL-040** is labeled
+  informational rather than a silent pass.
+- **`model.js`** retries transient (429/5xx/network) failures with bounded backoff.
+- Rule count corrected to **17** across prompt, pipeline, command, maturity, and
+  adapter docs (was inconsistently "16").
+
 ## [1.0.0-ossp] — 2026-06-12
 
 **Open Source Standard Platform Release** — The definitive open-source standard for Spec-Driven Development, Workflow Engineering, and AI-Native Enterprise Architecture.

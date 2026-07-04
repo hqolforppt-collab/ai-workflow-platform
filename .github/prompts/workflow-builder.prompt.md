@@ -19,7 +19,7 @@ Follow the canonical execution prompt at `.commands/workflow-builder/prompt.md` 
 3. Output ONE YAML blueprint conforming to `.schemas/workflow-blueprint/schema.yaml`
    at the requested maturity level (default L6 — see
    `.commands/workflow-builder/maturity-levels.yaml`).
-4. Validate against all 16 rules in `.schemas/workflow-blueprint/validation-rules.yaml`,
+4. Validate against all 17 rules in `.schemas/workflow-blueprint/validation-rules.yaml`,
    write to `blueprints/<slug>.yaml` (or --output), then print the coverage report.
 
 Reference for expected depth: `examples/workflow-builder/login-registration/blueprint.yaml`.

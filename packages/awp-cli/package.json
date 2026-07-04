@@ -27,8 +27,13 @@
     "flowable",
     "bpmn"
   ],
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
-    "yaml": "^2.6.0"
+    "@awp/governance": "workspace:*",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.0"
   },
   "engines": {
     "node": ">=18"

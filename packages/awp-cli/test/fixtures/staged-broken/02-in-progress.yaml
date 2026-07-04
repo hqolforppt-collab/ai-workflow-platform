@@ -1,0 +1,12 @@
+# Intentionally broken fixture — a requirement with no acceptance-criteria (VAL-021).
+_meta: { blueprint_id: BLU-BROKEN, stage: stage-02 }
+requirements:
+  explicit:
+    - id: REQ-001
+      title: A requirement with no acceptance criteria
+      domain: authentication
+      source: user
+      priority: must
+  hidden: []
+risks: []
+assumptions: []

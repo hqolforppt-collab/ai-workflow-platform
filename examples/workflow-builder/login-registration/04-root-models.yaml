@@ -1,0 +1,141 @@
+# 04-root-models.yaml — Stage 4/6 (Root Models)
+# Sections: workflows (root scope), security, api, events, integrations
+_meta:
+  blueprint_id: BLU-LOGIN-REG-001
+  stage: stage-04
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  root_model_type: BPMN
+  depends_on: [stage-03]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml, 03-generating-app.yaml]
+
+workflows:
+  root:
+    id: WF-001
+    name: Registration with Email Verification
+    trigger: "Visitor submits the registration form (FRM-001)"
+    actors: [ACT-001, ACT-003, ACT-004]
+    requirements: [REQ-001, REQ-010, REQ-013, REQ-016, REQ-014]
+    steps:
+      - { id: S1, name: Validate input,          type: system-action, actor: ACT-003, inputs: [email, password, consent], outputs: [validated-payload], on-success: S2, on-failure: "EX-001 (field errors returned to form)" }
+      - { id: S2, name: Check password policy,   type: system-action, actor: ACT-003, inputs: [password], outputs: [policy-verdict], on-success: S3, on-failure: "EX-001 (policy violation message)" }
+      - { id: S3, name: Detect duplicate email,  type: decision,      actor: ACT-003, inputs: [email], outputs: [is-duplicate], on-success: S4, on-failure: "EX-002 (uniform success + NOT-005 to owner)", audit-event: AUD-001 }
+      - { id: S4, name: Create account + token,  type: system-action, actor: ACT-003, inputs: [validated-payload], outputs: [user-id, verify-token], on-success: S5, on-failure: "EX-003 (retry-safe; idempotency key on email)" }
+      - { id: S5, name: Send verification email, type: notification,  actor: ACT-004, inputs: [verify-token], outputs: [delivery-receipt], on-success: S6, on-failure: "EX-004 (queued retry; user shown 'check your email' regardless)" }
+      - { id: S6, name: Consume verify link,     type: user-action,   actor: ACT-001, inputs: [token], outputs: [account-ACTIVE], on-success: END, on-failure: "EX-005 (expired -> one-click resend)", audit-event: AUD-002 }
+    exceptions:
+      - { id: EX-001, condition: "validation or policy failure",  handling: "400 with field errors; no account created", notification: null }
+      - { id: EX-002, condition: "email already registered",      handling: "uniform 'check your email' response; NOT-005 sent to existing owner", notification: NOT-005 }
+      - { id: EX-003, condition: "datastore write failure",       handling: "500; safe retry via idempotency key; alert if error-rate breaches ALT-001", notification: null }
+      - { id: EX-004, condition: "email provider down",           handling: "message queued with retry policy; DLQ + ALT-002 after 1h", notification: null }
+      - { id: EX-005, condition: "verification token expired",    handling: "resend flow issues fresh token, old token invalidated", notification: NOT-001 }
+    sla: "registration submit -> verification email sent: 60 seconds (p95)"
+
+security:
+  authentication:
+    methods: [email-password]
+    password-policy:
+      min-length: 12
+      complexity: "zxcvbn score >= 3; no character-class composition rules (NIST 800-63B)"
+      history: 5
+      max-age-days: 0   # no forced rotation (NIST 800-63B); rotation only on compromise
+    mfa:
+      required: false
+      methods: [totp]
+      enrollment: "optional self-service post-launch; policy ready, UI deferred (ASM-004)"
+    session:
+      storage: "access JWT (memory) + refresh token in HttpOnly Secure SameSite=Lax cookie"
+      ttl-minutes: 15
+      idle-timeout-minutes: 43200   # refresh cookie 30 days
+      refresh-strategy: "rotate-on-use; replay detection revokes session family"
+      revocation: "server-side session-family table; logout-all supported"
+    account-lockout:
+      threshold: 5
+      window-minutes: 15
+      lockout-minutes: 30
+      notification: NOT-003
+    rate-limiting:
+      scope: "per-IP and per-account on all /auth/* endpoints"
+      limit: 10
+      window: 1m
+      response: "429 + Retry-After header"
+  authorization:
+    model: rbac
+    enforcement-points: [api-gateway, auth-service-middleware]
+  data-protection:
+    encryption-at-rest: "AES-256 (managed Postgres); password hashes argon2id (m=64MiB, t=3, p=4)"
+    encryption-in-transit: "TLS 1.3 only; HSTS max-age=63072000"
+    secrets-management: "platform secret store; no secrets in env files or code; 90-day rotation"
+  threat-controls:
+    - { threat: "Credential stuffing",  mitigation: "lockout + per-IP rate limit + breached-password rejection (REQ-010..012)", owner: security-officer }
+    - { threat: "Account enumeration",  mitigation: "uniform responses and constant-time compare on register/login/reset", owner: dev-lead }
+    - { threat: "Session hijacking",    mitigation: "HttpOnly Secure cookies, rotation-on-use, replay-triggered family revocation", owner: dev-lead }
+    - { threat: "Token leakage via logs", mitigation: "log redaction policy: tokens, passwords, and secrets never logged (logging.pii-policy)", owner: sre-lead }
+
+api:
+  - id: API-001
+    method: POST
+    path: /auth/register
+    description: Create a new account in PENDING_VERIFICATION and dispatch verification email.
+    auth-required: false
+    roles: [ROLE-ANONYMOUS]
+    request: { content-type: application/json, schema: "{email, password, consent}", validation: "FRM-001 rules server-side; idempotency key = normalized email" }
+    responses:
+      - { status: 202, condition: "accepted (uniform for new and duplicate email)", schema: "{message}" }
+      - { status: 400, condition: "validation or password-policy failure", schema: "{errors[]}" }
+      - { status: 429, condition: "rate limited", schema: "{message, retryAfter}" }
+    rate-limit: "10/min per IP"
+    idempotency: "duplicate submits for same email return identical 202"
+    errors: [ERR-VALIDATION, ERR-RATE-LIMITED]
+  - id: API-002
+    method: POST
+    path: /auth/login
+    description: Verify credentials and issue access JWT + rotating refresh cookie.
+    auth-required: false
+    roles: [ROLE-ANONYMOUS]
+    request: { content-type: application/json, schema: "{email, password}", validation: "constant-time verification; lockout + rate-limit pre-checks" }
+    responses:
+      - { status: 200, condition: "credentials valid and account ACTIVE", schema: "{accessToken, expiresIn}; Set-Cookie refresh" }
+      - { status: 401, condition: "invalid credentials, locked, or unverified (uniform)", schema: "{message}" }
+      - { status: 429, condition: "rate limited", schema: "{message, retryAfter}" }
+    rate-limit: "10/min per IP + 20/hour per account"
+    idempotency: "naturally idempotent; each success rotates session"
+    errors: [ERR-AUTH-GENERIC, ERR-RATE-LIMITED]
+  - id: API-003
+    method: POST
+    path: /auth/refresh
+    description: Rotate refresh token and mint a new access JWT; replay revokes session family.
+    auth-required: true
+    roles: [ROLE-USER]
+    request: { content-type: application/json, schema: "{} (refresh cookie)", validation: "cookie present, unexpired, hash matches current family head" }
+    responses:
+      - { status: 200, condition: "rotation succeeded", schema: "{accessToken, expiresIn}; Set-Cookie new refresh" }
+      - { status: 401, condition: "missing/expired/replayed token (family revoked on replay, AUD-006)", schema: "{message}" }
+    rate-limit: "60/hour per session"
+    idempotency: "non-idempotent by design (rotation); replay is the abuse signal"
+    errors: [ERR-AUTH-GENERIC]
+  - id: API-004
+    method: POST
+    path: /auth/password-reset
+    description: Request reset link (uniform response) or complete reset with token.
+    auth-required: false
+    roles: [ROLE-ANONYMOUS]
+    request: { content-type: application/json, schema: "{email} | {token, newPassword}", validation: "phase inferred from payload; token single-use, 30 min TTL" }
+    responses:
+      - { status: 202, condition: "reset request accepted (uniform)", schema: "{message}" }
+      - { status: 200, condition: "password updated; all sessions revoked", schema: "{message}" }
+      - { status: 400, condition: "invalid/expired/used token or policy failure", schema: "{errors[]}" }
+      - { status: 429, condition: "rate limited", schema: "{message, retryAfter}" }
+    rate-limit: "5/hour per email + 10/min per IP"
+    idempotency: "request phase idempotent per email; completion single-use by token"
+    errors: [ERR-VALIDATION, ERR-TOKEN-INVALID, ERR-RATE-LIMITED]
+
+events:
+  - { id: EVT-auth.user.registered,     name: auth.user.registered,     producer: auth-service, consumers: [analytics-pipeline, crm-sync],        payload: { user-id: uuid, registered-at: timestamp, consent-version: string }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-auth.user.verified,       name: auth.user.verified,       producer: auth-service, consumers: [analytics-pipeline, onboarding-service], payload: { user-id: uuid, verified-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-auth.session.anomalous,   name: auth.session.anomalous,   producer: auth-service, consumers: [fraud-dashboard, siem],               payload: { user-id: uuid, risk-score: number, signals: list }, delivery: at-least-once, pii-in-payload: false }
+
+integrations:
+  - { id: INT-001, system: "Transactional email provider", purpose: "verification, reset, and security emails", protocol: "HTTPS REST + webhooks for delivery receipts", direction: outbound, auth: "API key in secret store, 90-day rotation", failure-mode: "queue with retry + DLQ; ALT-002 on sustained failure; auth flows never block on email", data-shared: [recipient-email, template-id, locale, deep-link-token] }
+  - { id: INT-002, system: "Breached-password corpus (k-anonymity API)", purpose: "reject compromised passwords (REQ-010)", protocol: "HTTPS range query (hash prefix only)", direction: outbound, auth: "none (public k-anonymity endpoint)", failure-mode: "fail-open with warn log + risk flag; policy checks other than breach still enforced", data-shared: [sha1-prefix-5-chars-only] }

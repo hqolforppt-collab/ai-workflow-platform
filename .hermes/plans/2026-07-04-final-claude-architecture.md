@@ -1,5 +1,16 @@
 # FINAL Architecture Plan — `/workflow-builder` v2.0 (Claude Code)
 
+> **ERRATA (2026-07-04, superseded by v2.1):** An audit
+> (`.hermes/reports/2026-07-04-v2-gap-report.md`) found 5 spec defects in this
+> document, corrected by `.hermes/plans/2026-07-04-v2.1-gap-remediation-plan.md`:
+> **(P1)** the rule count is **17**, not "16" (this doc's own ID list
+> VAL-001/002/010–013/020–042 sums to 17); **(P2)** `.mcp.json` was required by §8.1
+> but omitted from the §9.1 manifest; **(P3)** the F1.4 config "template" cannot live
+> at the git-ignored `.awp/` path — it ships as tracked `.awp.config.example.yaml`;
+> **(P4)** §8.2 gate enforcement must live in one shared module used by both the CLI
+> and MCP paths (it was CLI-only and fail-open); **(P5)** the test strategy needed a
+> concrete harness (now `node:test` + a `mock` provider). All are implemented in v2.1.
+>
 > **Status:** FINAL — ready for review & sign-off
 > **Supersedes:** `2026-07-04_120000-architecture-review-workflow-builder.md`, `2026-07-04_124500-workflow-builder-enhanced-architecture.md`, `2026-07-04_140000-revised-workflow-builder-architecture.md`
 > **Date:** 2026-07-04

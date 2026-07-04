@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://flowable.org/process">
+  <process id="WF-001" name="Registration with Email Verification" isExecutable="true">
+    <startEvent id="start" name="Start"/>
+    <serviceTask id="S1" name="Validate input"/>
+    <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
+    <serviceTask id="S2" name="Check password policy"/>
+    <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
+    <exclusiveGateway id="S3" name="Detect duplicate email"/>
+    <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
+    <serviceTask id="S4" name="Create account + token"/>
+    <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
+    <sendTask id="S5" name="Send verification email"/>
+    <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
+    <userTask id="S6" name="Consume verify link" flowable:assignee="ACT-001"/>
+    <sequenceFlow id="flow_S5_S6" sourceRef="S5" targetRef="S6"/>
+    <endEvent id="end" name="End"/>
+    <sequenceFlow id="flow_S6_end" sourceRef="S6" targetRef="end"/>
+  </process>
+</definitions>

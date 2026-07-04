@@ -1,0 +1,20 @@
+{
+  "name": "@awp/governance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared, fail-closed G1-G4 gate enforcement for the AI Workflow Platform. Imported by both the awp CLI and the Flowable MCP server so governance is checked at every mutating entry point (Constitution R2).",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
