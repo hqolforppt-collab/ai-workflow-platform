@@ -9,7 +9,7 @@
     <startEvent id="start" name="Start"/>
     <serviceTask id="S1" name="Accept reset request" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
-    <sendTask id="S2" name="Send reset email" flowable:expression="${awpNotifier.execute('S2')}"/>
+    <serviceTask id="S2" name="Send reset email" flowable:expression="${awpNotifier.execute('S2')}"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
     <userTask id="S3" name="Set new password" flowable:assignee="ACT-001"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>

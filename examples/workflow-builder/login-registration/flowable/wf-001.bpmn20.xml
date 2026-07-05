@@ -15,7 +15,7 @@
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
     <serviceTask id="S4" name="Create account + token" flowable:expression="${awpService.execute('S4')}"/>
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
-    <sendTask id="S5" name="Send verification email" flowable:expression="${awpNotifier.execute('S5')}"/>
+    <serviceTask id="S5" name="Send verification email" flowable:expression="${awpNotifier.execute('S5')}"/>
     <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
     <userTask id="S6" name="Consume verify link" flowable:assignee="ACT-001"/>
     <sequenceFlow id="flow_S5_S6" sourceRef="S5" targetRef="S6"/>

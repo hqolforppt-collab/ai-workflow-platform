@@ -9,13 +9,13 @@
     <startEvent id="start" name="Start"/>
     <serviceTask id="S1" name="Tick and evaluate SLA" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
-    <sendTask id="S2" name="Warn at 75 percent" flowable:expression="${awpNotifier.execute('S2')}"/>
+    <serviceTask id="S2" name="Warn at 75 percent" flowable:expression="${awpNotifier.execute('S2')}"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
     <exclusiveGateway id="S3" name="Check hop budget"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
     <serviceTask id="S4" name="Escalate to next level" flowable:expression="${awpService.execute('S4')}"/>
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
-    <sendTask id="S5" name="Notify both approvers" flowable:expression="${awpNotifier.execute('S5')}"/>
+    <serviceTask id="S5" name="Notify both approvers" flowable:expression="${awpNotifier.execute('S5')}"/>
     <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
     <endEvent id="end" name="End"/>
     <sequenceFlow id="flow_S5_end" sourceRef="S5" targetRef="end"/>

@@ -17,7 +17,7 @@
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
     <serviceTask id="S5" name="Issue session" flowable:expression="${awpService.execute('S5')}"/>
     <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
-    <sendTask id="S6" name="Notify if anomalous" flowable:expression="${awpNotifier.execute('S6')}"/>
+    <serviceTask id="S6" name="Notify if anomalous" flowable:expression="${awpNotifier.execute('S6')}"/>
     <sequenceFlow id="flow_S5_S6" sourceRef="S5" targetRef="S6"/>
     <endEvent id="end" name="End"/>
     <sequenceFlow id="flow_S6_end" sourceRef="S6" targetRef="end"/>

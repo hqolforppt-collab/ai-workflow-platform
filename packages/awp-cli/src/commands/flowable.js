@@ -426,7 +426,11 @@ function yamlToBpmn(wf, key) {
       } else if (stepType === "decision" || stepType === "exclusive-gateway") {
         xml += `    <exclusiveGateway id="${stepId}" name="${stepName}"/>\n`
       } else if (stepType === "notification" || stepType === "send-task") {
-        xml += `    <sendTask id="${stepId}" name="${stepName}"${taskImplAttr(step, stepId, "awpNotifier")}/>\n`
+        // Flowable's <sendTask> requires a bound `type` (mail) or `operation`
+        // (web-service) — it rejects a plain expression. A blueprint has no
+        // mail/WS binding yet, so emit the notification as an expression-backed
+        // <serviceTask> (proven deployable) that names the notifier service.
+        xml += `    <serviceTask id="${stepId}" name="${stepName}"${taskImplAttr(step, stepId, "awpNotifier")}/>\n`
       } else {
         xml += `    <userTask id="${stepId}" name="${stepName}"/>\n`
       }
