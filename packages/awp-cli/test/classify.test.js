@@ -15,6 +15,9 @@ function domains() {
   m.set("session", { id: "session", type: "cross-cutting", triggers: ["session"], implies: ["security"] })
   m.set("password", { id: "password", type: "cross-cutting", triggers: ["password"] })
   m.set("email", { id: "email", type: "functional", triggers: [{ term: "email", synonyms: ["notify"] }] })
+  // Shares the "email" trigger with the email domain but has its own identity —
+  // negating "email" must NOT disable it (collateral-negation regression).
+  m.set("rate-limiting", { id: "rate-limiting", type: "cross-cutting", triggers: ["login", "email"] })
   return m
 }
 
@@ -48,6 +51,22 @@ test("negation marks a domain not-applicable", () => {
 test("passwordless negates password", () => {
   const r = classifyStory(null, "passwordless login", { domains: domains() })
   assert.ok(r.notApplicable.some((d) => d.id === "password"))
+})
+
+test("negation is scoped to domain identity, not shared trigger keywords", () => {
+  const r = classifyStory(null, "login without email", { domains: domains() })
+  // email domain: identity match → negated.
+  assert.ok(r.notApplicable.some((d) => d.id === "email"))
+  // rate-limiting shares the "email" trigger but must survive (fires via "login").
+  assert.ok(!r.notApplicable.some((d) => d.id === "rate-limiting"))
+  assert.ok(r.explicit.some((d) => d.id === "rate-limiting"))
+})
+
+test("a negated keyword can no longer trigger any domain", () => {
+  const r = classifyStory(null, "reports, no email", { domains: domains() })
+  // "email" appears in the story but is negated → must not fire rate-limiting explicitly.
+  assert.ok(!r.explicit.some((d) => d.id === "rate-limiting"))
+  assert.ok(!r.explicit.some((d) => d.id === "email"))
 })
 
 test("zero functional match flags matchedZero but still gets baseline", () => {

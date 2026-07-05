@@ -105,15 +105,15 @@ export function classifyStory(root, story, opts = {}) {
   NEGATED_SUFFIX.lastIndex = 0
   while ((sm = NEGATED_SUFFIX.exec(storyNorm))) negatedTerms.add(stem(sm[1]))
 
-  // A domain is negated if any of its trigger terms is a negated term.
+  // Negation is scoped to a domain's IDENTITY (id + name tokens), not its
+  // trigger keywords. Triggers are shared across domains ("email" triggers both
+  // the email domain and rate-limiting), so negating by trigger causes
+  // collateral damage: "no email notifications" must not disable rate-limiting.
+  // Negated terms are additionally excluded from explicit trigger matching
+  // below, so a negated keyword can never activate any domain either.
   const isNegated = (doc) => {
-    for (const t of doc.triggers || []) {
-      const terms = typeof t === "string" ? [t] : [t.term, ...(t.synonyms || [])]
-      for (const term of terms) {
-        if (negatedTerms.has(stem(normalize(term)))) return true
-      }
-    }
-    return false
+    const identity = normalize(`${doc.id || ""} ${doc.name || ""}`).split(" ")
+    return identity.some((w) => w && negatedTerms.has(stem(w)))
   }
 
   // --- phase 1: explicit trigger matches -----------------------------------
@@ -129,7 +129,12 @@ export function classifyStory(root, story, opts = {}) {
     for (const t of doc.triggers || []) {
       if (t === BASELINE_TOKEN) continue
       const terms = typeof t === "string" ? [t] : [t.term, ...(t.synonyms || [])]
-      const hit = terms.find((term) => term !== BASELINE_TOKEN && termMatches(term, storyNorm, tokens))
+      const hit = terms.find(
+        (term) =>
+          term !== BASELINE_TOKEN &&
+          !negatedTerms.has(stem(normalize(term))) && // negated keywords never trigger
+          termMatches(term, storyNorm, tokens),
+      )
       if (hit) {
         explicit.set(id, hit)
         ;(trace[hit] = trace[hit] || []).push(id)
