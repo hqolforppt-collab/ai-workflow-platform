@@ -6,7 +6,7 @@
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { yamlToDmn, yamlToFormJson } from "../src/commands/flowable.js"
+import { yamlToDmn, yamlToFormJson, yamlToCmmn } from "../src/commands/flowable.js"
 
 const DEC = {
   id: "DEC-001",
@@ -62,6 +62,38 @@ test("DMN: a single bare-outcome `then` fills the one output column", () => {
   const xml = yamlToDmn(dec, "d")
   assert.match(xml, /<inputEntry><text>"tor"<\/text><\/inputEntry>/)
   assert.match(xml, /<outputEntry><text>"block-and-alert"<\/text><\/outputEntry>/)
+})
+
+test("CMMN: required→planItem, discretionary→planningTable, typed definitions", () => {
+  const wf = {
+    id: "WF-001",
+    name: "Onboarding",
+    steps: [
+      { id: "S1", name: "Open case", type: "system-action", "task-nature": "required" },
+      { id: "S2", name: "Collect docs", type: "user-action", "task-nature": "required" },
+      { id: "S4", name: "Provision equipment", type: "user-action", "task-nature": "discretionary" },
+    ],
+  }
+  const xml = yamlToCmmn(wf, "wf")
+  assert.match(xml, /spec\/CMMN\/20151109\/MODEL/)
+  assert.match(xml, /<case id="WF-001"/)
+  // required steps are auto-active plan items
+  assert.match(xml, /<planItem id="pi_S1" name="Open case" definitionRef="S1"\/>/)
+  assert.match(xml, /<planItem id="pi_S2" [^>]*definitionRef="S2"\/>/)
+  // discretionary step lives in a planning table, NOT as a plan item
+  assert.match(xml, /<planningTable id="WF-001-planning">/)
+  assert.match(xml, /<discretionaryItem id="di_S4" [^>]*definitionRef="S4"\/>/)
+  assert.ok(!/<planItem id="pi_S4"/.test(xml))
+  // system-action → non-blocking task; user-action → humanTask
+  assert.match(xml, /<task id="S1" name="Open case" isBlocking="false"\/>/)
+  assert.match(xml, /<humanTask id="S2" name="Collect docs"\/>/)
+  assert.match(xml, /<humanTask id="S4" name="Provision equipment"\/>/)
+})
+
+test("CMMN: an empty workflow still yields a valid one-task case", () => {
+  const xml = yamlToCmmn({ id: "C", name: "Empty" }, "c")
+  assert.match(xml, /<planItem id="pi1" definitionRef="task1"\/>/)
+  assert.match(xml, /<humanTask id="task1"/)
 })
 
 test("Form: emits a Flowable FormModel with mapped field types", () => {
