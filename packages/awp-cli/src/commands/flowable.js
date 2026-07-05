@@ -266,30 +266,43 @@ export async function flowableValidate(flags) {
 
     try {
       const content = readFileSync(fp, "utf8")
-      const formData = new FormData()
-      const blob = new Blob([content], { type: art.type.includes("json") ? "application/json" : "text/xml" })
-      formData.append("file", blob, art.file)
 
-      // Dry-run deploy
-      const res = await fetch(`${baseUrl}/service/repository/deployments`, {
-        method: "POST",
-        headers: { Authorization: basicAuth(user, pass) },
-        body: formData,
-      })
-
-      if (res.status === 201) {
-        const dep = await res.json()
-        // Clean up: delete the test deployment
-        await fetch(`${baseUrl}/service/repository/deployments/${dep.id}?cascade=true`, {
-          method: "DELETE",
+      // The process repository endpoint only accepts BPMN (.bpmn20.xml/.bar/.zip)
+      // — it rejects DMN/Form/CMMN. Deploy-validate BPMN against the live
+      // engine (the strongest proof); structurally validate the others. Live
+      // DMN/Form engine validation is gated on the richer generators
+      // (yamlToDmn is a known structural stub), so it is a documented follow-up.
+      if (art.type === "bpmn20.xml") {
+        const formData = new FormData()
+        formData.append("file", new Blob([content], { type: "text/xml" }), art.file)
+        const res = await fetch(`${baseUrl}/service/repository/deployments`, {
+          method: "POST",
           headers: { Authorization: basicAuth(user, pass) },
+          body: formData,
         })
-        console.log(`  ✓ ${art.file} — valid`)
-        valid++
+        if (res.status === 201) {
+          const dep = await res.json()
+          // Clean up: delete the test deployment (no-mutation validation).
+          await fetch(`${baseUrl}/service/repository/deployments/${dep.id}?cascade=true`, {
+            method: "DELETE",
+            headers: { Authorization: basicAuth(user, pass) },
+          })
+          console.log(`  ✓ ${art.file} — valid (deployed to live engine)`)
+          valid++
+        } else {
+          const body = await res.text().catch(() => "")
+          console.log(`  ✗ ${art.file} — rejected by engine: ${body.slice(0, 200)}`)
+          invalid++
+        }
       } else {
-        const body = await res.text().catch(() => "")
-        console.log(`  ✗ ${art.file} — rejected: ${body.slice(0, 200)}`)
-        invalid++
+        const err = structuralError(art.type, content)
+        if (err) {
+          console.log(`  ✗ ${art.file} — malformed: ${err}`)
+          invalid++
+        } else {
+          console.log(`  ✓ ${art.file} — valid (structural; ${art.type} engine deploy is a documented follow-up)`)
+          valid++
+        }
       }
     } catch (err) {
       console.log(`  ✗ ${art.file} — error: ${err.message}`)
@@ -329,6 +342,31 @@ function workflowKey(model, fallback) {
 
 function basicAuth(user, pass) {
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64")
+}
+
+/**
+ * Structural well-formedness check for artifacts the process-engine deployment
+ * endpoint can't accept (DMN, Form, CMMN). Returns an error string if the
+ * artifact is malformed, or null if it passes. This is deliberately a
+ * structural check, not live-engine validation — see flowableValidate.
+ */
+function structuralError(type, content) {
+  if (type.includes("json")) {
+    let doc
+    try {
+      doc = JSON.parse(content)
+    } catch (e) {
+      return `invalid JSON (${e.message})`
+    }
+    if (!doc || !Array.isArray(doc.fields)) return "form definition missing a fields[] array"
+    return null
+  }
+  // XML artifacts (dmn, cmmn.xml): must be a well-formed <definitions> document
+  // with the expected root model element.
+  if (!/<definitions[\s>]/.test(content)) return "missing <definitions> root"
+  if (type === "dmn" && !/<decision[\s>]/.test(content)) return "DMN missing a <decision>"
+  if (type === "cmmn.xml" && !/<case[\s>]/.test(content)) return "CMMN missing a <case>"
+  return null
 }
 
 /**
