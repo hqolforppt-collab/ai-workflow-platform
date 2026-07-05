@@ -1,0 +1,28 @@
+id: file-management
+type: functional
+version: 1.0.0
+pack: documents
+triggers:
+  - { term: upload, synonyms: [attachment, file, document, download] }
+  - { term: storage, synonyms: [blob, object-store, bucket] }
+implies: [security, backup, audit, versioning]
+standards:
+  - { id: ISO-15489, version: "2016", verified: 2026-07-05, url: "https://www.iso.org/standard/62542.html" }
+constraints:
+  - { id: FILE-C1, rule: "Uploads virus-scanned (e.g. ClamAV) before storage; max size (default 25MB) and MIME allowlist enforced server-side; content-type sniffed from magic bytes, never trusted from client header or extension" }
+  - { id: FILE-C2, rule: "Files stored in object storage under opaque UUID keys, not user-supplied filenames; original filename kept as metadata only; path traversal (../, absolute paths) rejected" }
+  - { id: FILE-C3, rule: "Download and preview served via short-lived signed URLs (TTL <= 15 min); direct bucket access blocked; authorization re-checked at issuance, not just at fetch" }
+  - { id: FILE-C4, rule: "Objects encrypted at rest (AES-256) and in transit (TLS 1.2+); SHA-256 checksum stored at upload and re-verified on download to detect corruption or tampering" }
+  - { id: FILE-C5, rule: "Every upload, download, and delete is audit-logged with actor, object key, size, and timestamp" }
+requirement-seeds:
+  - id: discovery/file-management/REQ-1
+    title: Safe upload
+    ac: "Given a file upload, When the sniffed MIME type is not on the allowlist, Then it is rejected with a 415 and not persisted"
+  - id: discovery/file-management/REQ-2
+    title: Size limit enforced
+    ac: "Given a file upload exceeding 25MB, When the request is received, Then it is rejected with a 413 before the body is fully buffered to storage"
+blueprint-sections: [security, data-model, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

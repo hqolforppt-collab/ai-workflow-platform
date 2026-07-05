@@ -1,0 +1,32 @@
+id: api-gateway
+type: functional
+version: 1.0.0
+pack: integration
+triggers:
+  - api-gateway
+  - { term: gateway, synonyms: [edge, reverse-proxy, api-proxy, ingress] }
+  - { term: routing, synonyms: [route, upstream, backend-routing] }
+  - { term: api-versioning, synonyms: [versioning, api-version] }
+implies: [authentication, authorization, rate-limiting, observability, error-management, idempotency]
+standards:
+  - { id: OpenAPI, version: "3.1.0", verified: 2026-07-05, url: "https://spec.openapis.org/oas/v3.1.0" }
+  - { id: OAuth-2.1, version: "draft-13", verified: 2026-07-05, url: "https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1" }
+  - { id: IETF-RFC-9110, version: "2022", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc9110" }
+constraints:
+  - { id: GTW-C1, rule: "Every route authenticates via OAuth 2.1 bearer token (JWT) validated at the edge: signature, exp, aud, iss, and scope checked before the request reaches any upstream; unauthenticated requests get 401 with WWW-Authenticate" }
+  - { id: GTW-C2, rule: "Request bodies and params are validated against the route's OpenAPI 3.1 schema at the edge; schema violations fail fast with 400 and a machine-readable error; unknown fields rejected (no pass-through of unvalidated input)" }
+  - { id: GTW-C3, rule: "Per-route upstream timeout <= 30s with a connect timeout <= 3s; on upstream timeout the gateway returns 504; total client-facing timeout budget is fixed and never unbounded" }
+  - { id: GTW-C4, rule: "API is versioned via URI path prefix (/v1, /v2); a version is supported >= 12 months after its successor ships; breaking changes require a new major version, never in-place mutation" }
+  - { id: GTW-C5, rule: "Every request is assigned/propagated a correlation ID (traceparent, W3C Trace Context) and rate-limited per client per route; 429 carries Retry-After" }
+requirement-seeds:
+  - id: discovery/api-gateway/REQ-1
+    title: Edge auth enforced
+    ac: "Given a request with a missing or expired bearer token, When it hits any protected route, Then the gateway returns 401 before the upstream is called"
+  - id: discovery/api-gateway/REQ-2
+    title: Schema validation at edge
+    ac: "Given a request body that violates the route's OpenAPI schema, When it reaches the gateway, Then a 400 with a field-level error is returned and no upstream call is made"
+blueprint-sections: [api, security, integrations, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

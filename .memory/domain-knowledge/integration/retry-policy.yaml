@@ -1,0 +1,28 @@
+id: retry-policy
+type: cross-cutting
+version: 1.0.0
+pack: integration
+triggers:
+  - retry
+  - { term: retry-policy, synonyms: [backoff, exponential-backoff, jitter, retries, retry-budget] }
+implies: [idempotency, error-management, observability]
+standards:
+  - { id: IETF-RFC-9110, version: "2022", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc9110" }
+constraints:
+  - { id: RETRY-C1, rule: "Retries use exponential backoff: base delay 200ms, factor 2, max 5 attempts, with full jitter (delay = random(0, base * 2^attempt)) to avoid thundering-herd retry storms" }
+  - { id: RETRY-C2, rule: "Only transient failures retry: HTTP 429, 5xx, connection/timeout/network errors; 4xx (except 429) fail fast and are never retried" }
+  - { id: RETRY-C3, rule: "Retries are only issued for idempotent operations (idempotent method or an idempotency key present); non-idempotent calls without a key are not retried automatically" }
+  - { id: RETRY-C4, rule: "A retry budget caps retries at <= 10% of requests over a rolling window; when the budget is exhausted retries are suppressed and the failure surfaces immediately" }
+  - { id: RETRY-C5, rule: "A 429 or 503 with a Retry-After header overrides the computed backoff; the client waits at least the server-specified interval" }
+requirement-seeds:
+  - id: discovery/retry-policy/REQ-1
+    title: Backoff with jitter
+    ac: "Given a call failing with 503, When the client retries, Then each attempt waits a full-jittered exponential delay (base 200ms, factor 2) up to 5 attempts before failing"
+  - id: discovery/retry-policy/REQ-2
+    title: Fail fast on client error
+    ac: "Given a call returning 400, When the client evaluates retry, Then it does not retry and surfaces the error immediately"
+blueprint-sections: [api, integrations, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

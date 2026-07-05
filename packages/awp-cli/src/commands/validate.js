@@ -3,6 +3,7 @@ import { join, relative, isAbsolute } from "node:path"
 import YAML from "yaml"
 import { requireRepoRoot, listFiles, tryReadYaml } from "../lib/repo.js"
 import { validateBlueprint } from "../validate.js"
+import { kbValidate } from "./kb.js"
 
 /**
  * awp validate — Node port of the .tools/*.sh validators so the suite is
@@ -14,6 +15,11 @@ import { validateBlueprint } from "../validate.js"
  */
 export async function validate(flags) {
   const root = requireRepoRoot()
+
+  // KB mode: `awp validate --kb` runs the domain-knowledge validator.
+  if (flags.kb) {
+    return kbValidate(root, flags)
+  }
 
   // Blueprint mode: `awp validate <blueprint-dir|blueprint.yaml>` runs the
   // deterministic rule engine (validate.js). No positional arg → platform-OS
@@ -71,11 +77,20 @@ async function validateBlueprintCli(root, flags) {
   const story = typeof flags.story === "string" ? flags.story : ""
   const level = typeof flags.level === "string" ? flags.level.toUpperCase() : "L6"
 
-  const { passed, failed } = validateBlueprint(root, targetPath, { story, level })
+  const { passed, failed, warnings = [] } = validateBlueprint(root, targetPath, { story, level })
   const total = passed.length + failed.length
+
+  const printWarnings = () => {
+    if (!warnings.length) return
+    console.log(`\nADVISORY (${warnings.length} — not blocking)`)
+    for (const w of warnings) {
+      console.log(`  ${w.rule.padEnd(8)} ${String(w.file).padEnd(26)} ${String(w.path).padEnd(40)} → ${w.hint}`)
+    }
+  }
 
   if (failed.length === 0) {
     console.log(`✓ Validation: ${total}/${total} rules passed (deterministic)`)
+    printWarnings()
     return 0
   }
 
@@ -85,6 +100,7 @@ async function validateBlueprintCli(root, flags) {
   for (const f of failed) {
     console.log(`  ${f.rule.padEnd(8)} ${String(f.file).padEnd(26)} ${String(f.path).padEnd(40)} → ${f.hint}`)
   }
+  printWarnings()
   console.log(`\nStatus: DRAFT-INVALID (fix the above, then re-run awp validate)`)
   return 1
 }

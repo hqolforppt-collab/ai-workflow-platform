@@ -1,0 +1,133 @@
+# 03-generating-app.yaml — Stage 3/6 (Generating App)
+# Sections: actors, roles, data-model, master-data, knowledge
+_meta:
+  blueprint_id: BLU-INVOICE-APPROVAL
+  stage: stage-03
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-02]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml]
+
+actors:
+  - id: ACT-001
+    name: AP Clerk
+    type: human
+    description: Accounts-payable clerk who submits a parsed invoice into the approval workflow (the maker).
+    goals: [submit invoices for approval, track approval status, resubmit corrected invoices]
+    interactions: [WF-001]
+  - id: ACT-002
+    name: Approver
+    type: human
+    description: Budget-holding approver (team-lead, manager, or CFO) who approves or rejects at their authority level.
+    goals: [approve within limit, reject with reason, delegate during absence]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-003
+    name: Approval Service
+    type: service
+    description: Backend service owning routing, chain state, four-eyes checks, delegation, and audit.
+    goals: [route deterministically, enforce four-eyes and limits, record immutable audit]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-004
+    name: Notification Service
+    type: system
+    description: External channel that delivers assignment, reminder, escalation, and decision notices.
+    goals: [deliver approval notices within 60 seconds]
+    interactions: [WF-001, WF-002]
+  - id: ACT-005
+    name: SLA Timer
+    type: scheduler
+    description: Scheduled ticker that evaluates stage SLAs and fires warnings, breaches, and escalations.
+    goals: [detect breaches within one tick, trigger escalation, emit SLA metrics]
+    interactions: [WF-002]
+
+roles:
+  - id: ROLE-AP-CLERK
+    name: AP Clerk
+    permissions: ["invoice:submit", "invoice:read-own", "invoice:resubmit"]
+    assigned-actors: [ACT-001]
+  - id: ROLE-APPROVER
+    name: Approver
+    permissions: ["approval:decide", "approval:read-assigned", "delegation:create-own"]
+    assigned-actors: [ACT-002]
+    separation-of-duties: [ROLE-AP-CLERK]   # the maker (clerk) may not act as checker on their own invoice
+  - id: ROLE-CFO
+    name: Chief Financial Officer
+    inherits: ROLE-APPROVER
+    permissions: ["approval:decide-unlimited", "approval:override-escalation"]
+    assigned-actors: []
+    separation-of-duties: [ROLE-AP-CLERK]
+  - id: ROLE-AUDITOR
+    name: Internal Auditor
+    permissions: ["audit:read", "approval:read-all"]
+    assigned-actors: []
+    separation-of-duties: [ROLE-APPROVER]   # an auditor may not also approve the invoices they audit
+
+data-model:
+  entities:
+    - id: ENT-Invoice
+      name: Invoice
+      description: The parsed invoice being routed for approval.
+      attributes:
+        - { name: id,             type: uuid,        required: true,  pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: reference,      type: text,        required: true,  pii: false, unique: true,  default: null, validation: "gapless immutable invoice reference (INV-C1)" }
+        - { name: vendor_id,      type: uuid,        required: true,  pii: false, unique: false, default: null, validation: "fk to vendor master; consumed, not owned" }
+        - { name: vendor_name,    type: text,        required: true,  pii: true,  unique: false, default: null, validation: "max 200 chars; may identify a sole-trader" }
+        - { name: department,     type: text,        required: true,  pii: false, unique: false, default: null, validation: "one of master-data:department" }
+        - { name: gross_minor,    type: bigint,      required: true,  pii: false, unique: false, default: null, validation: "integer minor units; = sum(lines) + sum(tax) (INV-C3)" }
+        - { name: currency,       type: char3,       required: true,  pii: false, unique: false, default: EUR, validation: "ISO-4217" }
+        - { name: vendor_risk,    type: enum,        required: true,  pii: false, unique: false, default: low, validation: "one of master-data:vendor-risk" }
+        - { name: status,        type: enum,        required: true,  pii: false, unique: false, default: SUBMITTED, validation: "one of master-data:invoice-status" }
+        - { name: created_at,     type: timestamptz, required: true,  pii: false, unique: false, default: now(), validation: "not in future" }
+      relationships:
+        - { target: ENT-ApprovalRequest, cardinality: 1-n, on-delete: restrict }
+      retention: "issued invoices retained immutably >= 7 years (INV-C4, SOX)"
+      classification: confidential
+    - id: ENT-ApprovalRequest
+      name: ApprovalRequest
+      description: A routed approval chain instance for one invoice, with staged approvals.
+      attributes:
+        - { name: id,             type: uuid,        required: true, pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: invoice_id,     type: uuid,        required: true, pii: false, unique: false, default: null, validation: "fk ENT-Invoice" }
+        - { name: chain_version,  type: text,        required: true, pii: false, unique: false, default: null, validation: "pinned chain version at start (APRV-C5)" }
+        - { name: approver_role,  type: text,        required: true, pii: false, unique: false, default: null, validation: "output of DEC-001" }
+        - { name: requires_four_eyes, type: boolean, required: true, pii: false, unique: false, default: false, validation: "output of DEC-001" }
+        - { name: maker_id,       type: uuid,        required: true, pii: true,  unique: false, default: null, validation: "identity of the submitter; must differ from checker" }
+        - { name: checker_id,     type: uuid,        required: false, pii: true, unique: false, default: null, validation: "distinct from maker_id when requires_four_eyes (FOUR-C1)" }
+        - { name: sla_due_at,     type: timestamptz, required: true, pii: false, unique: false, default: null, validation: "business-hours SLA deadline (SLA-C1)" }
+        - { name: escalation_hops, type: smallint,   required: true, pii: false, unique: false, default: 0, validation: "0..3 (ESCL-C3)" }
+        - { name: state,          type: enum,        required: true, pii: false, unique: false, default: PENDING_APPROVER, validation: "one of master-data:approval-state" }
+      relationships: []
+      retention: "retained with the invoice >= 7 years (SOX evidence)"
+      classification: confidential
+    - id: ENT-AuditEntry
+      name: AuditEntry
+      description: Append-only, hash-chained record of every routing and approval decision.
+      attributes:
+        - { name: id,         type: uuid,        required: true, pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: request_id, type: uuid,        required: true, pii: false, unique: false, default: null, validation: "fk ENT-ApprovalRequest" }
+        - { name: actor_id,   type: uuid,        required: true, pii: true,  unique: false, default: null, validation: "identity that took the action" }
+        - { name: event,      type: text,        required: true, pii: false, unique: false, default: null, validation: "one of audit.events" }
+        - { name: decision,   type: enum,        required: false, pii: false, unique: false, default: null, validation: "approve|reject|route|escalate|delegate" }
+        - { name: reason,     type: text,        required: false, pii: false, unique: false, default: null, validation: ">= 10 chars when decision is approve/reject (APRV-C1)" }
+        - { name: prev_hash,  type: text,        required: true, pii: false, unique: false, default: null, validation: "sha256 of previous entry; hash chain" }
+        - { name: created_at, type: timestamptz, required: true, pii: false, unique: false, default: now(), validation: "not in future" }
+      relationships: []
+      retention: "append-only; retained 7 years then WORM-archived"
+      classification: restricted
+
+master-data:
+  - { name: invoice-status,  values: [SUBMITTED, ROUTED, APPROVED, REJECTED, RETURNED, PAID], owner: ap-controller, change-process: "ADR + migration + G3 review" }
+  - { name: approval-state,  values: [PENDING_APPROVER, PENDING_CHECKER, ESCALATED, EXCEPTION_QUEUE, APPROVED, REJECTED], owner: ap-controller, change-process: "ADR + migration + G3 review" }
+  - { name: vendor-risk,     values: [low, medium, high], owner: procurement-lead, change-process: "vendor-risk policy PR + compliance sign-off" }
+  - { name: department,      values: [marketing, engineering, operations, facilities, legal], owner: ap-controller, change-process: "cost-center registry PR" }
+  - { name: notice-templates, values: [assignment-v1, reminder-v1, escalation-v1, decision-v1, sod-block-v1], owner: ap-controller, change-process: "template registry PR + compliance review for evidence-relevant copy" }
+
+knowledge:
+  glossary:
+    - { term: maker-checker, definition: "The four-eyes control requiring the initiator (maker) of a transaction to be a different identity from its approver (checker)." }
+    - { term: hit policy, definition: "The DMN rule that decides which matched rule's output wins; FIRST returns the first matching rule in order." }
+    - { term: escalation hop, definition: "One automatic re-assignment of a breached stage to a higher authority; bounded to 3 before the exception queue." }
+    - { term: business-hours SLA, definition: "An SLA clock that counts only configured working hours, excluding weekends and holidays." }
+  domain-concepts: [segregation-of-duties, deterministic routing, effective-limit min(delegate, delegator), integer-minor-unit tax rounding]
+  references: ["SOX (2002) §404 internal controls", "COSO 2013 internal-control framework", "ITIL 4 escalation management", "EN-16931 e-invoicing", "OMG DMN 1.3 (decision tables & hit policies)"]

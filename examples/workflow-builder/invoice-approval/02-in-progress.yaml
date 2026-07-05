@@ -1,0 +1,143 @@
+# 02-in-progress.yaml — Stage 2/6 (In Progress)
+# Sections: requirements, risks, assumptions
+_meta:
+  blueprint_id: BLU-INVOICE-APPROVAL
+  stage: stage-02
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-01]
+  trace:
+    requirement_source: 01-initialized.yaml
+    upstream: [01-initialized.yaml]
+
+requirements:
+  explicit:
+    - id: REQ-001
+      title: Amount-based approval routing
+      description: A submitted invoice is routed to the correct approver role based on its amount, department, and vendor risk, using a versioned decision table rather than hardcoded thresholds.
+      domain: approval-chains
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given an invoice for 4,000 EUR from a low-risk vendor in the marketing department, When it is submitted for approval, Then decision DEC-001 routes it to a team-lead approver and does not require four-eyes."
+        - "Given an invoice for 60,000 EUR from a high-risk vendor, When it is submitted, Then decision DEC-001 routes it to a CFO approver and sets requires-four-eyes to true."
+      depends-on: []
+      risks: [RSK-001]
+    - id: REQ-002
+      title: Four-eyes on large invoices
+      description: Invoices at or above the large-invoice threshold require two distinct human identities to approve, and the maker may never be the checker.
+      domain: four-eyes
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given a large invoice created by user A, When user A attempts to provide the second (checker) approval on that same invoice, Then the approval is rejected server-side with a segregation-of-duties error and audit event AUD-004 is recorded."
+        - "Given a large invoice with only the maker approval recorded, When no distinct checker has approved yet, Then the invoice remains in state PENDING_CHECKER and is never treated as fully approved."
+      depends-on: [REQ-001]
+      risks: [RSK-002]
+  hidden:
+    - id: REQ-010
+      title: SLA-timed approval stages
+      description: Every approval stage carries an explicit business-hours SLA whose clock excludes weekends and holidays.
+      domain: sla-management
+      source: discovery/sla-management
+      priority: must
+      acceptance-criteria:
+        - "Given a stage assigned with a 24 business-hour SLA, When the elapsed business time exceeds 24 hours with no decision, Then the stage is flagged breached within one 5-minute tick and a breach timestamp is persisted."
+      risks: [RSK-003]
+    - id: REQ-011
+      title: Timeout auto-escalation
+      description: A breached approval stage escalates automatically to the next-higher authority without lowering the required approval limit.
+      domain: escalation
+      source: discovery/escalation
+      priority: must
+      acceptance-criteria:
+        - "Given a stage that has breached its SLA, When escalation fires, Then the request moves to an approver with equal-or-higher limit, both approvers are notified (NOT-002), and audit event AUD-005 is recorded."
+      risks: [RSK-003]
+    - id: REQ-012
+      title: Bounded escalation hops
+      description: Escalation is capped so a request can never loop indefinitely or be auto-approved by timeout.
+      domain: escalation
+      source: discovery/escalation
+      priority: must
+      acceptance-criteria:
+        - "Given a request that has already escalated three times, When the third timer breaches, Then the request is parked in the manual exception queue and is never auto-approved."
+      risks: [RSK-003]
+    - id: REQ-013
+      title: Time-boxed capped delegation
+      description: An approver may delegate authority during absence, bounded in time and capped at the delegator's own limit.
+      domain: delegation
+      source: discovery/delegation
+      priority: must
+      acceptance-criteria:
+        - "Given a delegator with a 10,000 EUR limit delegating to another approver, When the delegate approves a 20,000 EUR invoice, Then the approval is rejected for exceeding the delegator's cap and audit event AUD-006 records both identities."
+      risks: [RSK-004]
+    - id: REQ-014
+      title: Immutable approval audit trail
+      description: Every routing and approval decision is captured immutably with actor, timestamp, decision, and reason.
+      domain: audit
+      source: discovery/audit
+      priority: must
+      acceptance-criteria:
+        - "Given any approval or rejection decision, When it is recorded, Then an append-only audit entry exists within 5 seconds containing approver id, ISO-8601 timestamp, decision, and a reason of at least 10 characters."
+      risks: [RSK-005]
+    - id: REQ-015
+      title: Reject terminates the chain
+      description: A single rejection at any stage stops the chain and returns the invoice to the initiator.
+      domain: approval-chains
+      source: discovery/approval-chains
+      priority: must
+      acceptance-criteria:
+        - "Given a multi-stage approval chain, When any approver rejects, Then the chain stops immediately and the invoice is returned to the initiator with the reject reason and audit event AUD-003."
+      risks: [RSK-002]
+    - id: REQ-016
+      title: Segregation-of-duties compliance (SOX)
+      description: The maker-checker separation and audit evidence satisfy SOX/COSO internal-control obligations.
+      domain: compliance
+      source: discovery/compliance
+      priority: must
+      acceptance-criteria:
+        - "Given a completed large-invoice approval, When the audit record is inspected, Then it names both distinct identities, their roles, and confirms maker is not equal to checker for the SOX evidence pack."
+      risks: [RSK-005]
+    - id: REQ-017
+      title: Tax and total integrity on the invoice
+      description: The amount used for routing reflects the invoice gross total computed from validated tax and line items, not an unchecked field.
+      domain: tax
+      source: discovery/tax
+      priority: should
+      acceptance-criteria:
+        - "Given an invoice whose line-item and tax sums do not equal the stated gross total, When it is submitted, Then it is rejected with a totals-mismatch error before any routing decision is made."
+      risks: [RSK-006]
+    - id: REQ-018
+      title: Approval observability — metrics, alerts, SLOs
+      description: Routing and SLA health is measurable and alertable before controllers escalate manually.
+      domain: monitoring
+      source: discovery/monitoring
+      priority: must
+      acceptance-criteria:
+        - "Given the production environment, When the SLA-breach rate over a 1-hour window exceeds 10 percent, Then alert ALT-001 fires to the AP on-call channel with runbook RB-001 linked."
+      risks: [RSK-003]
+    - id: REQ-019
+      title: Gapless immutable invoice reference
+      description: Each approved invoice keeps a stable, immutable reference; corrections are issued as new documents, never edited in place.
+      domain: invoicing
+      source: discovery/invoicing
+      priority: should
+      acceptance-criteria:
+        - "Given an already-submitted invoice, When its amount must change, Then a corrected invoice with a new reference is submitted and the original record remains unaltered in the audit trail."
+      risks: [RSK-006]
+
+risks:
+  - { id: RSK-001, description: "Mis-tuned routing thresholds send large invoices down a low-authority path", category: compliance,  likelihood: medium, impact: critical, mitigation: "DEC-001 is versioned + gated at G3; routing decisions logged and sampled monthly (RB-001)", owner: ap-controller }
+  - { id: RSK-002, description: "Four-eyes bypass via shared accounts or self-approval",                   category: security,    likelihood: medium, impact: critical, mitigation: "server-side maker!=checker check (REQ-002); shared accounts blocked; distinctness failure raises security event", owner: compliance-officer }
+  - { id: RSK-003, description: "Approvals stall past SLA and payments miss vendor due dates",              category: operational, likelihood: high,   impact: high,     mitigation: "SLA timers + bounded auto-escalation (REQ-010..012) + ALT-001; RB-001 for stuck queues", owner: sre-lead }
+  - { id: RSK-004, description: "Delegated authority abused to approve above the delegator's limit",        category: compliance,  likelihood: low,    impact: high,     mitigation: "effective limit = min(delegate, delegator) at decision time (REQ-013); dual-id audit (AUD-006)", owner: compliance-officer }
+  - { id: RSK-005, description: "Audit evidence gaps discovered during a SOX control test",                 category: compliance,  likelihood: low,    impact: critical, mitigation: "append-only hash-chained audit (REQ-014); quarterly SOX evidence dry-run with internal-audit", owner: internal-audit }
+  - { id: RSK-006, description: "Routing on an invoice whose totals or tax are inconsistent",               category: technical,   likelihood: medium, impact: medium,   mitigation: "totals + tax integrity gate before routing (REQ-017); credit-note-only corrections (REQ-019)", owner: ap-controller }
+
+assumptions:
+  - { id: ASM-001, statement: "The large-invoice four-eyes threshold is 50,000 EUR at launch", impact-if-wrong: "routing rules in DEC-001 and the four-eyes gate must be re-tuned and re-approved at G3", validation-needed: "Confirm the four-eyes threshold with the CFO and internal-audit." }
+  - { id: ASM-002, statement: "Invoices arrive already parsed and validated from the AP inbox", impact-if-wrong: "an OCR/capture stage and its error handling must be added to the root workflow", validation-needed: "Confirm with procurement whether capture is in or out of scope." }
+  - { id: ASM-003, statement: "Payment disbursement is handled by a downstream payments service after approval", impact-if-wrong: "disbursement, bank-file, and payment-status workflows enter scope", validation-needed: "Confirm the boundary with the treasury/payments team." }
+  - { id: ASM-004, statement: "3-way match (PO + goods-receipt + invoice) is completed upstream in procurement", impact-if-wrong: "match exceptions and their approval paths must be modeled here", validation-needed: "Confirm match ownership with procurement-lead." }
+  - { id: ASM-005, statement: "Approval SLAs are counted in an 8h/day business calendar excluding weekends and holidays", impact-if-wrong: "SLA timers, escalation thresholds, and breach metrics change", validation-needed: "Confirm the working calendar per operating region with the AP controller." }
+  - { id: ASM-006, statement: "7-year audit retention satisfies SOX and statutory invoice-retention rules", impact-if-wrong: "retention windows and storage costs change; possible compliance exposure", validation-needed: "Confirm the retention schedule with compliance and legal." }

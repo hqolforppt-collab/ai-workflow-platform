@@ -5,6 +5,46 @@ All notable changes to the AI Workflow Platform are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] — 2026-07-05
+
+Generalization release. The evaluation of v2.x found the architecture strong but
+delivery narrow — deep only for auth-shaped features. v3.0 takes `/workflow-builder`
+from auth-only depth to broad coverage while keeping the deterministic, traceable
+core. All changes are additive; the login-registration golden example still
+validates (now 26/26).
+
+### Added
+- **Domain library grown 26 → 70 domains across 9 packs** — new packs: `payments`,
+  `approvals`, `documents`, `hr`, `commerce`, `data`, `integration`, `scheduling`
+  (each domain anchored to real standards — PCI-DSS, eIDAS, ISO 15489, GS1,
+  DAMA-DMBOK, RFC 9110/5545, COSO, SOX…). Adding a domain is a single YAML file.
+- **Domain-knowledge contract + validator** — `.schemas/domain-knowledge/schema.yaml`,
+  `awp validate --kb` (KB-I1..I5: closed implication graph, no orphan triggers,
+  unique ids, registry ⇄ files, keyword-collision), `TEMPLATE.yaml` + `AUTHORING.md`.
+- **Generated KB index** — `awp kb build-index` regenerates `index.yaml` from
+  `index.head.yaml` + domain files; `--check` gates drift in CI (like `--aggregate`).
+- **Classification engine v2** — `awp classify "<story>"`: deterministic synonym +
+  stemming + negation matching (`passwordless`, `without email`), implication
+  fixpoint, baseline union, and a zero-match beacon. The LLM proposer stays
+  registry-verified and advisory (`proposed/<model>`), never counting toward minimums.
+- **9 new validation rules (17 → 26)** — schema conformance VAL-050..054 (identity,
+  no undeclared sections, item identity, extended ids, acyclic stage deps) and
+  substance lints VAL-060..063 (no placeholders, real Given/When/Then, numeric
+  plausibility, no near-duplicate requirements), in `packages/awp-cli/src/rules-ext.js`.
+- **Strict-parseable blueprint schema** — `schema.yaml` now parses (compact
+  `list[X]`/`enum[…]` notation quoted); `awp schema check` guards parseability and
+  asserts every `required: true` field appears in `schema-summary.yaml` (no drift).
+- **KB provenance + freshness** — every domain carries `standards` provenance
+  (`{id, version, verified, url}`) and a `review` block (`cadence`, `last-reviewed`,
+  `owner`); `awp validate --kb` warns on overdue reviews (KB-STALE).
+- **Advisory review** — `awp review <blueprint-dir>`: deterministic constraint-
+  coverage (domain reflection + constraint citation) plus an optional model-graded
+  rubric (mock-provider friendly). Advisory only — never gates.
+- **Two new golden examples** — `invoice-approval` (DMN-heavy: amount routing,
+  four-eyes, SLA escalation) and `employee-onboarding` (CMMN case with discretionary
+  tasks). CI validates all examples in a matrix (validate 26/26 + aggregate diff +
+  convert).
+
 ## [2.1.0] — 2026-07-04
 
 Gap-remediation release closing the audit of the v2.0 `/workflow-builder` plan

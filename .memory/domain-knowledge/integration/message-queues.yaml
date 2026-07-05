@@ -1,0 +1,31 @@
+id: message-queues
+type: functional
+version: 1.0.0
+pack: integration
+triggers:
+  - message-queue
+  - { term: queue, synonyms: [messaging, broker, pub-sub, event-bus, kafka, rabbitmq, sqs] }
+  - { term: async, synonyms: [asynchronous, background-job, consumer, producer] }
+  - { term: outbox, synonyms: [transactional-outbox, saga] }
+implies: [idempotency, retry-policy, observability, error-management, audit]
+standards:
+  - { id: EIP-Hohpe-Woolf, version: "2003", verified: 2026-07-05, url: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/" }
+  - { id: CloudEvents, version: "1.0.2", verified: 2026-07-05, url: "https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md" }
+constraints:
+  - { id: MQ-C1, rule: "Delivery is at-least-once, so consumers must be idempotent: each message carries a stable message id and is deduped against a processed-ids store within the visibility/dedup window" }
+  - { id: MQ-C2, rule: "State-changing writes and their published events commit atomically via the transactional outbox pattern; a relay polls the outbox and publishes, so an event is never lost nor published without its DB write" }
+  - { id: MQ-C3, rule: "A message that fails processing is retried (max 5 attempts); on exhaustion it moves to a dead-letter queue with the failure reason and original payload for inspection and replay (poison-message isolation)" }
+  - { id: MQ-C4, rule: "When ordering matters, messages are partitioned by a stable ordering key (e.g. aggregate/entity id) so per-key order is preserved; global ordering is not assumed across partitions" }
+  - { id: MQ-C5, rule: "Multi-service transactions use the saga pattern with explicit compensating actions per step; there is no distributed 2-phase commit across service boundaries" }
+requirement-seeds:
+  - id: discovery/message-queues/REQ-1
+    title: Poison-message isolation
+    ac: "Given a message that fails processing 5 times, When the last attempt fails, Then it is moved to the dead-letter queue with its failure reason and stops blocking the main queue"
+  - id: discovery/message-queues/REQ-2
+    title: Atomic event publish
+    ac: "Given a database write that must emit an event, When the transaction commits, Then the event is recorded in the outbox in the same transaction and published exactly once by the relay"
+blueprint-sections: [integrations, workflows, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

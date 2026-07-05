@@ -1,14 +1,31 @@
 id: fraud-detection
 type: cross-cutting
 version: 1.0.0
-triggers: [login, payment, registration]
-implies: [monitoring, analytics, audit]
+triggers:
+  - login
+  - payment
+  - registration
+implies:
+  - monitoring
+  - analytics
+  - audit
 constraints:
-  - { id: FRD-C1, rule: "Risk signals captured: IP reputation, device fingerprint, velocity, geo-anomaly" }
-  - { id: FRD-C2, rule: "High-risk logins require step-up verification (MFA/email)" }
-  - { id: FRD-C3, rule: "Bot defence: CAPTCHA after threshold, bot-score on registration" }
+  - id: FRD-C1
+    rule: "Risk signals captured: IP reputation, device fingerprint, velocity, geo-anomaly"
+  - id: FRD-C2
+    rule: High-risk logins require step-up verification (MFA/email)
+  - id: FRD-C3
+    rule: "Bot defence: CAPTCHA after threshold, bot-score on registration"
 requirement-seeds:
   - id: discovery/fraud-detection/REQ-1
     title: Impossible-travel detection
-    ac: "Given logins 500km apart within 10 min, When the second occurs, Then step-up verification is required and event flagged"
-blueprint-sections: [security, monitoring, integrations, requirements]
+    ac: Given logins 500km apart within 10 min, When the second occurs, Then step-up verification is required and event flagged
+blueprint-sections:
+  - security
+  - monitoring
+  - integrations
+  - requirements
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

@@ -1,13 +1,25 @@
 id: error-management
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: ERR-C1, rule: "Error catalogue with stable codes; user messages friendly, logs detailed" }
-  - { id: ERR-C2, rule: "No stack traces or internals in any user-facing response" }
-  - { id: ERR-C3, rule: "Every workflow step defines on-failure behaviour (retry, compensate, escalate)" }
+  - id: ERR-C1
+    rule: Error catalogue with stable codes; user messages friendly, logs detailed
+  - id: ERR-C2
+    rule: No stack traces or internals in any user-facing response
+  - id: ERR-C3
+    rule: Every workflow step defines on-failure behaviour (retry, compensate, escalate)
 requirement-seeds:
   - id: discovery/error-management/REQ-1
     title: Graceful degradation
-    ac: "Given the email provider is down, When registration completes, Then account is created, email queued for retry, user informed"
-blueprint-sections: [operations, workflows, api, requirements]
+    ac: Given the email provider is down, When registration completes, Then account is created, email queued for retry, user informed
+blueprint-sections:
+  - operations
+  - workflows
+  - api
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

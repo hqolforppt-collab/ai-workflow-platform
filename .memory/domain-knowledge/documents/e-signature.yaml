@@ -1,0 +1,30 @@
+id: e-signature
+type: functional
+version: 1.0.0
+pack: documents
+triggers:
+  - { term: e-signature, synonyms: [esignature, sign, signature, digital-signature, docusign] }
+  - { term: non-repudiation, synonyms: [signer, consent, witness] }
+implies: [authentication, audit, identity-management, security, retention]
+standards:
+  - { id: eIDAS, version: "910/2014", verified: 2026-07-05, url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32014R0910" }
+  - { id: ESIGN-Act, version: "2000", verified: 2026-07-05, url: "https://www.govinfo.gov/content/pkg/PLAW-106publ229/pdf/PLAW-106publ229.pdf" }
+  - { id: UETA, version: "1999", verified: 2026-07-05, url: "https://www.uniformlaws.org/committees/community-home?CommunityKey=2c04b76c-2b7d-4399-977e-d5876ba7e034" }
+constraints:
+  - { id: ESIGN-C1, rule: "Signer intent and consent to transact electronically captured and recorded before signing (ESIGN/UETA); signer identity verified per assurance level (advanced vs qualified/eIDAS QES)" }
+  - { id: ESIGN-C2, rule: "At signing, a SHA-256 hash of the exact document bytes is bound to the signature; any post-signing byte change invalidates verification (tamper-evidence / integrity)" }
+  - { id: ESIGN-C3, rule: "A signed audit trail (evidence package) records signer identity, IP, timestamp from a trusted RFC 3161 time source, and authentication method; it is tamper-evident and exportable" }
+  - { id: ESIGN-C4, rule: "Qualified signatures use certificates from a qualified trust service provider (eIDAS QTSP); certificate validity and revocation (OCSP/CRL) checked at signing time" }
+  - { id: ESIGN-C5, rule: "Completed signed document plus evidence package are retained per retention schedule and remain independently verifiable offline (embedded certificates, no live-service dependency)" }
+requirement-seeds:
+  - id: discovery/e-signature/REQ-1
+    title: Tamper-evident signature
+    ac: "Given a signed document, When any byte of the content is altered, Then signature verification fails and the document is flagged invalid"
+  - id: discovery/e-signature/REQ-2
+    title: Consent captured before signing
+    ac: "Given a signer who has not consented to transact electronically, When they attempt to sign, Then signing is blocked until consent is recorded with a timestamp"
+blueprint-sections: [security, compliance, requirements]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

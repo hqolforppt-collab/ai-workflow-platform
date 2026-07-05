@@ -9,7 +9,7 @@
 ```
 Domains activated:     27 (2 explicit, 25 hidden)
 Hidden requirements:   10 added across 10 domains
-Validation:            17/17 rules passed
+Validation:            26/26 rules passed
 Assumptions to review: 6
 Written:               blueprints/login-and-registration/ (6 staged files)
 ```
@@ -21,7 +21,7 @@ every failure path defined, every discovered item traced to the rule that added 
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Spec-Driven](https://img.shields.io/badge/method-spec--driven-green.svg)](.ai/constitution.md)
-[![Domains: 25+](https://img.shields.io/badge/knowledge_base-25%2B_domains-orange.svg)](.memory/domain-knowledge/index.yaml)
+[![Domains: 70](https://img.shields.io/badge/knowledge_base-70_domains_%2F_9_packs-orange.svg)](.memory/domain-knowledge/index.yaml)
 [![Repository OS](https://github.com/hqolforppt-collab/ai-workflow-platform/actions/workflows/validate.yml/badge.svg)](.github/workflows/validate.yml)
 [![BPMN round-trip](https://github.com/hqolforppt-collab/ai-workflow-platform/actions/workflows/bpmn-roundtrip.yml/badge.svg)](.github/workflows/bpmn-roundtrip.yml)
 
@@ -56,7 +56,7 @@ any implementation must pass.
 ## How it works
 
 1. **Parse** your story — intent, actors, constraints, and negations ("passwordless" is honoured, not overridden).
-2. **Discover** what you forgot — a [25+ domain knowledge base](.memory/domain-knowledge/index.yaml) with trigger keywords and an implication map, closed to a fixpoint by the [hidden-requirement-discovery skill](.skills/hidden-requirement-discovery/skill.yaml).
+2. **Discover** what you forgot — a [70-domain, 9-pack knowledge base](.memory/domain-knowledge/index.yaml) (auth, payments, approvals, documents, HR, commerce, data, integration, scheduling) with trigger keywords and an implication map, closed to a fixpoint by the [hidden-requirement-discovery skill](.skills/hidden-requirement-discovery/skill.yaml) and the deterministic [`awp classify`](packages/awp-cli/src/classify.js) engine.
 3. **Resolve** constraints with precedence: your story > compliance > security > defaults.
 4. **Populate** the [28-section blueprint schema](.schemas/workflow-blueprint/schema.yaml) — failures defined, IDs everywhere, no placeholders.
 5. **Validate** against [17 machine-checkable rules](.schemas/workflow-blueprint/validation-rules.yaml) — broken output is never emitted silently.
@@ -70,11 +70,16 @@ The command works inline in any AI tool, but the `awp` CLI runs the same pipelin
 end-to-end and adds deterministic validation and Flowable deployment:
 
 ```bash
+awp classify "Create Login and Registration"                   # deterministic domain discovery (which packs fire, and why)
 awp build "Create Login and Registration" --execute --staged   # 6 staged YAML files, [STAGE n/6] progress
 awp build --aggregate blueprints/<slug>/                        # merge staged files → one blueprint.yaml
-awp validate blueprints/<slug>/                                 # deterministic 17-rule engine (exit != 0 on failure)
+awp validate blueprints/<slug>/                                 # deterministic 26-rule engine (exit != 0 on failure)
+awp review   blueprints/<slug>/                                 # advisory: constraint coverage + graded rubric (never gates)
 awp flowable convert blueprints/<slug>/                         # → BPMN 2.0 / CMMN / DMN / Form JSON
 awp flowable deploy  blueprints/<slug>/                         # gate-checked (G1–G4) deploy to a Flowable engine
+awp validate --kb                                              # knowledge-base graph integrity (70 domains, 9 packs)
+awp kb build-index [--check]                                    # regenerate / drift-check the KB index
+awp schema check                                               # blueprint schema parses + summary in sync
 ```
 
 - **Model tiers** ([`tiers.yaml`](.commands/workflow-builder/tiers.yaml)) route cheap models

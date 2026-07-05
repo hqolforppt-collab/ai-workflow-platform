@@ -1,17 +1,33 @@
 id: audit
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
-standards: [SOC2 CC7, ISO 27001 A.12.4]
+triggers:
+  - ANY-USER-FACING
+standards:
+  - id: SOC2 CC7
+    verified: 2026-07-05
+  - id: ISO 27001 A.12.4
+    verified: 2026-07-05
 constraints:
-  - { id: AUD-C1, rule: "Audit events immutable, append-only, retained >= 1 year" }
-  - { id: AUD-C2, rule: "Every event: who, what, when, where(IP), outcome, correlation-id" }
-  - { id: AUD-C3, rule: "Security events (login, lockout, permission change) always audited" }
+  - id: AUD-C1
+    rule: Audit events immutable, append-only, retained >= 1 year
+  - id: AUD-C2
+    rule: "Every event: who, what, when, where(IP), outcome, correlation-id"
+  - id: AUD-C3
+    rule: Security events (login, lockout, permission change) always audited
 requirement-seeds:
   - id: discovery/audit/REQ-1
     title: Authentication audit trail
-    ac: "Given any login attempt, When it completes, Then an immutable audit event with outcome and IP is stored"
+    ac: Given any login attempt, When it completes, Then an immutable audit event with outcome and IP is stored
   - id: discovery/audit/REQ-2
     title: Audit query access
-    ac: "Given an auditor role, When they query the trail, Then results are read-only and the query itself is audited"
-blueprint-sections: [audit, security, operations, requirements]
+    ac: Given an auditor role, When they query the trail, Then results are read-only and the query itself is audited
+blueprint-sections:
+  - audit
+  - security
+  - operations
+  - requirements
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

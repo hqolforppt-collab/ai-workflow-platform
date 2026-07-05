@@ -1,0 +1,32 @@
+id: returns
+type: functional
+version: 1.0.0
+pack: commerce
+triggers:
+  - return
+  - { term: rma, synonyms: [return merchandise authorization, return authorization] }
+  - { term: refund, synonyms: [money back, reimbursement] }
+  - { term: restock, synonyms: [restocking, return to stock] }
+  - { term: withdrawal, synonyms: [right of withdrawal, cancellation right] }
+implies: [inventory, catalog, fraud-detection, audit, notification, compliance]
+standards:
+  - { id: EU-Consumer-Rights-Directive, version: "2011/83/EU", verified: 2026-07-05, url: "https://eur-lex.europa.eu/eli/dir/2011/83/oj" }
+  - { id: GS1, version: "2024", verified: 2026-07-05, url: "https://www.gs1.org" }
+constraints:
+  - { id: RTRN-C1, rule: "EU consumers have a 14-day right of withdrawal from delivery; a return requested within this window is accepted without justification and the refund covers item plus standard outbound shipping" }
+  - { id: RTRN-C2, rule: "Every return is gated by an RMA issued before the item ships back; goods received without a matching RMA are quarantined, not auto-refunded" }
+  - { id: RTRN-C3, rule: "Returned items are graded on receipt (resellable / refurbish / scrap); only resellable-graded units are returned to available inventory, and the grade is recorded" }
+  - { id: RTRN-C4, rule: "Refunds are issued to the original payment method within 14 days of goods receipt (or return proof), never as an over-refund exceeding the original captured amount" }
+  - { id: RTRN-C5, rule: "Return velocity per customer is monitored; abuse thresholds (e.g. return rate above policy) route to fraud-detection review rather than auto-approval" }
+requirement-seeds:
+  - id: discovery/returns/REQ-1
+    title: Statutory withdrawal window
+    ac: "Given an EU order delivered 10 days ago, When the customer requests a return, Then it is accepted without justification and a full refund including standard outbound shipping is issued"
+  - id: discovery/returns/REQ-2
+    title: RMA-gated restock
+    ac: "Given a returned item, When it is received and graded resellable against a valid RMA, Then it is added back to available inventory; without an RMA it is quarantined"
+blueprint-sections: [workflows, requirements, compliance, data-model]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: commerce-wg

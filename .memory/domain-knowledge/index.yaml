@@ -1,50 +1,1789 @@
-# Hidden Requirement Discovery — Knowledge Base Index
-# Consumed by: .skills/hidden-requirement-discovery/ and /workflow-builder
-# Purpose: map user-story trigger keywords to the hidden domains the user
-#          did not mention, with concrete constraints and requirement seeds.
-
-version: 1.0.0
+_generated: by `awp kb build-index` from index.head.yaml + domain files — do not edit by hand
+version: 2.0.0
 status: approved
 authority: .ai/constitution.md
-
-# ---------------------------------------------------------------------------
-# Trigger map: keywords found in a user story -> functional domains activated
-# ---------------------------------------------------------------------------
+packs:
+  core: 26
+  integration: 6
+  approvals: 5
+  data: 5
+  scheduling: 5
+  commerce: 6
+  documents: 5
+  payments: 7
+  hr: 5
 trigger-map:
-  - keywords: [login, log in, sign in, signin, authenticate, credentials]
-    domains: [authentication, session-management, identity-management]
-  - keywords: [register, registration, sign up, signup, create account, onboard user]
-    domains: [identity-management, user-management, email, authentication]
-  - keywords: [password, forgot password, reset password]
-    domains: [password-policy, authentication, email]
-  - keywords: [role, permission, access control, admin only, authorize]
-    domains: [authorization]
-  - keywords: [profile, account settings, user data]
-    domains: [user-management, privacy]
-  - keywords: [email, notification, alert user]
-    domains: [email, notification]
-  - keywords: [payment, checkout, billing, invoice]
-    domains: [fraud-detection, audit, compliance]
-  - keywords: [upload, file, document, attachment]
-    domains: [security, backup]
-  - keywords: [report, dashboard, metrics]
-    domains: [analytics]
-
-# ---------------------------------------------------------------------------
-# Implication map: domain -> domains it always implies (transitive closure
-# is computed by the discovery skill until a fixpoint is reached)
-# ---------------------------------------------------------------------------
+  - keyword: 2fa
+    domains:
+      - authentication
+  - keyword: 360 review
+    domains:
+      - performance-review
+  - keyword: absence
+    domains:
+      - delegation
+      - leave-management
+  - keyword: access control
+    domains:
+      - authorization
+  - keyword: access revocation
+    domains:
+      - offboarding
+  - keyword: account disable
+    domains:
+      - offboarding
+  - keyword: account settings
+    domains:
+      - user-management
+  - keyword: accuracy
+    domains:
+      - data-quality
+  - keyword: address
+    domains:
+      - shipping
+  - keyword: address validation
+    domains:
+      - shipping
+  - keyword: admin
+    domains:
+      - authorization
+  - keyword: advance-notice
+    domains:
+      - reminders
+  - keyword: aggregation
+    domains:
+      - reporting-pipeline
+  - keyword: ahead-of-time
+    domains:
+      - reminders
+  - keyword: alert
+    domains:
+      - reminders
+  - keyword: allocation
+    domains:
+      - inventory
+  - keyword: anomaly detection
+    domains:
+      - data-quality
+  - keyword: api
+    domains:
+      - rate-limiting
+  - keyword: api-gateway
+    domains:
+      - api-gateway
+  - keyword: api-proxy
+    domains:
+      - api-gateway
+  - keyword: api-version
+    domains:
+      - api-gateway
+  - keyword: api-versioning
+    domains:
+      - api-gateway
+  - keyword: apply for leave
+    domains:
+      - leave-management
+  - keyword: appointment
+    domains:
+      - calendars
+  - keyword: appraisal
+    domains:
+      - performance-review
+  - keyword: approval
+    domains:
+      - approval-chains
+  - keyword: approval-routing
+    domains:
+      - approval-chains
+  - keyword: approval-workflow
+    domains:
+      - approval-chains
+  - keyword: approve
+    domains:
+      - approval-chains
+      - document-lifecycle
+  - keyword: archive
+    domains:
+      - archiving
+      - document-lifecycle
+  - keyword: archiving
+    domains:
+      - archiving
+  - keyword: assign-authority
+    domains:
+      - delegation
+  - keyword: async
+    domains:
+      - message-queues
+  - keyword: asynchronous
+    domains:
+      - message-queues
+  - keyword: attachment
+    domains:
+      - file-management
+  - keyword: authenticate
+    domains:
+      - authentication
+  - keyword: authentication
+    domains:
+      - account-lockout
+  - keyword: authorize
+    domains:
+      - approval-chains
+      - authorization
+  - keyword: auto-escalate
+    domains:
+      - escalation
+  - keyword: autopay
+    domains:
+      - subscription-billing
+  - keyword: availability
+    domains:
+      - inventory
+  - keyword: backend-routing
+    domains:
+      - api-gateway
+  - keyword: backfill
+    domains:
+      - etl-pipelines
+  - keyword: background-job
+    domains:
+      - message-queues
+  - keyword: backoff
+    domains:
+      - retry-policy
+  - keyword: bad records
+    domains:
+      - data-quality
+  - keyword: bank-holiday
+    domains:
+      - business-hours
+  - keyword: barcode
+    domains:
+      - catalog
+  - keyword: basket
+    domains:
+      - ordering
+  - keyword: batch job
+    domains:
+      - etl-pipelines
+  - keyword: batch-job
+    domains:
+      - recurring-jobs
+  - keyword: bi
+    domains:
+      - reporting-pipeline
+  - keyword: bill
+    domains:
+      - invoicing
+  - keyword: billing
+    domains:
+      - invoicing
+  - keyword: blob
+    domains:
+      - file-management
+  - keyword: book leave
+    domains:
+      - leave-management
+  - keyword: booking
+    domains:
+      - calendars
+  - keyword: breach
+    domains:
+      - sla-management
+  - keyword: breaker
+    domains:
+      - circuit-breaker
+  - keyword: broker
+    domains:
+      - message-queues
+  - keyword: bucket
+    domains:
+      - file-management
+  - keyword: bulkhead
+    domains:
+      - circuit-breaker
+  - keyword: bump-up
+    domains:
+      - escalation
+  - keyword: business-hours
+    domains:
+      - business-hours
+  - keyword: calendar
+    domains:
+      - calendars
+  - keyword: calibration
+    domains:
+      - performance-review
+  - keyword: callback
+    domains:
+      - webhooks
+  - keyword: cancellation right
+    domains:
+      - returns
+  - keyword: card
+    domains:
+      - payments
+  - keyword: carrier
+    domains:
+      - shipping
+  - keyword: cart
+    domains:
+      - ordering
+  - keyword: catalog
+    domains:
+      - catalog
+  - keyword: category
+    domains:
+      - catalog
+  - keyword: cdc
+    domains:
+      - etl-pipelines
+  - keyword: change data capture
+    domains:
+      - etl-pipelines
+  - keyword: changelog
+    domains:
+      - versioning
+  - keyword: charge
+    domains:
+      - payments
+  - keyword: chargeback
+    domains:
+      - refunds
+  - keyword: checkout
+    domains:
+      - payments
+  - keyword: checkout basket
+    domains:
+      - ordering
+  - keyword: circuit breaker
+    domains:
+      - circuit-breaker
+  - keyword: circuit-breaker
+    domains:
+      - circuit-breaker
+  - keyword: clearing
+    domains:
+      - reconciliation
+  - keyword: closure
+    domains:
+      - business-hours
+  - keyword: cold storage
+    domains:
+      - archiving
+  - keyword: comp changes
+    domains:
+      - payroll-handoff
+  - keyword: compare
+    domains:
+      - versioning
+  - keyword: compensation feed
+    domains:
+      - payroll-handoff
+  - keyword: completeness
+    domains:
+      - data-quality
+  - keyword: concurrent-edit
+    domains:
+      - versioning
+  - keyword: conflict resolution
+    domains:
+      - master-data-sync
+  - keyword: consent
+    domains:
+      - e-signature
+  - keyword: consumer
+    domains:
+      - message-queues
+  - keyword: countdown
+    domains:
+      - timers
+  - keyword: coupon
+    domains:
+      - pricing
+  - keyword: courier
+    domains:
+      - shipping
+  - keyword: create account
+    domains:
+      - identity-management
+  - keyword: credentials
+    domains:
+      - authentication
+  - keyword: credit-back
+    domains:
+      - refunds
+  - keyword: credit-card
+    domains:
+      - payments
+  - keyword: credit-note
+    domains:
+      - invoicing
+  - keyword: cron
+    domains:
+      - recurring-jobs
+  - keyword: crontab
+    domains:
+      - recurring-jobs
+  - keyword: dashboard
+    domains:
+      - reporting-pipeline
+  - keyword: data lifecycle
+    domains:
+      - archiving
+  - keyword: data lineage
+    domains:
+      - reporting-pipeline
+  - keyword: data mart
+    domains:
+      - reporting-pipeline
+  - keyword: data pipeline
+    domains:
+      - etl-pipelines
+  - keyword: data quality
+    domains:
+      - data-quality
+  - keyword: data validation
+    domains:
+      - data-quality
+  - keyword: day-one
+    domains:
+      - onboarding
+  - keyword: deactivate
+    domains:
+      - user-management
+  - keyword: dead-letter
+    domains:
+      - data-quality
+  - keyword: deadline
+    domains:
+      - sla-management
+  - keyword: deadline-timer
+    domains:
+      - timers
+  - keyword: debit-card
+    domains:
+      - payments
+  - keyword: dedup
+    domains:
+      - idempotency
+      - master-data-sync
+  - keyword: deduplicate
+    domains:
+      - idempotency
+  - keyword: defensible-deletion
+    domains:
+      - retention
+  - keyword: defer
+    domains:
+      - reminders
+  - keyword: delay
+    domains:
+      - timers
+  - keyword: delayed-task
+    domains:
+      - timers
+  - keyword: delegate
+    domains:
+      - delegation
+  - keyword: delegation
+    domains:
+      - delegation
+  - keyword: delete
+    domains:
+      - retention
+  - keyword: delivery address
+    domains:
+      - shipping
+  - keyword: delivery service
+    domains:
+      - shipping
+  - keyword: departure
+    domains:
+      - offboarding
+  - keyword: deprovisioning
+    domains:
+      - offboarding
+  - keyword: deputize
+    domains:
+      - delegation
+  - keyword: deputy
+    domains:
+      - delegation
+  - keyword: diff
+    domains:
+      - versioning
+  - keyword: digital-signature
+    domains:
+      - e-signature
+  - keyword: discount
+    domains:
+      - pricing
+  - keyword: disposition
+    domains:
+      - retention
+  - keyword: dispute
+    domains:
+      - refunds
+  - keyword: document
+    domains:
+      - file-management
+  - keyword: docusign
+    domains:
+      - e-signature
+  - keyword: double-entry
+    domains:
+      - reconciliation
+  - keyword: download
+    domains:
+      - file-management
+  - keyword: dq check
+    domains:
+      - data-quality
+  - keyword: draft
+    domains:
+      - document-lifecycle
+  - keyword: drift
+    domains:
+      - data-quality
+  - keyword: dual-approval
+    domains:
+      - four-eyes
+  - keyword: dual-authorization
+    domains:
+      - four-eyes
+  - keyword: dual-control
+    domains:
+      - four-eyes
+  - keyword: due-date
+    domains:
+      - sla-management
+  - keyword: due-soon
+    domains:
+      - reminders
+  - keyword: dunning
+    domains:
+      - subscription-billing
+  - keyword: durable-timer
+    domains:
+      - timers
+  - keyword: e-signature
+    domains:
+      - e-signature
+  - keyword: ean
+    domains:
+      - catalog
+  - keyword: edge
+    domains:
+      - api-gateway
+  - keyword: elt
+    domains:
+      - etl-pipelines
+  - keyword: email
+    domains:
+      - email
+      - rate-limiting
+  - keyword: employee provisioning
+    domains:
+      - onboarding
+  - keyword: endorse
+    domains:
+      - approval-chains
+  - keyword: erasure
+    domains:
+      - retention
+  - keyword: escalate
+    domains:
+      - escalation
+  - keyword: escalation
+    domains:
+      - escalation
+  - keyword: esignature
+    domains:
+      - e-signature
+  - keyword: etl
+    domains:
+      - etl-pipelines
+  - keyword: event
+    domains:
+      - calendars
+  - keyword: event-bus
+    domains:
+      - message-queues
+  - keyword: event-notification
+    domains:
+      - webhooks
+  - keyword: event-subscription
+    domains:
+      - webhooks
+  - keyword: exactly once
+    domains:
+      - idempotency
+  - keyword: exit
+    domains:
+      - offboarding
+  - keyword: expiry
+    domains:
+      - archiving
+      - retention
+  - keyword: exponential-backoff
+    domains:
+      - retry-policy
+  - keyword: fact table
+    domains:
+      - reporting-pipeline
+  - keyword: fail-fast
+    domains:
+      - circuit-breaker
+  - keyword: fallback
+    domains:
+      - circuit-breaker
+  - keyword: file
+    domains:
+      - file-management
+  - keyword: fire-at
+    domains:
+      - timers
+  - keyword: four-eyes
+    domains:
+      - four-eyes
+  - keyword: freshness
+    domains:
+      - reporting-pipeline
+  - keyword: freshness check
+    domains:
+      - data-quality
+  - keyword: fulfillment
+    domains:
+      - fulfillment
+  - keyword: fulfillment center
+    domains:
+      - fulfillment
+  - keyword: gateway
+    domains:
+      - api-gateway
+  - keyword: glacier
+    domains:
+      - archiving
+  - keyword: golden record
+    domains:
+      - master-data-sync
+  - keyword: gst
+    domains:
+      - tax
+  - keyword: gtin
+    domains:
+      - catalog
+  - keyword: high-water mark
+    domains:
+      - etl-pipelines
+  - keyword: hire setup
+    domains:
+      - onboarding
+  - keyword: history
+    domains:
+      - versioning
+  - keyword: holiday
+    domains:
+      - business-hours
+  - keyword: holiday request
+    domains:
+      - leave-management
+  - keyword: holidays
+    domains:
+      - business-hours
+  - keyword: http-callback
+    domains:
+      - webhooks
+  - keyword: ical
+    domains:
+      - calendars
+  - keyword: ics
+    domains:
+      - calendars
+  - keyword: idempotency
+    domains:
+      - idempotency
+  - keyword: idempotency-key
+    domains:
+      - idempotency
+  - keyword: idempotent
+    domains:
+      - idempotency
+  - keyword: incoterms
+    domains:
+      - shipping
+  - keyword: incremental load
+    domains:
+      - etl-pipelines
+  - keyword: ingest
+    domains:
+      - etl-pipelines
+  - keyword: ingestion
+    domains:
+      - etl-pipelines
+  - keyword: ingress
+    domains:
+      - api-gateway
+  - keyword: inventory
+    domains:
+      - inventory
+  - keyword: invoice
+    domains:
+      - invoicing
+  - keyword: item
+    domains:
+      - catalog
+  - keyword: jitter
+    domains:
+      - retry-policy
+  - keyword: job-runner
+    domains:
+      - recurring-jobs
+  - keyword: joiner
+    domains:
+      - onboarding
+  - keyword: jwt
+    domains:
+      - session-management
+  - keyword: kafka
+    domains:
+      - message-queues
+  - keyword: lead-time
+    domains:
+      - reminders
+  - keyword: leave
+    domains:
+      - leave-management
+  - keyword: leave-management
+    domains:
+      - leave-management
+  - keyword: leave-request
+    domains:
+      - leave-management
+  - keyword: leaver
+    domains:
+      - offboarding
+  - keyword: ledger
+    domains:
+      - reconciliation
+  - keyword: legal-hold
+    domains:
+      - retention
+  - keyword: levy
+    domains:
+      - tax
+  - keyword: lifecycle
+    domains:
+      - document-lifecycle
+  - keyword: lineage
+    domains:
+      - reporting-pipeline
+  - keyword: list-price
+    domains:
+      - pricing
+  - keyword: listing
+    domains:
+      - catalog
+  - keyword: load
+    domains:
+      - etl-pipelines
+  - keyword: login
+    domains:
+      - account-lockout
+      - authentication
+      - fraud-detection
+      - password-policy
+      - rate-limiting
+  - keyword: logout
+    domains:
+      - session-management
+  - keyword: maker-checker
+    domains:
+      - four-eyes
+  - keyword: mart
+    domains:
+      - reporting-pipeline
+  - keyword: master data
+    domains:
+      - master-data-sync
+  - keyword: match
+    domains:
+      - reconciliation
+  - keyword: mdm
+    domains:
+      - master-data-sync
+  - keyword: meeting
+    domains:
+      - calendars
+  - keyword: merge
+    domains:
+      - master-data-sync
+  - keyword: message-queue
+    domains:
+      - message-queues
+  - keyword: messaging
+    domains:
+      - message-queues
+  - keyword: metered
+    domains:
+      - subscription-billing
+  - keyword: metrics
+    domains:
+      - reporting-pipeline
+  - keyword: mfa
+    domains:
+      - authentication
+  - keyword: moderation
+    domains:
+      - performance-review
+  - keyword: money back
+    domains:
+      - returns
+  - keyword: money-back
+    domains:
+      - refunds
+  - keyword: mrr
+    domains:
+      - subscription-billing
+  - keyword: multi-step-approval
+    domains:
+      - approval-chains
+  - keyword: new hire
+    domains:
+      - onboarding
+  - keyword: new-employee-setup
+    domains:
+      - onboarding
+  - keyword: nexus
+    domains:
+      - tax
+  - keyword: nightly
+    domains:
+      - recurring-jobs
+  - keyword: no-response
+    domains:
+      - escalation
+  - keyword: non-repudiation
+    domains:
+      - e-signature
+  - keyword: non-working-day
+    domains:
+      - business-hours
+  - keyword: notify-before
+    domains:
+      - reminders
+  - keyword: nudge
+    domains:
+      - reminders
+  - keyword: object-store
+    domains:
+      - file-management
+  - keyword: offboard
+    domains:
+      - offboarding
+  - keyword: offboarding
+    domains:
+      - offboarding
+  - keyword: office-hours
+    domains:
+      - business-hours
+  - keyword: on-hand
+    domains:
+      - inventory
+  - keyword: onboard
+    domains:
+      - identity-management
+      - onboarding
+  - keyword: onboarding
+    domains:
+      - onboarding
+  - keyword: ooo
+    domains:
+      - delegation
+  - keyword: opening-hours
+    domains:
+      - business-hours
+  - keyword: order
+    domains:
+      - ordering
+  - keyword: order lifecycle
+    domains:
+      - ordering
+  - keyword: order state
+    domains:
+      - ordering
+  - keyword: order status
+    domains:
+      - ordering
+  - keyword: out-of-office
+    domains:
+      - delegation
+  - keyword: outbound-event
+    domains:
+      - webhooks
+  - keyword: outbox
+    domains:
+      - message-queues
+  - keyword: overdue
+    domains:
+      - escalation
+      - sla-management
+  - keyword: override-route
+    domains:
+      - escalation
+  - keyword: packing
+    domains:
+      - fulfillment
+  - keyword: partial fulfillment
+    domains:
+      - fulfillment
+  - keyword: partial shipment
+    domains:
+      - fulfillment
+  - keyword: password
+    domains:
+      - password-policy
+  - keyword: pay
+    domains:
+      - payments
+  - keyword: pay changes
+    domains:
+      - payroll-handoff
+  - keyword: pay run
+    domains:
+      - payroll-handoff
+  - keyword: payment
+    domains:
+      - fraud-detection
+      - payments
+  - keyword: payout
+    domains:
+      - reconciliation
+  - keyword: payroll
+    domains:
+      - payroll-handoff
+  - keyword: payroll export
+    domains:
+      - payroll-handoff
+  - keyword: payroll reconciliation
+    domains:
+      - payroll-handoff
+  - keyword: payroll-changes
+    domains:
+      - payroll-handoff
+  - keyword: payroll-handoff
+    domains:
+      - payroll-handoff
+  - keyword: performance evaluation
+    domains:
+      - performance-review
+  - keyword: performance-review
+    domains:
+      - performance-review
+  - keyword: periodic
+    domains:
+      - recurring-jobs
+  - keyword: permission
+    domains:
+      - authorization
+  - keyword: pick
+    domains:
+      - fulfillment
+  - keyword: pick and pack
+    domains:
+      - fulfillment
+  - keyword: picking
+    domains:
+      - fulfillment
+  - keyword: pipeline
+    domains:
+      - etl-pipelines
+  - keyword: place order
+    domains:
+      - ordering
+  - keyword: plan
+    domains:
+      - subscription-billing
+  - keyword: postpone
+    domains:
+      - reminders
+  - keyword: price
+    domains:
+      - pricing
+  - keyword: price-book
+    domains:
+      - pricing
+  - keyword: pricing
+    domains:
+      - pricing
+  - keyword: producer
+    domains:
+      - message-queues
+  - keyword: product
+    domains:
+      - catalog
+  - keyword: product category
+    domains:
+      - catalog
+  - keyword: product data
+    domains:
+      - catalog
+  - keyword: profile
+    domains:
+      - user-management
+  - keyword: promo
+    domains:
+      - pricing
+  - keyword: promotion
+    domains:
+      - pricing
+  - keyword: proof-of-payment
+    domains:
+      - invoicing
+  - keyword: provenance
+    domains:
+      - reporting-pipeline
+  - keyword: provisioning employee
+    domains:
+      - onboarding
+  - keyword: proxy-approve
+    domains:
+      - delegation
+  - keyword: psp
+    domains:
+      - payments
+  - keyword: pto
+    domains:
+      - leave-management
+  - keyword: pub-sub
+    domains:
+      - message-queues
+  - keyword: publish
+    domains:
+      - document-lifecycle
+  - keyword: purchase
+    domains:
+      - payments
+  - keyword: purchase order
+    domains:
+      - ordering
+  - keyword: purge
+    domains:
+      - archiving
+      - retention
+  - keyword: push-notification
+    domains:
+      - webhooks
+  - keyword: quality check
+    domains:
+      - data-quality
+  - keyword: quarantine
+    domains:
+      - data-quality
+  - keyword: queue
+    domains:
+      - message-queues
+  - keyword: quote
+    domains:
+      - pricing
+  - keyword: rabbitmq
+    domains:
+      - message-queues
+  - keyword: raise-to-manager
+    domains:
+      - escalation
+  - keyword: rate-card
+    domains:
+      - pricing
+  - keyword: rating
+    domains:
+      - performance-review
+  - keyword: rating calibration
+    domains:
+      - performance-review
+  - keyword: rbac
+    domains:
+      - authorization
+  - keyword: receipt
+    domains:
+      - invoicing
+  - keyword: reconcile
+    domains:
+      - master-data-sync
+      - reconciliation
+  - keyword: reconciliation
+    domains:
+      - reconciliation
+      - reporting-pipeline
+  - keyword: records-schedule
+    domains:
+      - retention
+  - keyword: recurrence
+    domains:
+      - calendars
+  - keyword: recurring
+    domains:
+      - recurring-jobs
+      - subscription-billing
+  - keyword: recurring-billing
+    domains:
+      - subscription-billing
+  - keyword: referential integrity
+    domains:
+      - master-data-sync
+  - keyword: refund
+    domains:
+      - refunds
+      - returns
+  - keyword: register
+    domains:
+      - identity-management
+      - password-policy
+      - rate-limiting
+  - keyword: registration
+    domains:
+      - fraud-detection
+      - identity-management
+  - keyword: reimbursement
+    domains:
+      - returns
+  - keyword: reject
+    domains:
+      - data-quality
+  - keyword: remember me
+    domains:
+      - session-management
+  - keyword: remind
+    domains:
+      - reminders
+  - keyword: remind-later
+    domains:
+      - reminders
+  - keyword: reminder
+    domains:
+      - reminders
+  - keyword: renewal
+    domains:
+      - subscription-billing
+  - keyword: reorder
+    domains:
+      - inventory
+  - keyword: reorder point
+    domains:
+      - inventory
+  - keyword: repeating-event
+    domains:
+      - calendars
+  - keyword: replenishment
+    domains:
+      - inventory
+  - keyword: replication
+    domains:
+      - master-data-sync
+  - keyword: report
+    domains:
+      - reporting-pipeline
+  - keyword: reporting
+    domains:
+      - reporting-pipeline
+  - keyword: request time off
+    domains:
+      - leave-management
+  - keyword: reservation
+    domains:
+      - inventory
+  - keyword: resignation
+    domains:
+      - offboarding
+  - keyword: response-time
+    domains:
+      - sla-management
+  - keyword: restock
+    domains:
+      - inventory
+      - returns
+  - keyword: restocking
+    domains:
+      - returns
+  - keyword: retention
+    domains:
+      - archiving
+      - retention
+  - keyword: retention policy
+    domains:
+      - archiving
+  - keyword: retries
+    domains:
+      - retry-policy
+  - keyword: retry
+    domains:
+      - retry-policy
+  - keyword: retry-budget
+    domains:
+      - retry-policy
+  - keyword: retry-policy
+    domains:
+      - retry-policy
+  - keyword: return
+    domains:
+      - refunds
+      - returns
+  - keyword: return authorization
+    domains:
+      - returns
+  - keyword: return merchandise authorization
+    domains:
+      - returns
+  - keyword: return to stock
+    domains:
+      - returns
+  - keyword: reversal
+    domains:
+      - refunds
+  - keyword: reverse-proxy
+    domains:
+      - api-gateway
+  - keyword: review
+    domains:
+      - document-lifecycle
+  - keyword: review calibration
+    domains:
+      - performance-review
+  - keyword: review cycle
+    domains:
+      - performance-review
+  - keyword: review-and-approve
+    domains:
+      - approval-chains
+  - keyword: revision
+    domains:
+      - versioning
+  - keyword: revoke access
+    domains:
+      - offboarding
+  - keyword: right of withdrawal
+    domains:
+      - returns
+  - keyword: rma
+    domains:
+      - returns
+  - keyword: role
+    domains:
+      - authorization
+  - keyword: rollback
+    domains:
+      - versioning
+  - keyword: rollup
+    domains:
+      - reporting-pipeline
+  - keyword: route
+    domains:
+      - api-gateway
+  - keyword: routing
+    domains:
+      - api-gateway
+      - approval-chains
+  - keyword: rrule
+    domains:
+      - calendars
+  - keyword: safe-retry
+    domains:
+      - idempotency
+  - keyword: saga
+    domains:
+      - message-queues
+  - keyword: salary export
+    domains:
+      - payroll-handoff
+  - keyword: sales-tax
+    domains:
+      - tax
+  - keyword: schedule
+    domains:
+      - recurring-jobs
+  - keyword: scheduled-callback
+    domains:
+      - timers
+  - keyword: scheduled-job
+    domains:
+      - recurring-jobs
+  - keyword: seat
+    domains:
+      - subscription-billing
+  - keyword: second-signature
+    domains:
+      - four-eyes
+  - keyword: segregation-of-duties
+    domains:
+      - four-eyes
+  - keyword: separation-of-duties
+    domains:
+      - four-eyes
+  - keyword: series
+    domains:
+      - calendars
+  - keyword: service-level
+    domains:
+      - sla-management
+  - keyword: session
+    domains:
+      - session-management
+  - keyword: settlement
+    domains:
+      - reconciliation
+  - keyword: shift-calendar
+    domains:
+      - business-hours
+  - keyword: shipment status
+    domains:
+      - shipping
+  - keyword: shipping
+    domains:
+      - shipping
+  - keyword: shipping address
+    domains:
+      - shipping
+  - keyword: shipping carrier
+    domains:
+      - shipping
+  - keyword: sick leave
+    domains:
+      - leave-management
+  - keyword: sign
+    domains:
+      - e-signature
+  - keyword: sign in
+    domains:
+      - authentication
+  - keyword: sign up
+    domains:
+      - identity-management
+  - keyword: sign-off
+    domains:
+      - approval-chains
+  - keyword: signature
+    domains:
+      - e-signature
+  - keyword: signer
+    domains:
+      - e-signature
+  - keyword: sku
+    domains:
+      - catalog
+  - keyword: sla
+    domains:
+      - sla-management
+  - keyword: sla-breach
+    domains:
+      - sla-management
+  - keyword: sla-management
+    domains:
+      - sla-management
+  - keyword: snooze
+    domains:
+      - reminders
+  - keyword: sod
+    domains:
+      - four-eyes
+  - keyword: source of truth
+    domains:
+      - master-data-sync
+  - keyword: split shipment
+    domains:
+      - fulfillment
+  - keyword: sqs
+    domains:
+      - message-queues
+  - keyword: sso
+    domains:
+      - authentication
+  - keyword: stage
+    domains:
+      - document-lifecycle
+  - keyword: stand-in
+    domains:
+      - delegation
+  - keyword: star schema
+    domains:
+      - reporting-pipeline
+  - keyword: state
+    domains:
+      - document-lifecycle
+  - keyword: statement
+    domains:
+      - invoicing
+  - keyword: status
+    domains:
+      - document-lifecycle
+  - keyword: stock
+    domains:
+      - inventory
+  - keyword: stock count
+    domains:
+      - inventory
+  - keyword: stock hold
+    domains:
+      - inventory
+  - keyword: stock keeping unit
+    domains:
+      - catalog
+  - keyword: stock level
+    domains:
+      - inventory
+  - keyword: storage
+    domains:
+      - file-management
+  - keyword: stuck-approval
+    domains:
+      - escalation
+  - keyword: subscription
+    domains:
+      - subscription-billing
+      - webhooks
+  - keyword: sync
+    domains:
+      - master-data-sync
+  - keyword: synchronise
+    domains:
+      - master-data-sync
+  - keyword: synchronize
+    domains:
+      - master-data-sync
+  - keyword: task-scheduler
+    domains:
+      - recurring-jobs
+  - keyword: tax
+    domains:
+      - tax
+  - keyword: tax-rate
+    domains:
+      - tax
+  - keyword: taxonomy
+    domains:
+      - catalog
+  - keyword: termination
+    domains:
+      - offboarding
+  - keyword: tie-out
+    domains:
+      - reconciliation
+  - keyword: tier
+    domains:
+      - subscription-billing
+  - keyword: tiering
+    domains:
+      - archiving
+  - keyword: time off
+    domains:
+      - leave-management
+  - keyword: time-limit
+    domains:
+      - sla-management
+  - keyword: timeout
+    domains:
+      - escalation
+      - timers
+  - keyword: timer
+    domains:
+      - timers
+  - keyword: token
+    domains:
+      - session-management
+  - keyword: track shipment
+    domains:
+      - shipping
+  - keyword: tracking
+    domains:
+      - shipping
+  - keyword: tracking number
+    domains:
+      - shipping
+  - keyword: transactional email
+    domains:
+      - email
+  - keyword: transactional-outbox
+    domains:
+      - message-queues
+  - keyword: trip
+    domains:
+      - circuit-breaker
+  - keyword: ttl
+    domains:
+      - archiving
+  - keyword: turnaround-time
+    domains:
+      - sla-management
+  - keyword: two-person-rule
+    domains:
+      - four-eyes
+  - keyword: upc
+    domains:
+      - catalog
+  - keyword: upload
+    domains:
+      - file-management
+  - keyword: upstream
+    domains:
+      - api-gateway
+  - keyword: user admin
+    domains:
+      - user-management
+  - keyword: vacation
+    domains:
+      - leave-management
+  - keyword: vacation-cover
+    domains:
+      - delegation
+  - keyword: validate
+    domains:
+      - data-quality
+  - keyword: validation
+    domains:
+      - data-quality
+  - keyword: value-added-tax
+    domains:
+      - tax
+  - keyword: variant
+    domains:
+      - catalog
+  - keyword: vat
+    domains:
+      - tax
+  - keyword: verification link
+    domains:
+      - email
+  - keyword: version
+    domains:
+      - versioning
+  - keyword: versioning
+    domains:
+      - api-gateway
+      - versioning
+  - keyword: void
+    domains:
+      - refunds
+  - keyword: wait
+    domains:
+      - timers
+  - keyword: wallet
+    domains:
+      - payments
+  - keyword: warehouse
+    domains:
+      - fulfillment
+      - reporting-pipeline
+  - keyword: warehouse allocation
+    domains:
+      - fulfillment
+  - keyword: watermark
+    domains:
+      - etl-pipelines
+  - keyword: webhook
+    domains:
+      - webhooks
+  - keyword: webhooks
+    domains:
+      - webhooks
+  - keyword: withdrawal
+    domains:
+      - returns
+  - keyword: withholding
+    domains:
+      - tax
+  - keyword: witness
+    domains:
+      - e-signature
+  - keyword: work-schedule
+    domains:
+      - business-hours
+  - keyword: workflow
+    domains:
+      - document-lifecycle
+  - keyword: working-calendar
+    domains:
+      - business-hours
+  - keyword: working-hours
+    domains:
+      - business-hours
 implication-map:
-  authentication: [security, password-policy, account-lockout, rate-limiting, fraud-detection, session-management, audit]
-  identity-management: [email, privacy, compliance, user-management]
-  session-management: [security, logging]
-  user-management: [authorization, audit, privacy]
-  authorization: [audit, security]
-  email: [notification, rate-limiting]
-  fraud-detection: [monitoring, analytics, audit]
-  privacy: [compliance]
-
-  # Baseline: ANY user-facing feature always implies these cross-cutting domains
+  api-gateway:
+    - authentication
+    - authorization
+    - rate-limiting
+    - observability
+    - error-management
+    - idempotency
+  approval-chains:
+    - audit
+    - authorization
+    - notification
+    - escalation
+    - four-eyes
+  archiving:
+    - backup
+    - compliance
+    - privacy
+    - audit
+    - disaster-recovery
+  authentication:
+    - security
+    - password-policy
+    - account-lockout
+    - rate-limiting
+    - fraud-detection
+    - session-management
+    - audit
+  authorization:
+    - audit
+    - security
+  business-hours:
+    - audit
+    - monitoring
+    - calendars
+  calendars:
+    - notification
+    - audit
+    - reminders
+    - business-hours
+  catalog:
+    - inventory
+    - audit
+    - notification
+    - error-management
+    - analytics
+  circuit-breaker:
+    - retry-policy
+    - error-management
+    - observability
+    - monitoring
+  data-quality:
+    - monitoring
+    - notification
+    - error-management
+    - audit
+    - observability
+  delegation:
+    - audit
+    - authorization
+    - notification
+  document-lifecycle:
+    - authorization
+    - audit
+    - notification
+    - versioning
+    - retention
+  e-signature:
+    - authentication
+    - audit
+    - identity-management
+    - security
+    - retention
+  email:
+    - notification
+    - rate-limiting
+  escalation:
+    - audit
+    - notification
+    - sla-management
+    - authorization
+  etl-pipelines:
+    - monitoring
+    - error-management
+    - observability
+    - audit
+    - data-quality
+  file-management:
+    - security
+    - backup
+    - audit
+    - versioning
+  four-eyes:
+    - audit
+    - authorization
+    - security
+  fraud-detection:
+    - monitoring
+    - analytics
+    - audit
+  fulfillment:
+    - inventory
+    - shipping
+    - audit
+    - notification
+    - error-management
+  idempotency:
+    - error-management
+    - observability
+  identity-management:
+    - email
+    - privacy
+    - compliance
+    - user-management
+  inventory:
+    - catalog
+    - audit
+    - monitoring
+    - notification
+    - error-management
+  invoicing:
+    - payments
+    - tax
+    - audit
+    - compliance
+    - notification
+    - documentation
+  leave-management:
+    - authorization
+    - audit
+    - notification
+    - privacy
+  master-data-sync:
+    - audit
+    - monitoring
+    - error-management
+    - data-quality
+    - notification
+  message-queues:
+    - idempotency
+    - retry-policy
+    - observability
+    - error-management
+    - audit
+  offboarding:
+    - identity-management
+    - authorization
+    - audit
+    - notification
+  onboarding:
+    - identity-management
+    - authorization
+    - audit
+    - notification
+  ordering:
+    - inventory
+    - catalog
+    - fraud-detection
+    - audit
+    - notification
+    - error-management
+  payments:
+    - fraud-detection
+    - audit
+    - compliance
+    - security
+    - notification
+    - refunds
+  payroll-handoff:
+    - authorization
+    - audit
+    - notification
+    - privacy
+  performance-review:
+    - authorization
+    - audit
+    - notification
+    - privacy
+  pricing:
+    - payments
+    - tax
+    - audit
+    - analytics
+  reconciliation:
+    - payments
+    - audit
+    - compliance
+    - logging
+    - monitoring
+  recurring-jobs:
+    - monitoring
+    - error-management
+    - observability
+    - audit
+    - timers
+  refunds:
+    - payments
+    - audit
+    - fraud-detection
+    - notification
+    - compliance
+  reminders:
+    - notification
+    - email
+    - audit
+    - calendars
+    - timers
+  reporting-pipeline:
+    - analytics
+    - monitoring
+    - audit
+    - observability
+    - data-quality
+  retention:
+    - audit
+    - compliance
+    - privacy
+    - backup
+  retry-policy:
+    - idempotency
+    - error-management
+    - observability
+  returns:
+    - inventory
+    - catalog
+    - fraud-detection
+    - audit
+    - notification
+    - compliance
+  session-management:
+    - security
+    - logging
+  shipping:
+    - fulfillment
+    - notification
+    - audit
+    - error-management
+  sla-management:
+    - audit
+    - notification
+    - monitoring
+    - escalation
+  subscription-billing:
+    - payments
+    - invoicing
+    - tax
+    - refunds
+    - notification
+    - audit
+    - compliance
+  tax:
+    - invoicing
+    - compliance
+    - audit
+    - payments
+    - documentation
+  timers:
+    - error-management
+    - monitoring
+    - observability
+    - audit
+    - recurring-jobs
+  user-management:
+    - authorization
+    - audit
+    - privacy
+  versioning:
+    - audit
+    - backup
+    - authorization
+  webhooks:
+    - idempotency
+    - retry-policy
+    - authentication
+    - observability
+    - error-management
+    - message-queues
   ANY-USER-FACING:
     - security
     - audit
@@ -62,41 +1801,163 @@ implication-map:
     - privacy
     - backup
     - disaster-recovery
-
-# ---------------------------------------------------------------------------
-# Domain registry: every domain file in this KB
-# ---------------------------------------------------------------------------
 domains:
   functional:
-    - { id: authentication,      file: authentication.yaml }
-    - { id: authorization,       file: authorization.yaml }
-    - { id: identity-management, file: identity-management.yaml }
-    - { id: session-management,  file: session-management.yaml }
-    - { id: user-management,     file: user-management.yaml }
-    - { id: email,               file: email.yaml }
+    - id: api-gateway
+      file: integration/api-gateway.yaml
+    - id: approval-chains
+      file: approvals/approval-chains.yaml
+    - id: authentication
+      file: authentication.yaml
+    - id: authorization
+      file: authorization.yaml
+    - id: business-hours
+      file: scheduling/business-hours.yaml
+    - id: calendars
+      file: scheduling/calendars.yaml
+    - id: catalog
+      file: commerce/catalog.yaml
+    - id: delegation
+      file: approvals/delegation.yaml
+    - id: document-lifecycle
+      file: documents/document-lifecycle.yaml
+    - id: e-signature
+      file: documents/e-signature.yaml
+    - id: email
+      file: email.yaml
+    - id: escalation
+      file: approvals/escalation.yaml
+    - id: etl-pipelines
+      file: data/etl-pipelines.yaml
+    - id: file-management
+      file: documents/file-management.yaml
+    - id: four-eyes
+      file: approvals/four-eyes.yaml
+    - id: fulfillment
+      file: commerce/fulfillment.yaml
+    - id: identity-management
+      file: identity-management.yaml
+    - id: inventory
+      file: commerce/inventory.yaml
+    - id: invoicing
+      file: payments/invoicing.yaml
+    - id: leave-management
+      file: hr/leave-management.yaml
+    - id: master-data-sync
+      file: data/master-data-sync.yaml
+    - id: message-queues
+      file: integration/message-queues.yaml
+    - id: offboarding
+      file: hr/offboarding.yaml
+    - id: onboarding
+      file: hr/onboarding.yaml
+    - id: ordering
+      file: commerce/ordering.yaml
+    - id: payments
+      file: payments/payments.yaml
+    - id: payroll-handoff
+      file: hr/payroll-handoff.yaml
+    - id: performance-review
+      file: hr/performance-review.yaml
+    - id: pricing
+      file: payments/pricing.yaml
+    - id: reconciliation
+      file: payments/reconciliation.yaml
+    - id: recurring-jobs
+      file: scheduling/recurring-jobs.yaml
+    - id: refunds
+      file: payments/refunds.yaml
+    - id: reminders
+      file: scheduling/reminders.yaml
+    - id: reporting-pipeline
+      file: data/reporting-pipeline.yaml
+    - id: retention
+      file: documents/retention.yaml
+    - id: returns
+      file: commerce/returns.yaml
+    - id: session-management
+      file: session-management.yaml
+    - id: shipping
+      file: commerce/shipping.yaml
+    - id: sla-management
+      file: approvals/sla-management.yaml
+    - id: subscription-billing
+      file: payments/subscription-billing.yaml
+    - id: tax
+      file: payments/tax.yaml
+    - id: timers
+      file: scheduling/timers.yaml
+    - id: user-management
+      file: user-management.yaml
+    - id: versioning
+      file: documents/versioning.yaml
+    - id: webhooks
+      file: integration/webhooks.yaml
   cross-cutting:
-    - { id: security,            file: security.yaml }
-    - { id: audit,               file: audit.yaml }
-    - { id: logging,             file: logging.yaml }
-    - { id: monitoring,          file: monitoring.yaml }
-    - { id: notification,        file: notification.yaml }
-    - { id: password-policy,     file: password-policy.yaml }
-    - { id: account-lockout,     file: account-lockout.yaml }
-    - { id: fraud-detection,     file: fraud-detection.yaml }
-    - { id: rate-limiting,       file: rate-limiting.yaml }
-    - { id: observability,       file: observability.yaml }
-    - { id: error-management,    file: error-management.yaml }
-    - { id: documentation,       file: documentation.yaml }
-    - { id: testing,             file: testing.yaml }
-    - { id: deployment,          file: deployment.yaml }
-    - { id: operations,          file: operations.yaml }
-    - { id: analytics,           file: analytics.yaml }
-    - { id: compliance,          file: compliance.yaml }
-    - { id: privacy,             file: privacy.yaml }
-    - { id: backup,              file: backup.yaml }
-    - { id: disaster-recovery,   file: disaster-recovery.yaml }
-
+    - id: account-lockout
+      file: account-lockout.yaml
+    - id: analytics
+      file: analytics.yaml
+    - id: archiving
+      file: data/archiving.yaml
+    - id: audit
+      file: audit.yaml
+    - id: backup
+      file: backup.yaml
+    - id: circuit-breaker
+      file: integration/circuit-breaker.yaml
+    - id: compliance
+      file: compliance.yaml
+    - id: data-quality
+      file: data/data-quality.yaml
+    - id: deployment
+      file: deployment.yaml
+    - id: disaster-recovery
+      file: disaster-recovery.yaml
+    - id: documentation
+      file: documentation.yaml
+    - id: error-management
+      file: error-management.yaml
+    - id: fraud-detection
+      file: fraud-detection.yaml
+    - id: idempotency
+      file: integration/idempotency.yaml
+    - id: logging
+      file: logging.yaml
+    - id: monitoring
+      file: monitoring.yaml
+    - id: notification
+      file: notification.yaml
+    - id: observability
+      file: observability.yaml
+    - id: operations
+      file: operations.yaml
+    - id: password-policy
+      file: password-policy.yaml
+    - id: privacy
+      file: privacy.yaml
+    - id: rate-limiting
+      file: rate-limiting.yaml
+    - id: retry-policy
+      file: integration/retry-policy.yaml
+    - id: security
+      file: security.yaml
+    - id: testing
+      file: testing.yaml
+disambiguation:
+  - keyword: order
+    prefer: commerce
+    unless:
+      - approval
+      - approve
+      - sign-off
+  - keyword: document
+    prefer: documents
+    unless:
+      - upload
+      - attach
 guarantees:
   - additive-only: discovery may add domains/requirements, never remove or alter user intent
   - auth-coverage: any auth-triggered story must activate >= 25 domains (VAL-013)
   - traceability: every discovered item cites discovery/<domain>/<rule-id>
+  - closed-graph: every implies/trigger target resolves to a real domain (KB-I1/I2)

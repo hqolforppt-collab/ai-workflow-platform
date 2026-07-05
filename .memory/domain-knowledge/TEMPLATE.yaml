@@ -1,0 +1,38 @@
+# Domain-knowledge file TEMPLATE. Copy into .memory/domain-knowledge/<pack>/<id>.yaml
+# and fill in. Validated by `awp validate --kb`. See AUTHORING.md for the how-to.
+id: <kebab-case-id>              # unique across the whole KB; equals the filename stem
+type: functional                 # functional | cross-cutting
+version: 1.0.0
+pack: <pack-id>                  # omit for the identity/cross-cutting core
+
+# Keywords in a user story that activate this domain. Bare string OR {term, synonyms}.
+triggers:
+  - <primary keyword>
+  - { term: <keyword>, synonyms: [<syn1>, <syn2>] }
+
+# Domains this one always pulls in (must all exist as files — KB-I1).
+implies: [<domain-id>, <domain-id>]
+
+# Best-practice standards, WITH provenance (id + version + verified date + url).
+standards:
+  - { id: <STANDARD>, version: "<v>", verified: 2026-07-05, url: "https://..." }
+
+# 2-6 concrete, actionable rules. id = <DOM>-C<n> (DOM = 2-5 uppercase letters).
+constraints:
+  - { id: XXX-C1, rule: "<concrete rule with numbers/durations/limits — no TBD>" }
+  - { id: XXX-C2, rule: "<...>" }
+
+# Requirement seeds injected into the blueprint. ac = one Given/When/Then line.
+requirement-seeds:
+  - id: discovery/<id>/REQ-1
+    title: <short title>
+    ac: "Given <ctx>, When <action>, Then <measurable outcome>"
+
+# Which blueprint sections this domain contributes to.
+blueprint-sections: [security, requirements]
+
+# Freshness provenance. cadence = ISO period (P12M = review every 12 months).
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: <team-or-wg>

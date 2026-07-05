@@ -1,0 +1,31 @@
+id: reporting-pipeline
+type: functional
+version: 1.0.0
+pack: data
+triggers:
+  - reporting
+  - { term: report, synonyms: [dashboard, aggregation, rollup, metrics, bi] }
+  - { term: lineage, synonyms: [data lineage, provenance, reconciliation, freshness] }
+  - { term: mart, synonyms: [data mart, warehouse, star schema, fact table] }
+implies: [analytics, monitoring, audit, observability, data-quality]
+standards:
+  - { id: KIMBALL-DIMENSIONAL, version: "3e", verified: 2026-07-05, url: "https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/" }
+  - { id: DAMA-DMBOK, version: "2", verified: 2026-07-05, url: "https://www.dama.org/cpages/body-of-knowledge" }
+constraints:
+  - { id: RPT-C1, rule: "Aggregates are rebuildable from raw source at any time; the pipeline is deterministic so re-running for a period reproduces identical numbers (no dependence on wall-clock or run order)" }
+  - { id: RPT-C2, rule: "Each report asserts a freshness SLA (e.g. daily marts available by 06:00 covering data through end of prior day); a breach marks the report stale and notifies subscribers rather than serving silently outdated figures" }
+  - { id: RPT-C3, rule: "Every published aggregate reconciles against its source: a control total (row count or summed measure) must match source within a 0.1% tolerance, else the mart is held and flagged" }
+  - { id: RPT-C4, rule: "Column-level lineage is captured from source to report field so any metric can be traced to its inputs and transforms for audit and debugging" }
+  - { id: RPT-C5, rule: "Dimensional models use surrogate keys and track slowly-changing dimensions (Type 2 with effective-from/to) so historical reports reflect attribute values as of the reporting date, not current values" }
+requirement-seeds:
+  - id: discovery/reporting-pipeline/REQ-1
+    title: Source reconciliation
+    ac: "Given a published daily mart, When its control total is compared to source, Then it matches within 0.1% or the mart is held and flagged as unreconciled"
+  - id: discovery/reporting-pipeline/REQ-2
+    title: Freshness SLA breach
+    ac: "Given a mart not refreshed by its 06:00 SLA, When a consumer queries it, Then it is marked stale and subscribers are notified"
+blueprint-sections: [requirements, workflows, monitoring]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: data-platform-wg

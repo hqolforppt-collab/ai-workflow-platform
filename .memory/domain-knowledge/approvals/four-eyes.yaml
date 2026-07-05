@@ -1,0 +1,30 @@
+id: four-eyes
+type: functional
+version: 1.0.0
+pack: approvals
+triggers:
+  - four-eyes
+  - { term: dual-authorization, synonyms: [dual-control, two-person-rule, maker-checker, second-signature] }
+  - { term: segregation-of-duties, synonyms: [sod, separation-of-duties, dual-approval] }
+implies: [audit, authorization, security]
+standards:
+  - { id: SOX, version: "2002", verified: 2026-07-05, url: "https://www.congress.gov/bill/107th-congress/house-bill/3763" }
+  - { id: COSO, version: "2013", verified: 2026-07-05, url: "https://www.coso.org/guidance-on-ic" }
+constraints:
+  - { id: FOUR-C1, rule: "The initiator (maker) of a transaction MUST NOT be an eligible approver (checker) of that same transaction; enforced server-side, never client-side only" }
+  - { id: FOUR-C2, rule: "A sensitive operation requires at least 2 distinct human identities to complete; shared/service accounts do not count as a distinct second identity" }
+  - { id: FOUR-C3, rule: "The maker and each checker must hold different user ids AND, where role-SoD is configured, different conflicting roles (e.g. requester vs. approver of the same payment)" }
+  - { id: FOUR-C4, rule: "Sensitive operations (payments, privilege grants, config of the approval rules themselves) are gated by four-eyes by default; disabling four-eyes on such an operation is itself a four-eyes-gated change" }
+  - { id: FOUR-C5, rule: "The audit record captures both identities, their roles, and confirms maker != checker; a failed distinctness check blocks completion and raises a security event" }
+requirement-seeds:
+  - id: discovery/four-eyes/REQ-1
+    title: Maker cannot be checker
+    ac: "Given a payment created by user A, When user A attempts to approve that same payment, Then the approval is rejected server-side with a segregation-of-duties error"
+  - id: discovery/four-eyes/REQ-2
+    title: Two distinct identities required
+    ac: "Given a sensitive privilege-grant operation, When only one human identity has authorized it, Then the operation remains pending until a second distinct identity approves"
+blueprint-sections: [security, audit, requirements]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: governance-wg

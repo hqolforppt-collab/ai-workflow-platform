@@ -1,0 +1,27 @@
+id: idempotency
+type: cross-cutting
+version: 1.0.0
+pack: integration
+triggers:
+  - idempotency
+  - { term: idempotent, synonyms: [exactly once, deduplicate, dedup, safe-retry, idempotency-key] }
+implies: [error-management, observability]
+standards:
+  - { id: IETF-RFC-9110, version: "2022", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc9110" }
+constraints:
+  - { id: IDEM-C1, rule: "Mutating endpoints (POST/PATCH) accept an Idempotency-Key header; the same key returns the original stored response for 24h; the key is persisted with a fingerprint (hash) of the request body" }
+  - { id: IDEM-C2, rule: "If the same key arrives with a different request fingerprint, the server returns 422 (key reuse conflict) rather than performing a second, divergent operation" }
+  - { id: IDEM-C3, rule: "A concurrent retry with an in-flight key returns 409 (or waits) until the first request completes; the operation is executed at most once even under concurrency" }
+  - { id: IDEM-C4, rule: "GET/PUT/DELETE are inherently idempotent per RFC 9110 and require no key; only non-idempotent methods carry idempotency keys" }
+requirement-seeds:
+  - id: discovery/idempotency/REQ-1
+    title: Safe retry
+    ac: "Given a POST retried with the same Idempotency-Key within 24h, When it reaches the server, Then the operation executes at most once and the original response is returned"
+  - id: discovery/idempotency/REQ-2
+    title: Key reuse conflict
+    ac: "Given an Idempotency-Key already used for a different request body, When a new request presents it, Then the server returns 422 and does not perform the operation"
+blueprint-sections: [api, integrations, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

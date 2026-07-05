@@ -1,12 +1,21 @@
 id: analytics
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: ANL-C1, rule: "Funnel events defined (e.g. login_started, login_succeeded, login_failed)" }
-  - { id: ANL-C2, rule: "Analytics events PII-free or consent-gated; respects privacy domain" }
+  - id: ANL-C1
+    rule: Funnel events defined (e.g. login_started, login_succeeded, login_failed)
+  - id: ANL-C2
+    rule: Analytics events PII-free or consent-gated; respects privacy domain
 requirement-seeds:
   - id: discovery/analytics/REQ-1
     title: Conversion funnel instrumentation
-    ac: "Given the registration flow, When users progress, Then each step emits an event enabling drop-off analysis"
-blueprint-sections: [events, requirements]
+    ac: Given the registration flow, When users progress, Then each step emits an event enabling drop-off analysis
+blueprint-sections:
+  - events
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

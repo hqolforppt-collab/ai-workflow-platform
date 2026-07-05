@@ -1,0 +1,34 @@
+{
+  "key": "FRM-001",
+  "name": "Invoice Submission Form",
+  "fields": [
+    {
+      "id": "invoiceReference",
+      "name": "Invoice reference",
+      "type": "text",
+      "required": true,
+      "placeholder": "Invoice reference"
+    },
+    {
+      "id": "department",
+      "name": "Department",
+      "type": "select",
+      "required": true,
+      "placeholder": "Department"
+    },
+    {
+      "id": "grossAmount",
+      "name": "Gross amount",
+      "type": "number",
+      "required": true,
+      "placeholder": "Gross amount"
+    },
+    {
+      "id": "vendorRisk",
+      "name": "Vendor risk",
+      "type": "select",
+      "required": true,
+      "placeholder": "Vendor risk"
+    }
+  ]
+}

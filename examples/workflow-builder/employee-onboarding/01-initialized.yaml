@@ -1,0 +1,75 @@
+# 01-initialized.yaml — Stage 1/6 (Initialized)
+# Sections: project, domains
+_meta:
+  blueprint_id: BLU-EMPLOYEE-ONBOARDING
+  stage: stage-01
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: []
+  trace:
+    story: "Employee onboarding case with document collection, equipment provisioning, and training"
+
+project:
+  name: Employee Onboarding Case
+  id: BLU-EMPLOYEE-ONBOARDING
+  blueprint-schema-version: 2.0.0
+  maturity-level: L6
+  story: "Employee onboarding case with document collection, equipment provisioning, and training"
+  summary: >
+    A case-managed employee onboarding workflow (CMMN-shaped, not a rigid process):
+    an onboarding case is opened per new hire, carrying required tasks (document
+    collection, policy e-signature, day-one access provisioning) and discretionary
+    tasks a case worker activates on judgement (equipment provisioning, badge
+    issuance, training enrollment). Discovery expanded the three named concerns
+    (documents, equipment, training) into 27 domains covering identity and access,
+    e-signature non-repudiation, records retention and legal hold, security
+    hardening, observability, resilience, and compliance obligations (SOC2, GDPR,
+    eIDAS/ESIGN). The case reaches milestones (record-opened, documents-complete,
+    day-one-ready, onboarding-complete) rather than running a single fixed path.
+  scope:
+    in-scope:
+      - Case creation per approved new hire with a required-vs-discretionary task plan
+      - Document collection with per-record retention classes and legal-hold support
+      - Policy acknowledgement and offer-letter e-signature with tamper-evident evidence
+      - Role-template access provisioning activated on the confirmed start date
+      - Discretionary tasks (equipment provisioning, badge issuance, training enrollment) a case worker may activate
+      - Milestones, human decision points, and a 100%-checklist completion gate
+      - Audit trail, structured logging, metrics, alerts, and SLOs for every case event
+    out-of-scope:
+      - Payroll calculation and tax filing (handoff to payroll system; see ASM-003)
+      - Offboarding / deprovisioning (separate case type; see ASM-004)
+      - Recruiting and applicant tracking upstream of the approved-hire trigger
+      - Physical facilities provisioning beyond badge issuance (desk, parking)
+  stakeholders: [people-ops-lead, hiring-manager, it-provisioning-lead, security-officer, data-protection-officer]
+  created: 2026-07-05
+
+domains:
+  functional:
+    - { id: onboarding,           name: Employee Onboarding,   source: user }
+    - { id: document-management,  name: Document Management,    source: user }
+    - { id: equipment-provisioning, name: Equipment Provisioning, source: user }
+    - { id: training,             name: Training Enrollment,    source: user }
+    - { id: identity-management,  name: Identity Management,    source: discovery, rationale: "implication-map: onboarding -> identity-management (account provisioning)" }
+    - { id: authorization,        name: Authorization,          source: discovery, rationale: "implication-map: onboarding -> authorization (role-template access)" }
+    - { id: e-signature,          name: E-Signature,            source: discovery, rationale: "implication-map: document-management -> e-signature (offer letter, policy ack)" }
+    - { id: case-management,      name: Case Management,        source: discovery, rationale: "implication-map: onboarding -> case-management (discretionary tasks, milestones)" }
+  cross-cutting:   # 19 entries — VAL-010 requires >= 12
+    - { id: security,           name: Security,                 source: discovery, discovery-rule: discovery/onboarding/ONB-IMP-01, criticality: mandatory }
+    - { id: audit,              name: Audit Trail,              source: discovery, discovery-rule: discovery/onboarding/ONB-C3, criticality: mandatory }
+    - { id: notification,       name: Notifications,            source: discovery, discovery-rule: discovery/onboarding/ONB-IMP-02, criticality: mandatory }
+    - { id: retention,          name: Records Retention,        source: discovery, discovery-rule: discovery/documents/RET-C1, criticality: mandatory }
+    - { id: legal-hold,         name: Legal Hold,               source: discovery, discovery-rule: discovery/documents/RET-C2, criticality: mandatory }
+    - { id: privacy,            name: Privacy (GDPR),           source: discovery, discovery-rule: discovery/documents/RET-C4, criticality: mandatory }
+    - { id: compliance,         name: Compliance (SOC2),        source: discovery, discovery-rule: discovery/onboarding/ONB-IMP-03, criticality: mandatory }
+    - { id: non-repudiation,    name: Non-Repudiation,          source: discovery, discovery-rule: discovery/e-signature/ESIGN-C3, criticality: mandatory }
+    - { id: logging,            name: Logging,                  source: discovery, discovery-rule: discovery/baseline/ANY-UF-01, criticality: mandatory }
+    - { id: monitoring,         name: Monitoring,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-02, criticality: mandatory }
+    - { id: error-management,   name: Error Management,         source: discovery, discovery-rule: discovery/baseline/ANY-UF-03, criticality: mandatory }
+    - { id: observability,      name: Observability,            source: discovery, discovery-rule: discovery/baseline/ANY-UF-04, criticality: mandatory }
+    - { id: analytics,          name: Analytics,                source: discovery, discovery-rule: discovery/baseline/ANY-UF-05, criticality: recommended }
+    - { id: documentation,      name: Documentation,            source: discovery, discovery-rule: discovery/baseline/ANY-UF-06, criticality: mandatory }
+    - { id: testing,            name: Testing,                  source: discovery, discovery-rule: discovery/baseline/ANY-UF-07, criticality: mandatory }
+    - { id: deployment,         name: Deployment,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-08, criticality: mandatory }
+    - { id: operations,         name: Operations,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-09, criticality: mandatory }
+    - { id: backup,             name: Backup,                   source: discovery, discovery-rule: discovery/baseline/ANY-UF-10, criticality: mandatory }
+    - { id: disaster-recovery,  name: Disaster Recovery,        source: discovery, discovery-rule: discovery/baseline/ANY-UF-11, criticality: mandatory }

@@ -1,0 +1,36 @@
+{
+  "blueprint_id": "BLU-INVOICE-APPROVAL",
+  "deployed_at": "2026-07-05T09:31:26.250Z",
+  "artifacts": [
+    {
+      "file": "wf-001.bpmn20.xml",
+      "type": "bpmn20.xml",
+      "key": "wf-001"
+    },
+    {
+      "file": "wf-002.bpmn20.xml",
+      "type": "bpmn20.xml",
+      "key": "wf-002"
+    },
+    {
+      "file": "wf-003.bpmn20.xml",
+      "type": "bpmn20.xml",
+      "key": "wf-003"
+    },
+    {
+      "file": "dec-001.dmn",
+      "type": "dmn",
+      "key": "dec-001"
+    },
+    {
+      "file": "frm-001.form.json",
+      "type": "form.json",
+      "key": "frm-001"
+    },
+    {
+      "file": "frm-002.form.json",
+      "type": "form.json",
+      "key": "frm-002"
+    }
+  ]
+}

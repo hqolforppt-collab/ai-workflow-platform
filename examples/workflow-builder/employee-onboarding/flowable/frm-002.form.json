@@ -1,0 +1,20 @@
+{
+  "key": "FRM-002",
+  "name": "Document Upload Form",
+  "fields": [
+    {
+      "id": "kind",
+      "name": "Document type",
+      "type": "select",
+      "required": true,
+      "placeholder": "Document type"
+    },
+    {
+      "id": "file",
+      "name": "Document file",
+      "type": "file",
+      "required": true,
+      "placeholder": "Document file"
+    }
+  ]
+}

@@ -1,13 +1,24 @@
 id: deployment
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: DEP-C1, rule: "CI/CD pipeline with staged envs (dev, staging, prod) and gated promotion" }
-  - { id: DEP-C2, rule: "Zero-downtime deploys; rollback executable within 5 min" }
-  - { id: DEP-C3, rule: "Feature flags for risky changes; config separate from code" }
+  - id: DEP-C1
+    rule: CI/CD pipeline with staged envs (dev, staging, prod) and gated promotion
+  - id: DEP-C2
+    rule: Zero-downtime deploys; rollback executable within 5 min
+  - id: DEP-C3
+    rule: Feature flags for risky changes; config separate from code
 requirement-seeds:
   - id: discovery/deployment/REQ-1
     title: Safe rollout
-    ac: "Given a production deploy, When error rate doubles within 10 min, Then automatic rollback triggers"
-blueprint-sections: [deployment, operations, requirements]
+    ac: Given a production deploy, When error rate doubles within 10 min, Then automatic rollback triggers
+blueprint-sections:
+  - deployment
+  - operations
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

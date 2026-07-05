@@ -1,0 +1,30 @@
+id: timers
+type: functional
+version: 1.0.0
+pack: scheduling
+triggers:
+  - timer
+  - { term: timeout, synonyms: [delay, deadline-timer, wait, countdown] }
+  - { term: durable-timer, synonyms: [delayed-task, scheduled-callback, fire-at] }
+implies: [error-management, monitoring, observability, audit, recurring-jobs]
+standards:
+  - { id: ISO-8601, version: "durations", verified: 2026-07-05, url: "https://www.iso.org/iso-8601-date-and-time-format.html" }
+  - { id: IANA-TZDB, version: "2025b", verified: 2026-07-05, url: "https://www.iana.org/time-zones" }
+constraints:
+  - { id: TIMER-C1, rule: "Timers are durable — the fire-at instant is persisted (stored as a UTC instant, never a local offset) so a process restart or crash does not lose a pending timer; in-memory-only timers are prohibited for business-critical waits" }
+  - { id: TIMER-C2, rule: "Delivery is at-least-once; the fire handler is idempotent and guarded by a fire-key (timer id + scheduled instant) so a redelivery after crash-during-handling does not double-execute the side effect" }
+  - { id: TIMER-C3, rule: "Fire drift (actual vs scheduled instant) is bounded and measured; the SLO is p99 drift <= 5s and the drift metric is emitted per fire so systematic lateness is observable" }
+  - { id: TIMER-C4, rule: "Cancellation is race-safe: cancelling a timer that is concurrently firing either fully suppresses the fire or is a documented no-op, and the outcome is deterministic — never a partial fire" }
+  - { id: TIMER-C5, rule: "A relative timer (e.g. 'in 30 minutes') fixes its target as now + ISO-8601 duration at creation and is immune to later clock/timezone/DST changes; an absolute wall-clock timer resolves against a stored timezone id" }
+requirement-seeds:
+  - id: discovery/timers/REQ-1
+    title: Timer survives restart
+    ac: "Given a durable timer scheduled to fire in 1 hour, When the service restarts after 30 minutes, Then the timer still fires at the original instant"
+  - id: discovery/timers/REQ-2
+    title: Bounded fire drift
+    ac: "Given 1000 timers due at the same instant, When they fire, Then p99 of (actual - scheduled) is <= 5 seconds and each fires exactly once"
+blueprint-sections: [workflows, monitoring, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

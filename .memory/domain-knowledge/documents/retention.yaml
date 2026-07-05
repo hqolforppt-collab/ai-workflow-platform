@@ -1,0 +1,29 @@
+id: retention
+type: functional
+version: 1.0.0
+pack: documents
+triggers:
+  - { term: retention, synonyms: [legal-hold, disposition, expiry, erasure] }
+  - { term: purge, synonyms: [delete, defensible-deletion, records-schedule] }
+implies: [audit, compliance, privacy, backup]
+standards:
+  - { id: ISO-15489, version: "2016", verified: 2026-07-05, url: "https://www.iso.org/standard/62542.html" }
+  - { id: GDPR-Art17, version: "2016/679", verified: 2026-07-05, url: "https://gdpr-info.eu/art-17-gdpr/" }
+constraints:
+  - { id: RET-C1, rule: "Each record class carries an explicit retention period (e.g. financial 7y, HR 6y after termination); no document is retained without a defined class and disposition date" }
+  - { id: RET-C2, rule: "A legal hold overrides retention: while any hold is active on a record, automatic and manual deletion are blocked regardless of expiry; holds are placed/released only by authorized roles and are audited" }
+  - { id: RET-C3, rule: "Deletion is defensible and irreversible: it purges primary storage, indexes, and backups within the backup rotation window, is logged (actor/reason/basis), and cannot be selectively used to destroy documents under hold" }
+  - { id: RET-C4, rule: "GDPR erasure requests (Art. 17) honoured within a 30-day SLA unless a legal basis to retain applies; the outcome (erased vs retained-with-reason) is recorded" }
+  - { id: RET-C5, rule: "A scheduled disposition job runs at least daily, flags records past their disposition date, and requires an approval gate before permanent destruction (no silent auto-purge of business records)" }
+requirement-seeds:
+  - id: discovery/retention/REQ-1
+    title: Legal hold blocks deletion
+    ac: "Given a document under an active legal hold, When its retention period expires or a manual delete is attempted, Then deletion is blocked and the attempt is logged"
+  - id: discovery/retention/REQ-2
+    title: Erasure within SLA
+    ac: "Given a valid GDPR erasure request with no overriding legal basis, When 30 days pass, Then the personal data is irreversibly purged and confirmation is recorded"
+blueprint-sections: [compliance, data-model, requirements]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

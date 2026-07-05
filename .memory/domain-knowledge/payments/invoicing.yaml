@@ -1,0 +1,31 @@
+id: invoicing
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - invoice
+  - { term: bill, synonyms: [billing, statement] }
+  - { term: receipt, synonyms: [proof-of-payment] }
+  - credit-note
+implies: [payments, tax, audit, compliance, notification, documentation]
+standards:
+  - { id: EN-16931, version: "2017", verified: 2026-07-05, url: "https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/eInvoicing" }
+  - { id: ISO-4217, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/iso-4217-currency-codes.html" }
+constraints:
+  - { id: INV-C1, rule: "Invoice numbers are sequential, gapless, and immutable once issued; corrections use a credit note, never edit-in-place" }
+  - { id: INV-C2, rule: "Each invoice states seller + buyer legal identity, tax IDs, line items, net/tax/gross totals, currency (ISO-4217), and issue date" }
+  - { id: INV-C3, rule: "Line totals and tax are computed in integer minor units; document total = sum(lines) + sum(tax); rounding is half-up per line" }
+  - { id: INV-C4, rule: "Issued invoices are retained immutably for >= 7 years (statutory) and stored as a rendered PDF plus structured data" }
+  - { id: INV-C5, rule: "Tax breakdown groups line items by rate; each group shows taxable base and tax amount separately" }
+requirement-seeds:
+  - id: discovery/invoicing/REQ-1
+    title: Gapless numbering
+    ac: "Given a series of issued invoices, When numbers are inspected, Then they form a strictly increasing gapless sequence with no reuse"
+  - id: discovery/invoicing/REQ-2
+    title: Immutable correction
+    ac: "Given an issued invoice, When an amount must change, Then a credit note is issued and the original remains unaltered"
+blueprint-sections: [api, workflows, requirements, compliance, documentation]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

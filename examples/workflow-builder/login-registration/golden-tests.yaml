@@ -4,7 +4,7 @@
 #
 # Reference output (v2.1): the staged 6-file blueprint in this directory
 # (01-initialized.yaml … 06-forms.yaml). `awp build --aggregate` deterministically
-# merges them into blueprint.yaml; `awp validate <dir>` reports 17/17 rules passing;
+# merges them into blueprint.yaml; `awp validate <dir>` reports 26/26 rules passing;
 # `awp flowable convert <dir>` emits 6 Flowable artifacts into flowable/.
 id: workflow-builder-golden-tests
 version: 1.1.0
@@ -99,6 +99,6 @@ tests:
 expected-coverage-report:
   domains-activated: 27        # 2 explicit, 25 hidden/discovered (incl. functional expansions)
   hidden-requirements: 10
-  validation: 17/17            # deterministic; run `awp validate <dir>`
+  validation: 26/26            # deterministic; run `awp validate <dir>`
   assumptions-for-review: 6
   flowable-artifacts: 6        # 3 BPMN (1 root + 2 dependent) + 1 DMN + 2 forms

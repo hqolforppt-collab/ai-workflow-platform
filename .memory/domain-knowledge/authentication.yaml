@@ -1,22 +1,52 @@
 id: authentication
 type: functional
 version: 1.0.0
-triggers: [login, sign in, authenticate, credentials, sso, mfa, 2fa]
-implies: [security, password-policy, account-lockout, rate-limiting, fraud-detection, session-management, audit]
-standards: [NIST 800-63B, OWASP ASVS V2]
+triggers:
+  - login
+  - sign in
+  - authenticate
+  - credentials
+  - sso
+  - mfa
+  - 2fa
+implies:
+  - security
+  - password-policy
+  - account-lockout
+  - rate-limiting
+  - fraud-detection
+  - session-management
+  - audit
+standards:
+  - id: NIST 800-63B
+    verified: 2026-07-05
+  - id: OWASP ASVS V2
+    verified: 2026-07-05
 constraints:
-  - { id: AUTH-C1, rule: "Passwords verified with bcrypt/argon2id; never logged or returned" }
-  - { id: AUTH-C2, rule: "Generic error message on failure (no user-exists disclosure)" }
-  - { id: AUTH-C3, rule: "Constant-time comparison; identical latency for unknown user vs wrong password" }
-  - { id: AUTH-C4, rule: "MFA support designed-in even if not enabled at launch" }
+  - id: AUTH-C1
+    rule: Passwords verified with bcrypt/argon2id; never logged or returned
+  - id: AUTH-C2
+    rule: Generic error message on failure (no user-exists disclosure)
+  - id: AUTH-C3
+    rule: Constant-time comparison; identical latency for unknown user vs wrong password
+  - id: AUTH-C4
+    rule: MFA support designed-in even if not enabled at launch
 requirement-seeds:
   - id: discovery/authentication/REQ-1
     title: Credential verification
-    ac: "Given valid credentials, When user submits login, Then session is created and user redirected within 2s"
+    ac: Given valid credentials, When user submits login, Then session is created and user redirected within 2s
   - id: discovery/authentication/REQ-2
     title: Failed-login handling
-    ac: "Given invalid credentials, When user submits login, Then generic 401 message shown and attempt counted"
+    ac: Given invalid credentials, When user submits login, Then generic 401 message shown and attempt counted
   - id: discovery/authentication/REQ-3
     title: Re-authentication for sensitive actions
-    ac: "Given an active session, When user changes password or email, Then current password is re-verified"
-blueprint-sections: [security, workflows, api, requirements]
+    ac: Given an active session, When user changes password or email, Then current password is re-verified
+blueprint-sections:
+  - security
+  - workflows
+  - api
+  - requirements
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: identity-wg

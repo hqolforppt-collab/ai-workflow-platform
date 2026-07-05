@@ -1,0 +1,176 @@
+# Golden tests for /workflow-builder — CMMN case-management example
+# Any implementation of the command (on any platform) must reproduce a blueprint
+# for the story below that passes ALL of these assertions.
+#
+# Reference output (v2.1): the staged 6-file blueprint in this directory
+# (01-initialized.yaml … 06-forms.yaml). `awp build --aggregate` deterministically
+# merges them into blueprint.yaml; `awp validate <dir>` reports 26/26 rules passing;
+# `awp flowable convert <dir>` emits 8 Flowable artifacts (incl. deploy-manifest)
+# into flowable/, with the ROOT emitted as CMMN (case), not BPMN.
+#
+# This example is the counterpart to login-registration: it proves the platform
+# generalizes beyond an auth process to a CMMN-shaped case with discretionary
+# tasks, milestones, human decision points, e-signature, and records retention.
+# VAL-013 (auth-story mandatory domains) does NOT apply to this story.
+id: workflow-builder-golden-tests-employee-onboarding
+version: 1.0.0
+story: "Employee onboarding case with document collection, equipment provisioning, and training"
+reference:
+  staged:
+    - examples/workflow-builder/employee-onboarding/01-initialized.yaml
+    - examples/workflow-builder/employee-onboarding/02-in-progress.yaml
+    - examples/workflow-builder/employee-onboarding/03-generating-app.yaml
+    - examples/workflow-builder/employee-onboarding/04-root-models.yaml
+    - examples/workflow-builder/employee-onboarding/05-dependent-models.yaml
+    - examples/workflow-builder/employee-onboarding/06-forms.yaml
+  aggregate: examples/workflow-builder/employee-onboarding/blueprint.yaml
+  flowable: examples/workflow-builder/employee-onboarding/flowable/
+
+rules:
+  # The full 26-rule checklist applies EXCEPT VAL-013 (this is not an auth story).
+  applies:
+    - VAL-001   # all 28 sections present
+    - VAL-002   # 12 always-populated sections non-empty at L6
+    - VAL-010   # >= 12 cross-cutting domains (reference: 19)
+    - VAL-011   # hidden requirements present (reference: 10)
+    - VAL-012   # discovery-rule traceability
+    - VAL-020   # ids everywhere match their patterns
+    - VAL-021   # every requirement has >= 1 acceptance criterion
+    - VAL-022   # every case/workflow step defines on-failure
+    - VAL-023   # every API has >= 2 responses incl. non-2xx
+    - VAL-024   # every form field has validation + error-message
+    - VAL-030   # every requirement references an existing domain
+    - VAL-031   # every workflow references >= 1 req; every must-req covered
+    - VAL-032   # no dangling refs
+    - VAL-040   # PII flagged and inventoried
+    - VAL-041   # >= 1 SLO
+    - VAL-042   # >= 3 golden scenarios (reference: 6)
+    - VAL-050   # BLU-<ID> + L1..L6
+    - VAL-051   # no undeclared top-level sections
+    - VAL-052   # requirements + workflows carry id + label
+    - VAL-053   # _meta.blueprint_id + DEC-<n> id formats
+    - VAL-054   # stage depends_on resolves + acyclic
+    - VAL-060   # no placeholder text
+    - VAL-061   # real Given/When/Then criteria
+    - VAL-062   # numeric plausibility (retention, timeouts)
+    - VAL-063   # no near-duplicate requirements
+  not-applicable:
+    - { rule: VAL-013, reason: "Story does not mention login/registration/auth/password/account; auth-mandatory-domains gate does not trigger." }
+
+tests:
+  - id: GT-001
+    name: all-28-sections-present
+    asserts: "Output contains all 28 top-level sections of schema.yaml; none missing, none 'not-applicable' among the 12 always-populated sections."
+    maps-to: [VAL-001, VAL-002]
+
+  - id: GT-002
+    name: cmmn-root-is-a-case
+    asserts: >
+      The root workflow (WF-001 Employee Onboarding Case) is modelled as a CASE, not a
+      rigid process: _meta.root_model_type is CMMN, the root carries model-type: cmmn, and
+      awp flowable convert emits wf-001.cmmn.xml (CMMN 1.1) for the root while dependents
+      remain BPMN.
+    maps-to: [E3, root-model-selection]
+
+  - id: GT-003
+    name: discretionary-and-required-tasks
+    asserts: >
+      The case distinguishes required tasks (document collection S2, e-sign S3, day-one
+      provisioning S7, checklist close S9) from discretionary tasks (equipment S4, badge S5,
+      role training S6) marked task-nature: discretionary. A case worker activates
+      discretionary tasks via API-003; a remote hire's case can close without them.
+    maps-to: [REQ-002, REQ-016]
+
+  - id: GT-004
+    name: milestones-and-decision-point
+    asserts: >
+      The case tracks milestones (RECORD_OPENED, DOCUMENTS_COMPLETE, DAY_ONE_READY,
+      ONBOARDING_COMPLETE via master-data:milestone + ENT-Milestone) and pauses at a human
+      decision point (S8 readiness review, FRM-003) where NOT_READY re-opens the blocking
+      task instead of closing.
+    maps-to: [REQ-015, REQ-017]
+
+  - id: GT-005
+    name: minimum-cross-cutting
+    asserts: "domains.cross-cutting has >= 12 entries (reference: 19), each with discovery-rule and criticality."
+    maps-to: [VAL-010]
+
+  - id: GT-006
+    name: hidden-requirements-discovered
+    asserts: "requirements.hidden is non-empty (reference: 10) and every entry's source matches discovery/<domain>."
+    maps-to: [VAL-011, VAL-012]
+
+  - id: GT-007
+    name: acceptance-criteria-everywhere
+    asserts: "Every requirement (explicit and hidden) has >= 1 real Given/When/Then acceptance criterion."
+    maps-to: [VAL-021, VAL-061]
+
+  - id: GT-008
+    name: no-undefined-failures
+    asserts: "Every step in the root case and both sub-workflows defines on-failure; every workflow has an exceptions list."
+    maps-to: [VAL-022]
+
+  - id: GT-009
+    name: api-error-coverage
+    asserts: "Every API endpoint defines >= 2 responses including >= 1 non-2xx; all carry rate-limit and idempotency."
+    maps-to: [VAL-023]
+
+  - id: GT-010
+    name: form-validation-complete
+    asserts: "Every form field has validation and error-message; forms list security measures (csrf-token at minimum)."
+    maps-to: [VAL-024]
+
+  - id: GT-011
+    name: document-collection-with-retention
+    asserts: >
+      Collected documents (ENT-Document) carry a retention_class and disposition_date (never
+      blank), an HR-records class retains 6 years after termination, and the DEC-001 decision
+      table routes disposition. A document under an active legal_hold blocks deletion (REQ-012,
+      AUD-005) regardless of disposition date.
+    maps-to: [REQ-011, REQ-012, VAL-062]
+
+  - id: GT-012
+    name: esignature-with-consent-and-evidence
+    asserts: >
+      The offer letter and policy acknowledgement are e-signed (S3): consent to transact
+      electronically is captured before signing, a SHA-256 content_hash is bound, and a
+      tamper-evident SignatureEvidence package (RFC 3161 timestamp) is produced. Altering a
+      signed byte fails verification (AUD-004).
+    maps-to: [REQ-010]
+
+  - id: GT-013
+    name: references-resolve
+    asserts: "All ref values (requirements in workflows, actors in steps, runbooks in alerts, roles in pages, notifications in exceptions) resolve within the blueprint; every must-priority requirement is covered by a workflow, api, or page."
+    maps-to: [VAL-030, VAL-031, VAL-032]
+
+  - id: GT-014
+    name: pii-inventoried
+    asserts: "Every attribute flagged pii: true (employee_name, national_id, signer_ip) appears in compliance.privacy.pii-inventory."
+    maps-to: [VAL-040]
+
+  - id: GT-015
+    name: quality-floors
+    asserts: "monitoring.slos >= 1; testing.golden-scenarios >= 3 (reference: 6); no TBD/TODO placeholder anywhere in the files."
+    maps-to: [VAL-041, VAL-042, VAL-060]
+
+  - id: GT-016
+    name: staged-aggregation-and-flowable-convert
+    asserts: >
+      The 6 staged files aggregate (awp build --aggregate) into a single 28+ section
+      blueprint.yaml with no id collisions, and awp flowable convert emits 7 model artifacts +
+      a deploy-manifest: wf-001 (root CMMN), wf-002 + wf-003 (dependent BPMN), dec-001 (DMN),
+      and frm-001 + frm-002 + frm-003 (form.json), plus deploy-manifest.json carrying blueprint_id.
+    maps-to: [E5, E3]
+
+  - id: GT-017
+    name: user-intent-preserved
+    asserts: "project.story is the verbatim input; the three named concerns (document collection, equipment provisioning, training) all appear as case tasks with priority-appropriate requirements; nothing the user asked for is dropped."
+    maps-to: [pipeline.invariants.additive-only]
+
+expected-coverage-report:
+  domains-activated: 27          # 4 explicit (onboarding, documents, equipment, training) + 23 functional/cross-cutting
+  hidden-requirements: 10
+  validation: 26/26              # deterministic; run `awp validate <dir>`  (VAL-013 not-applicable)
+  assumptions-for-review: 6
+  flowable-artifacts: 7          # 1 CMMN root + 2 BPMN dependent + 1 DMN + 3 forms (+ deploy-manifest.json)
+  root-model-type: CMMN

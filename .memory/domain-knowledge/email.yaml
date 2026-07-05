@@ -1,14 +1,30 @@
 id: email
 type: functional
 version: 1.0.0
-triggers: [email, verification link, transactional email]
-implies: [notification, rate-limiting]
+triggers:
+  - email
+  - verification link
+  - transactional email
+implies:
+  - notification
+  - rate-limiting
 constraints:
-  - { id: MAIL-C1, rule: "Transactional email via provider with delivery webhooks; retries 3x exponential" }
-  - { id: MAIL-C2, rule: "All links single-use, signed, expiring; no PII in URLs" }
-  - { id: MAIL-C3, rule: "Email send rate-limited per user (max 5 verification emails/hour)" }
+  - id: MAIL-C1
+    rule: Transactional email via provider with delivery webhooks; retries 3x exponential
+  - id: MAIL-C2
+    rule: All links single-use, signed, expiring; no PII in URLs
+  - id: MAIL-C3
+    rule: Email send rate-limited per user (max 5 verification emails/hour)
 requirement-seeds:
   - id: discovery/email/REQ-1
     title: Deliverability handling
-    ac: "Given a bounced verification email, When the bounce webhook fires, Then the user sees an in-app prompt to correct the address"
-blueprint-sections: [integrations, notifications, operations, requirements]
+    ac: Given a bounced verification email, When the bounce webhook fires, Then the user sees an in-app prompt to correct the address
+blueprint-sections:
+  - integrations
+  - notifications
+  - operations
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: identity-wg

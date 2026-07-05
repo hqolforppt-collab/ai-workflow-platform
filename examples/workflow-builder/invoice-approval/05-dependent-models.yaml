@@ -1,0 +1,114 @@
+# 05-dependent-models.yaml — Stage 5/6 (Dependent Models)
+# Sections: workflows (dependent scope), decision-tables, notifications, monitoring, logging, audit
+_meta:
+  blueprint_id: BLU-INVOICE-APPROVAL
+  stage: stage-05
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-04]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml, 03-generating-app.yaml, 04-root-models.yaml]
+
+workflows:
+  dependent:
+    - id: WF-002
+      name: SLA Escalation
+      trigger: "SLA Timer detects a stage that has breached its business-hours SLA (or WF-001 finds no eligible approver)"
+      actors: [ACT-002, ACT-003, ACT-005]
+      requirements: [REQ-010, REQ-011, REQ-012, REQ-018]
+      steps:
+        - { id: S1, name: Tick and evaluate SLA,   type: system-action, actor: ACT-005, inputs: [assignment, sla-due-at, business-calendar], outputs: [breach-state], on-success: S2, on-failure: "EX-101 (timer failure -> retry next tick; missed ticks reconciled on recovery)" }
+        - { id: S2, name: Warn at 75 percent,      type: notification,  actor: ACT-004, inputs: [assignment], outputs: [warning-sent], on-success: S3, on-failure: "EX-102 (warning failure logged; does not stop breach detection)" }
+        - { id: S3, name: Check hop budget,        type: decision,      actor: ACT-003, inputs: [escalation_hops], outputs: [can-escalate], on-success: S4, on-failure: "EX-103 (hops exhausted -> park in EXCEPTION_QUEUE, never auto-approve)", audit-event: AUD-005 }
+        - { id: S4, name: Escalate to next level,  type: system-action, actor: ACT-003, inputs: [assignment], outputs: [new-assignment, incremented-hops], on-success: S5, on-failure: "EX-104 (no higher authority -> EXCEPTION_QUEUE for manual handling)" }
+        - { id: S5, name: Notify both approvers,   type: notification,  actor: ACT-004, inputs: [old-approver, new-approver], outputs: [notice-sent], on-success: END, on-failure: "EX-105 (notice retry; escalation itself is not rolled back on notify failure)" }
+      exceptions:
+        - { id: EX-101, condition: "SLA timer tick failed",           handling: "retry on next tick; on recovery reconcile any missed breaches so none are silently dropped", notification: null }
+        - { id: EX-102, condition: "warning notification failed",     handling: "logged at warn; breach detection continues regardless", notification: null }
+        - { id: EX-103, condition: "escalation hop budget exhausted", handling: "request parked in EXCEPTION_QUEUE for manual handling; never auto-approved (ESCL-C3)", notification: NOT-005 }
+        - { id: EX-104, condition: "no higher authority available",   handling: "request parked in EXCEPTION_QUEUE; AP controller paged", notification: NOT-005 }
+        - { id: EX-105, condition: "escalation notification failed",  handling: "queued retry per NOT-002 policy; escalation stands", notification: null }
+      sla: "SLA breach detected -> escalation fired: 5 minutes (one tick)"
+    - id: WF-003
+      name: Four-Eyes Checker Verification
+      trigger: "WF-001 four-eyes gate (S5) requires a distinct second approval on a large invoice"
+      actors: [ACT-002, ACT-003]
+      requirements: [REQ-002, REQ-016, REQ-013]
+      steps:
+        - { id: S1, name: Select distinct checker,  type: system-action, actor: ACT-003, inputs: [maker_id, approver-role], outputs: [candidate-checker], on-success: S2, on-failure: "EX-201 (no distinct eligible checker -> escalate via WF-002)" }
+        - { id: S2, name: Verify maker != checker,  type: decision,      actor: ACT-003, inputs: [maker_id, candidate-checker], outputs: [distinct], on-success: S3, on-failure: "EX-202 (maker==checker -> SoD block, security event, request stays PENDING_CHECKER)", audit-event: AUD-004 }
+        - { id: S3, name: Resolve effective limit,  type: system-action, actor: ACT-003, inputs: [checker, delegation], outputs: [effective-limit], on-success: S4, on-failure: "EX-203 (over-limit or expired delegation -> reject decision, AUD-006)" }
+        - { id: S4, name: Record checker decision,  type: user-action,   actor: ACT-002, inputs: [invoice, effective-limit], outputs: [checker-decision, reason], on-success: END, on-failure: "EX-204 (checker reject terminates chain; invoice RETURNED with reason)", audit-event: AUD-002 }
+      exceptions:
+        - { id: EX-201, condition: "no distinct eligible checker",    handling: "hand to WF-002 to escalate to a higher authority who can act as checker", notification: NOT-002 }
+        - { id: EX-202, condition: "maker equals checker",            handling: "segregation-of-duties block; distinct second identity required; security event (AUD-004)", notification: NOT-003 }
+        - { id: EX-203, condition: "checker over limit or delegation expired", handling: "decision rejected; both delegate and delegator recorded (AUD-006); route to higher authority", notification: NOT-002 }
+        - { id: EX-204, condition: "checker rejects",                 handling: "chain terminates; invoice RETURNED to initiator with reject reason (AUD-003)", notification: NOT-003 }
+      sla: "checker assignment -> checker decision: 24 business hours (governed by WF-002)"
+
+# DMN decision service invoked by WF-001 step S2 (Route via DEC-001). Converted
+# to dec-001.dmn by `awp flowable convert`. This is the heart of the example:
+# amount + department + vendor-risk in, approver-role + requires-four-eyes out.
+decision-tables:
+  - id: DEC-001
+    name: Approval Routing
+    hit-policy: FIRST
+    trace: { requirement: REQ-001, invoked-by: WF-001.S2 }
+    inputs:
+      - { id: input1, label: "Invoice amount (minor units)", expression: gross_minor, type: number }
+      - { id: input2, label: "Department",                   expression: department,  type: string }
+      - { id: input3, label: "Vendor risk",                  expression: vendor_risk, type: string }
+    outputs:
+      - { id: output1, label: "Approver role",       name: approver-role,       type: string }
+      - { id: output2, label: "Requires four-eyes",  name: requires-four-eyes,  type: boolean }
+    rules:
+      - { id: R1, when: "vendor_risk = 'high' and gross_minor >= 5000000", then: "approver-role = 'ROLE-CFO', requires-four-eyes = true",      description: "High-risk vendor at or above 50,000 EUR: CFO plus four-eyes" }
+      - { id: R2, when: "gross_minor >= 5000000",                          then: "approver-role = 'ROLE-CFO', requires-four-eyes = true",      description: "Any invoice at or above the 50,000 EUR large-invoice threshold: CFO plus four-eyes (ASM-001)" }
+      - { id: R3, when: "vendor_risk = 'high'",                            then: "approver-role = 'ROLE-APPROVER', requires-four-eyes = true", description: "High-risk vendor below threshold: manager plus four-eyes" }
+      - { id: R4, when: "gross_minor >= 1000000",                          then: "approver-role = 'ROLE-APPROVER', requires-four-eyes = false", description: "10,000 to 50,000 EUR standard-risk: single manager approval" }
+      - { id: R5, when: "otherwise",                                       then: "approver-role = 'ROLE-APPROVER', requires-four-eyes = false", description: "Below 10,000 EUR standard-risk: single team-lead approval" }
+
+notifications:
+  - { id: NOT-001, trigger: "invoice assigned to an approver (AUD-001)", channel: email, recipient: ACT-002, template: assignment-v1, locale-support: true, retry-policy: "3 attempts, exponential backoff, DLQ after 1h" }
+  - { id: NOT-002, trigger: "stage escalated to next authority (AUD-005)", channel: email, recipient: ACT-002, template: escalation-v1, locale-support: true, retry-policy: "3 attempts, exponential backoff, DLQ after 1h" }
+  - { id: NOT-003, trigger: "invoice rejected or SoD-blocked (AUD-003/AUD-004)", channel: email, recipient: ACT-001, template: decision-v1, locale-support: true, retry-policy: "3 attempts, exponential backoff" }
+  - { id: NOT-004, trigger: "invoice returned for totals correction (EX-001)", channel: email, recipient: ACT-001, template: decision-v1, locale-support: true, retry-policy: "3 attempts, exponential backoff" }
+  - { id: NOT-005, trigger: "invoice parked in exception queue (EX-002/EX-103)", channel: in-app, recipient: ACT-001, template: reminder-v1, locale-support: true, retry-policy: "1 attempt, best effort" }
+
+monitoring:
+  metrics:
+    - { name: approval_routing_decisions_total, type: counter,   purpose: "routing volume by outcome role", labels: [approver-role, requires-four-eyes] }
+    - { name: approval_decisions_total,         type: counter,   purpose: "approve/reject volume",          labels: [decision, role] }
+    - { name: approval_sla_breaches_total,      type: counter,   purpose: "stages that breached SLA",       labels: [stage] }
+    - { name: approval_stage_duration_seconds,  type: histogram, purpose: "time in each approval stage",    labels: [stage] }
+    - { name: approval_open_requests,           type: gauge,     purpose: "live approval requests in flight", labels: [state] }
+  alerts:
+    - { name: ALT-001, condition: "SLA-breach rate > 10% over 1h", severity: critical, channel: ap-oncall-pager, runbook: RB-001 }
+    - { name: ALT-002, condition: "exception-queue depth > 20 over 30m", severity: warning, channel: ap-team-chat, runbook: RB-002 }
+    - { name: ALT-003, condition: "any approval.sod-blocked event over 5m", severity: warning, channel: security-chat, runbook: RB-003 }
+  slos:
+    - { name: routing-latency-p95, target: "< 60s", window: 30d, error-budget: "5% of submissions" }
+    - { name: approval-availability, target: "99.9%", window: 30d, error-budget: "43m/month" }
+  dashboards: [ap-approval-overview, sla-breach-trends, four-eyes-compliance]
+
+logging:
+  categories:
+    - { name: application, level: info, sink: "stdout -> log pipeline", retention: 30d,  pii-policy: "vendor names masked; approver ids hashed in application logs" }
+    - { name: audit,       level: info, sink: "append-only audit store", retention: 365d, pii-policy: "actor id retained (legitimate interest, SOX evidence); no free-text PII beyond reason" }
+    - { name: access,      level: info, sink: "gateway access logs",    retention: 90d,  pii-policy: "IP truncated to /24 after 7 days" }
+    - { name: performance, level: warn, sink: "APM",                    retention: 14d,  pii-policy: "no user identifiers" }
+  correlation: "W3C traceparent propagated from the gateway through approval-service, SLA timer, and notification provider; request-id echoed in error responses"
+  structured: true
+
+audit:
+  events:
+    - { id: AUD-001, event: invoice.routed,        trigger: "DEC-001 produces a routing decision",  captured-fields: [request-id, approver-role, requires-four-eyes, gross-minor, timestamp], actor-recorded: false }
+    - { id: AUD-002, event: approval.decided,      trigger: "an approver approves or rejects",       captured-fields: [request-id, actor-id, decision, reason, timestamp], actor-recorded: true }
+    - { id: AUD-003, event: chain.terminated,      trigger: "a rejection ends the chain",            captured-fields: [request-id, actor-id, reason, timestamp], actor-recorded: true }
+    - { id: AUD-004, event: sod.blocked,           trigger: "maker equals checker on a four-eyes gate", captured-fields: [request-id, maker-id, checker-id, timestamp], actor-recorded: true }
+    - { id: AUD-005, event: stage.escalated,       trigger: "SLA breach escalates a stage",          captured-fields: [request-id, from-approver, to-approver, hop, elapsed-minutes, timestamp], actor-recorded: true }
+    - { id: AUD-006, event: delegation.exercised,  trigger: "an action is taken under delegation",   captured-fields: [request-id, delegate-id, delegator-id, effective-limit, timestamp], actor-recorded: true }
+    - { id: AUD-007, event: invoice.finalized,     trigger: "invoice reaches APPROVED",              captured-fields: [request-id, invoice-id, checker-id, timestamp], actor-recorded: true }
+  retention: "7 years (SOX + statutory invoice-retention periods)"
+  immutability: "append-only table with sha256 hash chaining; no UPDATE/DELETE grants; WORM export monthly"
+  access: [ROLE-AUDITOR, ROLE-CFO]

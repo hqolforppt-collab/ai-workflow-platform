@@ -1,13 +1,24 @@
 id: operations
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: OPS-C1, rule: "Runbooks for top failure modes; on-call rotation defined" }
-  - { id: OPS-C2, rule: "Capacity plan with expected load and headroom (2x peak)" }
-  - { id: OPS-C3, rule: "Admin tooling for support tasks (unlock account, resend verification)" }
+  - id: OPS-C1
+    rule: Runbooks for top failure modes; on-call rotation defined
+  - id: OPS-C2
+    rule: Capacity plan with expected load and headroom (2x peak)
+  - id: OPS-C3
+    rule: Admin tooling for support tasks (unlock account, resend verification)
 requirement-seeds:
   - id: discovery/operations/REQ-1
     title: Support tooling
-    ac: "Given a locked-out user contacting support, When the agent acts, Then they can unlock via admin tool with audit trail"
-blueprint-sections: [operations, support, requirements]
+    ac: Given a locked-out user contacting support, When the agent acts, Then they can unlock via admin tool with audit trail
+blueprint-sections:
+  - operations
+  - support
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

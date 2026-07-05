@@ -1,0 +1,20 @@
+{
+  "key": "FRM-002",
+  "name": "Approval Decision Form",
+  "fields": [
+    {
+      "id": "decision",
+      "name": "Decision",
+      "type": "select",
+      "required": true,
+      "placeholder": "Decision"
+    },
+    {
+      "id": "reason",
+      "name": "Reason",
+      "type": "text",
+      "required": true,
+      "placeholder": "Reason"
+    }
+  ]
+}

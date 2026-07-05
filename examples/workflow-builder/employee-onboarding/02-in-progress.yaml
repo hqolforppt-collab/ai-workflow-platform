@@ -1,0 +1,163 @@
+# 02-in-progress.yaml — Stage 2/6 (In Progress)
+# Sections: requirements, risks, assumptions
+_meta:
+  blueprint_id: BLU-EMPLOYEE-ONBOARDING
+  stage: stage-02
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-01]
+  trace:
+    requirement_source: 01-initialized.yaml
+    upstream: [01-initialized.yaml]
+
+requirements:
+  explicit:
+    - id: REQ-001
+      title: Collect and verify onboarding documents
+      description: The new hire submits required documents (ID proof, tax form, signed offer letter); each is classified with a retention class and verified before the case can progress.
+      domain: document-management
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given an open onboarding case, When the new hire uploads a required document, Then it is stored with a retention class and a human verifier marks it accepted or rejected before the documents-complete milestone is reached."
+        - "Given a required document is still missing 3 business days before the start date, When the daily case sweep runs, Then a reminder notification (NOT-001) is sent to the new hire and the hiring manager is copied."
+      depends-on: []
+      risks: [RSK-001]
+    - id: REQ-002
+      title: Provision equipment as a discretionary case task
+      description: A case worker may activate equipment provisioning (laptop, phone, peripherals) based on the role; it is optional per hire, not a fixed step.
+      domain: equipment-provisioning
+      source: user
+      priority: should
+      acceptance-criteria:
+        - "Given an open onboarding case, When the case worker activates the discretionary equipment-provisioning task, Then an equipment order is raised against the role's hardware template and tracked to a delivery-confirmed state."
+        - "Given a remote-only hire whose role needs no company hardware, When the case worker leaves equipment provisioning un-activated, Then the case can still reach onboarding-complete without an equipment order."
+      depends-on: []
+      risks: [RSK-002]
+    - id: REQ-003
+      title: Enroll the new hire in required and role training
+      description: Mandatory security and compliance training is assigned on day one; role-specific training is a discretionary task the case worker may add.
+      domain: training
+      source: user
+      priority: must
+      acceptance-criteria:
+        - "Given a provisioned new hire on their start date, When day-one setup completes, Then mandatory security and compliance training is assigned with a completion deadline of 30 days and tracked to completion."
+        - "Given mandatory training is incomplete after its 30-day deadline, When the daily case sweep runs, Then the hiring manager is notified (NOT-004) and the case is flagged non-compliant."
+      depends-on: [REQ-006]
+      risks: [RSK-003]
+  hidden:
+    - id: REQ-010
+      title: E-signature on offer letter and policy acknowledgement
+      description: The offer letter and policy acknowledgement are signed electronically with signer intent, consent, and a tamper-evident evidence package.
+      domain: e-signature
+      source: discovery/e-signature
+      priority: must
+      acceptance-criteria:
+        - "Given a signer who has not consented to transact electronically, When they attempt to sign the offer letter, Then signing is blocked until consent is recorded with a timestamp (ESIGN/UETA)."
+        - "Given a signed policy-acknowledgement document, When any byte of its content is altered afterwards, Then signature verification fails and the document is flagged invalid (AUD-004 recorded)."
+      risks: [RSK-004]
+    - id: REQ-011
+      title: Retention class and disposition for every collected record
+      description: Every collected document carries an explicit retention class and disposition date; no record is retained without one.
+      domain: retention
+      source: discovery/retention
+      priority: must
+      acceptance-criteria:
+        - "Given a document accepted into the case, When it is stored, Then it is assigned a retention class (HR records: 6 years after termination) and a disposition date, and neither is left blank."
+        - "Given a stored document past its disposition date, When the scheduled disposition job runs, Then it is flagged for destruction behind an approval gate rather than being silently auto-purged."
+      risks: [RSK-005]
+    - id: REQ-012
+      title: Legal hold overrides retention and blocks deletion
+      description: An active legal hold on a case record blocks automatic and manual deletion regardless of the disposition date.
+      domain: legal-hold
+      source: discovery/legal-hold
+      priority: must
+      acceptance-criteria:
+        - "Given a document under an active legal hold, When its retention period expires or a manual delete is attempted, Then deletion is blocked and the attempt is logged (AUD-005)."
+        - "Given a legal hold placement request, When it is submitted by a user without the hold-admin permission, Then the placement is denied with 403 and the attempt is audited."
+      risks: [RSK-005]
+    - id: REQ-013
+      title: Least-privilege access provisioning on start date
+      description: Accounts are provisioned from role templates and activate on the confirmed start date, not before, with least-privilege by default.
+      domain: authorization
+      source: discovery/authorization
+      priority: must
+      acceptance-criteria:
+        - "Given an approved new hire with a role template, When their confirmed start date arrives, Then role-based accounts are provisioned granting only the template's permissions, and any admin right requires a separate logged approval."
+        - "Given a hire whose start date has not yet arrived, When provisioning is attempted early, Then the accounts are created disabled and remain inactive until the start date to avoid an open credential window."
+      risks: [RSK-006]
+    - id: REQ-014
+      title: Complete audit trail for every case event
+      description: Every provisioning, document, signature, and milestone event writes an immutable audit entry with actor, target, timestamp, and reference.
+      domain: audit
+      source: discovery/audit
+      priority: must
+      acceptance-criteria:
+        - "Given any event in the audit.events catalog, When it occurs, Then an append-only audit record exists within 5 seconds carrying actor id, target employee id, ISO-8601 timestamp, and the source approval reference."
+      risks: [RSK-007]
+    - id: REQ-015
+      title: Case milestones and human decision points
+      description: The case tracks named milestones and pauses at human decision points (readiness review) rather than running one fixed path.
+      domain: case-management
+      source: discovery/case-management
+      priority: must
+      acceptance-criteria:
+        - "Given an onboarding case, When all required documents are accepted and day-one access is provisioned, Then the day-one-ready milestone is marked and a readiness review decision is presented to the hiring manager."
+        - "Given the hiring manager reviews readiness, When they decide the hire is not ready, Then the case returns to an active state with the blocking task re-opened rather than closing."
+      risks: [RSK-008]
+    - id: REQ-016
+      title: Badge issuance as a discretionary task
+      description: Physical or virtual badge issuance is an optional case task activated when site access is needed.
+      domain: identity-management
+      source: discovery/identity-management
+      priority: should
+      acceptance-criteria:
+        - "Given an on-site hire, When the case worker activates the discretionary badge-issuance task, Then a badge is issued against the site's access profile and its activation is recorded in the audit trail."
+        - "Given a fully-remote hire, When no site access is required, Then badge issuance stays un-activated and does not block the onboarding-complete milestone."
+      risks: [RSK-006]
+    - id: REQ-017
+      title: Checklist completion gate before case closure
+      description: The onboarding case cannot close until its required checklist (documents, access, training) reaches 100%.
+      domain: onboarding
+      source: discovery/onboarding
+      priority: must
+      acceptance-criteria:
+        - "Given an onboarding case with any required checklist item incomplete, When closure is attempted, Then closure is blocked and the incomplete items are listed."
+        - "Given an onboarding case whose required items are all complete, When the hiring manager confirms closure, Then the onboarding-complete milestone is marked and the case moves to a closed state."
+      risks: [RSK-008]
+    - id: REQ-018
+      title: Onboarding observability — metrics, alerts, SLOs
+      description: Case health (time-to-ready, stuck cases, provisioning latency) is measurable and alertable.
+      domain: monitoring
+      source: discovery/monitoring
+      priority: must
+      acceptance-criteria:
+        - "Given the production environment, When the median time-to-day-one-ready exceeds its SLO over a 7-day window, Then alert ALT-001 fires to the people-ops channel with runbook RB-001 linked."
+      risks: [RSK-007]
+    - id: REQ-019
+      title: GDPR-compliant handling of new-hire personal data
+      description: New-hire PII (name, national ID, home address) is inventoried, consent-captured, and subject to erasure within SLA when no legal basis to retain applies.
+      domain: privacy
+      source: discovery/privacy
+      priority: must
+      acceptance-criteria:
+        - "Given a valid erasure request for a withdrawn candidate with no overriding legal basis, When 30 days pass, Then the personal data is irreversibly purged from primary store and backups and the outcome is recorded."
+      risks: [RSK-005]
+
+risks:
+  - { id: RSK-001, description: "New hire misses start date because required documents arrive late", category: operational, likelihood: high,   impact: medium,   mitigation: "3-day-out reminders (REQ-001) + manager escalation + readiness review before start", owner: people-ops-lead }
+  - { id: RSK-002, description: "Equipment ordered for a role that does not need it, wasting spend", category: operational, likelihood: medium, impact: low,      mitigation: "equipment kept discretionary (REQ-002); role hardware templates reviewed quarterly", owner: it-provisioning-lead }
+  - { id: RSK-003, description: "Mandatory compliance training not completed, creating audit exposure", category: compliance,  likelihood: medium, impact: high,     mitigation: "day-one assignment + 30-day deadline + non-compliance flag (REQ-003, RB-003)", owner: security-officer }
+  - { id: RSK-004, description: "Disputed signature on offer letter due to weak signer-intent capture", category: compliance,  likelihood: low,    impact: high,     mitigation: "consent-before-signing + RFC 3161 timestamp + tamper-evident evidence (REQ-010)", owner: data-protection-officer }
+  - { id: RSK-005, description: "Personal data retained past its lawful basis or purged while under hold", category: compliance,  likelihood: medium, impact: critical, mitigation: "retention classes + legal-hold override + defensible deletion (REQ-011, REQ-012, REQ-019, RB-004)", owner: data-protection-officer }
+  - { id: RSK-006, description: "Access provisioned early creating an open unused-credential window", category: security,     likelihood: medium, impact: high,     mitigation: "start-date activation + accounts-created-disabled + least-privilege (REQ-013)", owner: security-officer }
+  - { id: RSK-007, description: "Audit or monitoring gaps discovered during a SOC2 audit", category: compliance,  likelihood: low,    impact: critical, mitigation: "audit event catalog reviewed at G4; quarterly evidence dry-run (REQ-014, REQ-018)", owner: security-officer }
+  - { id: RSK-008, description: "Case closed while a required checklist item is still incomplete", category: operational, likelihood: low,    impact: medium,   mitigation: "100% checklist gate + human readiness review before closure (REQ-015, REQ-017)", owner: people-ops-lead }
+
+assumptions:
+  - { id: ASM-001, statement: "Approved new hires enter this system from an upstream ATS with a confirmed start date", impact-if-wrong: "case creation needs its own hire-approval sub-flow and start-date negotiation", validation-needed: "Confirm the ATS integration and that start dates are firm at hand-off." }
+  - { id: ASM-002, statement: "GDPR applies (EU-based hires are in scope)", impact-if-wrong: "consent capture and erasure flows could be simplified; retention values change", validation-needed: "Confirm which jurisdictions new hires are employed in with legal." }
+  - { id: ASM-003, statement: "Payroll calculation is handled downstream; onboarding only hands off enrollment data", impact-if-wrong: "payroll enrollment, banking capture, and tax filing become in-scope case tasks", validation-needed: "Confirm the payroll boundary with finance." }
+  - { id: ASM-004, statement: "Offboarding is a separate case type and out of scope here", impact-if-wrong: "a shared case model spanning the full employment lifecycle is needed", validation-needed: "Confirm with people-ops whether one case model should cover both." }
+  - { id: ASM-005, statement: "Peak onboarding load is 50 concurrent open cases (seasonal hiring waves)", impact-if-wrong: "capacity plan and case-worker staffing need retuning", validation-needed: "Validate against the annual hiring-volume forecast." }
+  - { id: ASM-006, statement: "HR records retention of 6 years after termination satisfies applicable jurisdictions", impact-if-wrong: "retention classes and storage cost change; possible legal exposure", validation-needed: "Confirm the records-retention schedule with legal/compliance." }

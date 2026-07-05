@@ -1,0 +1,30 @@
+id: recurring-jobs
+type: functional
+version: 1.0.0
+pack: scheduling
+triggers:
+  - { term: recurring, synonyms: [cron, scheduled-job, periodic, nightly, batch-job] }
+  - { term: schedule, synonyms: [crontab, job-runner, task-scheduler] }
+implies: [monitoring, error-management, observability, audit, timers]
+standards:
+  - { id: RFC-5545, version: "iCalendar", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc5545" }
+  - { id: CRON-POSIX, version: "IEEE-1003.1", verified: 2026-07-05, url: "https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html" }
+  - { id: IANA-TZDB, version: "2025b", verified: 2026-07-05, url: "https://www.iana.org/time-zones" }
+constraints:
+  - { id: RJOB-C1, rule: "Each run acquires a named distributed lock (lease with TTL >= max expected runtime) before executing; overlapping or duplicate triggers for the same job execute the body at most once — never concurrently" }
+  - { id: RJOB-C2, rule: "Cron expressions are evaluated in an explicit IANA timezone stored with the job, not the host clock; a job scheduled in a DST-observing zone documents its spring-forward (skip) and fall-back (run-once) behavior for the affected local hour" }
+  - { id: RJOB-C3, rule: "Missed runs (scheduler down, host restart) follow a declared catch-up policy: 'run-once' fires a single make-up run, 'skip' drops missed windows, 'backfill' replays each missed window in order; the default is run-once" }
+  - { id: RJOB-C4, rule: "Job bodies are idempotent — re-executing a run for the same logical window (job id + scheduled instant) produces no duplicate side effects, enforced by a run-key guard on writes" }
+  - { id: RJOB-C5, rule: "Every run records start/end/status/duration; a run exceeding 2x its historical median or failing emits an alert, and consecutive failures beyond a threshold (default 3) pause the schedule pending operator review" }
+requirement-seeds:
+  - id: discovery/recurring-jobs/REQ-1
+    title: No overlap
+    ac: "Given a nightly job still running at the next trigger, When the scheduler fires, Then the second run is skipped or queued via the lock, never run concurrently"
+  - id: discovery/recurring-jobs/REQ-2
+    title: Missed-run catch-up
+    ac: "Given the scheduler was down across two trigger times with a run-once catch-up policy, When it recovers, Then exactly one make-up run executes rather than two or zero"
+blueprint-sections: [workflows, monitoring, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

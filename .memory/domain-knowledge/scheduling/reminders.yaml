@@ -1,0 +1,32 @@
+id: reminders
+type: functional
+version: 1.0.0
+pack: scheduling
+triggers:
+  - reminder
+  - { term: remind, synonyms: [alert, nudge, notify-before, due-soon] }
+  - { term: snooze, synonyms: [defer, postpone, remind-later] }
+  - { term: lead-time, synonyms: [advance-notice, ahead-of-time] }
+implies: [notification, email, audit, calendars, timers]
+standards:
+  - { id: RFC-5545, version: "VALARM", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc5545#section-3.6.6" }
+  - { id: ISO-8601, version: "durations", verified: 2026-07-05, url: "https://www.iso.org/iso-8601-date-and-time-format.html" }
+  - { id: IANA-TZDB, version: "2025b", verified: 2026-07-05, url: "https://www.iana.org/time-zones" }
+constraints:
+  - { id: REM-C1, rule: "Lead time is stored as an ISO-8601 duration relative to the target event (e.g. -PT15M = 15 minutes before), not as an absolute timestamp, so it stays correct when the underlying event is rescheduled or crosses DST" }
+  - { id: REM-C2, rule: "Delivery is at-least-once; each reminder carries a dedup key (recipient + event + occurrence + channel) so retries and multi-device fan-out never deliver the same reminder twice within a 24h window" }
+  - { id: REM-C3, rule: "Snooze reschedules by adding a bounded delay (default 10m, min 1m, max 24h) to the current time; a reminder may be snoozed at most 5 times before it is force-delivered and marked acknowledged-required" }
+  - { id: REM-C4, rule: "Delivery respects the recipient's timezone and configured quiet hours; a reminder due inside quiet hours is deferred to the next allowed window unless flagged urgent, and the deferral is logged" }
+  - { id: REM-C5, rule: "Undeliverable reminders (bounce/opt-out on all channels) are retried with backoff up to 3 attempts, then dead-lettered with a reason; a reminder is never silently dropped" }
+requirement-seeds:
+  - id: discovery/reminders/REQ-1
+    title: Lead-time survives reschedule
+    ac: "Given a reminder set for -PT15M before a meeting, When the meeting is moved 2 hours later, Then the reminder fires 15 minutes before the new time without manual re-entry"
+  - id: discovery/reminders/REQ-2
+    title: Exactly-once perceived delivery
+    ac: "Given a reminder delivery retried after a transient failure, When the retry succeeds, Then the recipient receives exactly one notification because the dedup key suppressed the duplicate"
+blueprint-sections: [workflows, notification, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

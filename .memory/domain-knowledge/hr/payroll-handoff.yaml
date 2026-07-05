@@ -1,0 +1,31 @@
+id: payroll-handoff
+type: functional
+version: 1.0.0
+pack: hr
+triggers:
+  - payroll-handoff
+  - { term: payroll, synonyms: [pay run, salary export, compensation feed, payroll export] }
+  - { term: payroll-changes, synonyms: [pay changes, comp changes, payroll reconciliation] }
+implies: [authorization, audit, notification, privacy]
+standards:
+  - { id: SOC2, version: "2017 TSC", verified: 2026-07-05, url: "https://www.aicpa.org/resources/landing/system-and-organization-controls-soc-suite-of-services" }
+  - { id: GDPR, version: "2016/679", verified: 2026-07-05, url: "https://eur-lex.europa.eu/eli/reg/2016/679/oj" }
+  - { id: NIST-800-53-AC-2, version: "Rev.5", verified: 2026-07-05, url: "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final" }
+constraints:
+  - { id: PYRL-C1, rule: "Only payroll changes in an approved state are exported; any pending/rejected change is excluded, and the export snapshot is taken after the approval cutoff time" }
+  - { id: PYRL-C2, rule: "The export payload (bank details, salary, tax IDs) is encrypted in transit (TLS 1.2+) and at rest; PII is never written to plaintext logs or emailed as an attachment" }
+  - { id: PYRL-C3, rule: "Each handoff carries a control total (record count + sum of gross pay) that the payroll system must acknowledge; a mismatch blocks the run and raises an alert" }
+  - { id: PYRL-C4, rule: "Handoff follows separation of duties: the person who approves payroll changes cannot also trigger the export; export requires a distinct authorized operator" }
+  - { id: PYRL-C5, rule: "Every export records who ran it, when, which change-set version, and the payroll-system acknowledgement id; the reconciliation record is immutable and retained per policy" }
+requirement-seeds:
+  - id: discovery/payroll-handoff/REQ-1
+    title: Approved-only secure export
+    ac: "Given approved payroll changes, When the export runs after cutoff, Then only approved records are sent over TLS and pending/rejected changes are excluded"
+  - id: discovery/payroll-handoff/REQ-2
+    title: Reconciliation control total
+    ac: "Given a payroll export, When the payroll system receives it, Then it acknowledges a matching record count and gross-pay total or the run is halted with an alert"
+blueprint-sections: [workflows, security, requirements]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: people-ops-wg

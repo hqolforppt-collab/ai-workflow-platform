@@ -1,0 +1,28 @@
+id: circuit-breaker
+type: cross-cutting
+version: 1.0.0
+pack: integration
+triggers:
+  - circuit-breaker
+  - { term: circuit breaker, synonyms: [breaker, fail-fast, bulkhead, fallback, trip] }
+implies: [retry-policy, error-management, observability, monitoring]
+standards:
+  - { id: IETF-RFC-9110, version: "2022", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc9110" }
+constraints:
+  - { id: CB-C1, rule: "The breaker has three states: closed (calls pass), open (calls fail fast), half-open (a limited probe set passes); state transitions are emitted as metrics/events" }
+  - { id: CB-C2, rule: "The breaker trips to open when the failure rate exceeds 50% over a rolling window of >= 20 requests; while open, all calls fail fast without hitting the dependency" }
+  - { id: CB-C3, rule: "After a cooldown of 30s the breaker moves to half-open and allows a small number of probe requests; if they succeed it closes, if any fails it re-opens and the cooldown restarts" }
+  - { id: CB-C4, rule: "When open or on timeout, a defined fallback runs (cached value, default, or graceful degradation); the fallback never silently returns stale success without signalling degraded mode" }
+  - { id: CB-C5, rule: "Each protected dependency has its own breaker (isolation/bulkhead) so one failing dependency cannot exhaust shared threads or cascade to healthy dependencies" }
+requirement-seeds:
+  - id: discovery/circuit-breaker/REQ-1
+    title: Trip on failure threshold
+    ac: "Given a dependency failing > 50% of the last 20 calls, When the next call arrives, Then the breaker is open and the call fails fast via the fallback without invoking the dependency"
+  - id: discovery/circuit-breaker/REQ-2
+    title: Half-open recovery
+    ac: "Given an open breaker after 30s cooldown, When a probe request succeeds, Then the breaker closes and normal traffic resumes"
+blueprint-sections: [integrations, operations, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

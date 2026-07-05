@@ -10,7 +10,7 @@ $ /workflow-builder Create Login and Registration Feature
 
 Domains activated:     27 (2 explicit, 25 hidden)
 Hidden requirements:   10 added across 10 domains
-Validation:            17/17 rules passed
+Validation:            26/26 rules passed
 Assumptions to review: 6  -> section 'assumptions'
 Written:               01-initialized.yaml … 06-forms.yaml (6 staged files)
 ```
@@ -18,7 +18,7 @@ Written:               01-initialized.yaml … 06-forms.yaml (6 staged files)
 Reproduce and check locally:
 
 ```bash
-awp validate examples/workflow-builder/login-registration   # 17/17 rules passed (deterministic)
+awp validate examples/workflow-builder/login-registration   # 26/26 rules passed (deterministic)
 awp build --aggregate examples/workflow-builder/login-registration   # → blueprint.yaml
 awp flowable convert examples/workflow-builder/login-registration    # → flowable/ (6 artifacts)
 ```
@@ -43,7 +43,7 @@ testing, deployment, operations, backup, disaster recovery, and more.
 - **Zero placeholders** — every constraint has a number, duration, or limit (argon2id parameters, 30-minute lockouts, 5-minute RPO).
 - **Failures are never undefined** — all 16 workflow steps define `on-failure`; 13 named exceptions with handling.
 - **100% traceable** — every hidden requirement and cross-cutting domain cites its `discovery/<domain>/<rule-id>`.
-- **Validates clean** — passes all 17 rules in [`validation-rules.yaml`](../../../.schemas/workflow-blueprint/validation-rules.yaml), including VAL-013 (25 mandatory auth domains). Run `awp validate <this-dir>` to check.
+- **Validates clean** — passes all 26 rules in [`validation-rules.yaml`](../../../.schemas/workflow-blueprint/validation-rules.yaml), including VAL-013 (25 mandatory auth domains). Run `awp validate <this-dir>` to check.
 
 ## Reproduce it
 

@@ -1,0 +1,31 @@
+id: offboarding
+type: functional
+version: 1.0.0
+pack: hr
+triggers:
+  - offboarding
+  - { term: offboard, synonyms: [termination, leaver, departure, exit, resignation] }
+  - { term: deprovisioning, synonyms: [access revocation, account disable, revoke access] }
+implies: [identity-management, authorization, audit, notification]
+standards:
+  - { id: SOC2, version: "2017 TSC", verified: 2026-07-05, url: "https://www.aicpa.org/resources/landing/system-and-organization-controls-soc-suite-of-services" }
+  - { id: ISO-27001-A.7, version: "2022", verified: 2026-07-05, url: "https://www.iso.org/standard/27001" }
+  - { id: NIST-800-53-AC-2, version: "Rev.5", verified: 2026-07-05, url: "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final" }
+constraints:
+  - { id: OFB-C1, rule: "All non-privileged access (SSO, VPN, SaaS apps, email, physical badge) is revoked within 4 hours of the effective termination time; privileged/admin access is revoked immediately (target < 15 minutes)" }
+  - { id: OFB-C2, rule: "Involuntary terminations disable access at or before the notification moment; the account is disabled first, then the departure is communicated, never the reverse" }
+  - { id: OFB-C3, rule: "Company assets (laptop, phone, tokens, keys) are tracked to a return checklist; unreturned assets after the due date raise a security and asset-recovery notification" }
+  - { id: OFB-C4, rule: "The leaver's owned data, mailboxes, and in-flight work are reassigned or archived per retention policy before the account is deleted; deletion never orphans business records" }
+  - { id: OFB-C5, rule: "Offboarding produces a signed exit checklist evidencing access-revoked timestamps, asset return, and data handover; the record is immutable and retained for audit" }
+requirement-seeds:
+  - id: discovery/offboarding/REQ-1
+    title: Same-day access revocation
+    ac: "Given an effective termination, When the offboarding runs, Then all standard access is revoked within 4 hours and privileged access immediately, each with a logged timestamp"
+  - id: discovery/offboarding/REQ-2
+    title: Data and asset handover
+    ac: "Given a departing employee, When their account is scheduled for deletion, Then owned data is reassigned or archived and asset return is recorded before deletion proceeds"
+blueprint-sections: [workflows, security, requirements]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: people-ops-wg

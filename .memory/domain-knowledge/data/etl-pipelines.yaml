@@ -1,0 +1,30 @@
+id: etl-pipelines
+type: functional
+version: 1.0.0
+pack: data
+triggers:
+  - etl
+  - elt
+  - { term: pipeline, synonyms: [ingest, ingestion, data pipeline, batch job, backfill, load] }
+  - { term: watermark, synonyms: [high-water mark, incremental load, cdc, change data capture] }
+implies: [monitoring, error-management, observability, audit, data-quality]
+standards:
+  - { id: DAMA-DMBOK, version: "2", verified: 2026-07-05, url: "https://www.dama.org/cpages/body-of-knowledge" }
+constraints:
+  - { id: ETL-C1, rule: "Every pipeline stage is idempotent and replayable; re-running the same batch produces no duplicate downstream rows (dedup on a stable natural or hash key)" }
+  - { id: ETL-C2, rule: "Incremental loads advance a persisted watermark (max source updated_at or monotonic offset) committed only after the target write succeeds; a crash resumes from the last committed watermark, never skips" }
+  - { id: ETL-C3, rule: "Schema evolution is additive-compatible: new source columns are auto-added as nullable; a type change or dropped required column halts the batch and quarantines it rather than silently coercing" }
+  - { id: ETL-C4, rule: "Backfills run in bounded partitions (e.g. per-day) with the same code path as incremental loads; a backfill of any historical window is reproducible and does not mutate rows outside that window" }
+  - { id: ETL-C5, rule: "Each run emits row-in / row-out / rejected counts and duration; a run whose output row count deviates >30% from the trailing 7-run mean is flagged, not auto-published" }
+requirement-seeds:
+  - id: discovery/etl-pipelines/REQ-1
+    title: Replayable ingest
+    ac: "Given a batch that failed mid-write, When it is re-run from the last watermark, Then downstream row count is identical to a clean single run and no duplicate keys exist"
+  - id: discovery/etl-pipelines/REQ-2
+    title: Bounded backfill
+    ac: "Given a backfill request for a 30-day window, When it completes, Then only rows within that window are changed and re-running it yields byte-identical partitions"
+blueprint-sections: [workflows, monitoring, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: data-platform-wg

@@ -1,7 +1,10 @@
 # =============================================================================
-# WORKFLOW BLUEPRINT VALIDATION RULES v2.0
+# WORKFLOW BLUEPRINT VALIDATION RULES v3.0
 # Machine-checkable rules applied to every /workflow-builder output.
 # Severity: error = blueprint rejected | warning = flagged for review
+# 26 rules: 17 structural/traceability + 5 schema-conformance + 4 substance.
+# Engines: packages/awp-cli/src/validate.js (001-042),
+#          packages/awp-cli/src/rules-ext.js (050-063).
 # =============================================================================
 rules:
 
@@ -105,6 +108,55 @@ rules:
     name: golden-scenarios-minimum
     severity: warning
     check: "testing.golden-scenarios contains >= 3 scenarios."
+
+  # --- Schema conformance (v3.0; rules-ext.js) ---
+  - id: VAL-050
+    name: identity-maturity-conformance
+    severity: error
+    check: "project.id matches BLU-<ID> and project.maturity-level is L1..L6."
+
+  - id: VAL-051
+    name: no-undeclared-sections
+    severity: error
+    check: "Every top-level key is a declared section, _meta, or an x- prefixed extension."
+
+  - id: VAL-052
+    name: item-identity-fields
+    severity: error
+    check: "Every requirement/workflow item carries both an id and a human label (title/name)."
+
+  - id: VAL-053
+    name: extended-id-formats
+    severity: error
+    check: "_meta.blueprint_id matches BLU-<ID>; every decision-table id matches DEC-<n>."
+
+  - id: VAL-054
+    name: stage-deps-acyclic
+    severity: error
+    check: "Every _meta.depends_on stage exists and the stage dependency graph is acyclic."
+
+  # --- Substance lints (v3.0; rules-ext.js) ---
+  - id: VAL-060
+    name: no-placeholder-text
+    severity: error
+    check: "No value contains TBD/TODO/FIXME/XXX/LOREM or an unfilled <placeholder>."
+
+  - id: VAL-061
+    name: real-given-when-then
+    severity: error
+    check: "Every acceptance criterion contains all three of Given, When, and Then."
+
+  - id: VAL-062
+    name: numeric-plausibility
+    severity: warning
+    check: >
+      Known numeric fields fall inside plausibility windows (session timeout
+      5m-24h, retention 1d-10y). Advisory at L1-L3, error at L4+.
+
+  - id: VAL-063
+    name: no-duplicate-requirements
+    severity: error
+    check: "No two requirements share > 85% shingle-similar title+description text."
 
 exit-codes:
   0: valid

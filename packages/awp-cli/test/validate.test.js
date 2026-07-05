@@ -8,16 +8,16 @@ const here = dirname(fileURLToPath(import.meta.url))
 const REPO = join(here, "..", "..", "..")
 const GOLDEN = join(REPO, "examples", "workflow-builder", "login-registration")
 
-test("golden staged example passes 17/17 rules", () => {
+test("golden staged example passes 26/26 rules", () => {
   const { passed, failed } = validateBlueprint(REPO, GOLDEN, {
     story: "Create Login and Registration Feature",
     level: "L6",
   })
   assert.equal(failed.length, 0, "unexpected failures: " + JSON.stringify(failed, null, 2))
-  assert.equal(passed.length, 17)
+  assert.equal(passed.length, 26)
 })
 
-test("aggregated blueprint.yaml also passes 17/17", () => {
+test("aggregated blueprint.yaml also passes 26/26", () => {
   const { failed } = validateBlueprint(REPO, join(GOLDEN, "blueprint.yaml"), {
     story: "Create Login and Registration Feature",
     level: "L6",

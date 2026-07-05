@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/CMMN/20151109/MODEL"
+             targetNamespace="http://flowable.org/cmmn">
+  <case id="WF-001" name="Employee Onboarding Case">
+    <casePlanModel id="WF-001Plan" name="Employee Onboarding Case Plan">
+      <planItem id="pi1" definitionRef="task1"/>
+      <humanTask id="task1" name="Employee Onboarding Case Task"/>
+    </casePlanModel>
+  </case>
+</definitions>

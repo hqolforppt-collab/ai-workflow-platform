@@ -1,14 +1,29 @@
 id: privacy
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
-standards: [GDPR Art. 5/15/17, CCPA]
+triggers:
+  - ANY-USER-FACING
+standards:
+  - id: GDPR Art. 5/15/17
+    verified: 2026-07-05
+  - id: CCPA
+    verified: 2026-07-05
 constraints:
-  - { id: PRV-C1, rule: "Data minimisation; purpose and retention defined per data element" }
-  - { id: PRV-C2, rule: "Subject rights supported: access, export, erasure (30-day SLA)" }
-  - { id: PRV-C3, rule: "Consent recorded with timestamp and version of accepted terms" }
+  - id: PRV-C1
+    rule: Data minimisation; purpose and retention defined per data element
+  - id: PRV-C2
+    rule: "Subject rights supported: access, export, erasure (30-day SLA)"
+  - id: PRV-C3
+    rule: Consent recorded with timestamp and version of accepted terms
 requirement-seeds:
   - id: discovery/privacy/REQ-1
     title: Right to erasure
-    ac: "Given a deletion request, When 30 days pass, Then all personal data is erased or anonymised and confirmation sent"
-blueprint-sections: [compliance, data-model, requirements]
+    ac: Given a deletion request, When 30 days pass, Then all personal data is erased or anonymised and confirmation sent
+blueprint-sections:
+  - compliance
+  - data-model
+  - requirements
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

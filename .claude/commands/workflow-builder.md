@@ -33,7 +33,7 @@ yourself, writing ONE FILE PER STAGE to `blueprints/<slug>/0N-<name>.yaml`:
 
 After writing each file, print `[STAGE n/6] <Name> — <one-line summary>` so the user sees progress.
 
-Validate against all 17 rules in `.schemas/workflow-blueprint/validation-rules.yaml`
+Validate against all 26 rules in `.schemas/workflow-blueprint/validation-rules.yaml`
 (or run `awp validate <blueprint-dir>` for the deterministic engine).
 On pass, print the coverage report. On fail, list failing rules per file with fix hints.
 

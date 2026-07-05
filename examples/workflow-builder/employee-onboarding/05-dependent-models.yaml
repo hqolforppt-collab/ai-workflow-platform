@@ -1,0 +1,113 @@
+# 05-dependent-models.yaml — Stage 5/6 (Dependent Models)
+# Sections: workflows (dependent scope), decision-tables, notifications, monitoring, logging, audit
+_meta:
+  blueprint_id: BLU-EMPLOYEE-ONBOARDING
+  stage: stage-05
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-04]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml, 03-generating-app.yaml, 04-root-models.yaml]
+
+workflows:
+  # Dependent (sub) workflows called from the root case. WF-002 is the document
+  # verification + retention sub-process; WF-003 is the day-one access
+  # provisioning sub-process. Both are BPMN (sequential, predictable) children
+  # of the CMMN root case.
+  dependent:
+    - id: WF-002
+      name: Document Verification and Retention
+      trigger: "A document is uploaded to the case (API-002)"
+      actors: [ACT-001, ACT-002, ACT-006]
+      requirements: [REQ-001, REQ-011, REQ-012, REQ-019]
+      steps:
+        - { id: S1, name: Malware + format scan,      type: system-action, actor: ACT-004, inputs: [uploaded-file], outputs: [scan-verdict], on-success: S2, on-failure: "EX-101 (failed scan -> 400; document rejected, hire asked to re-upload)" }
+        - { id: S2, name: Assign retention class,      type: system-action, actor: ACT-004, inputs: [document-kind], outputs: [retention-class, disposition-date], on-success: S3, on-failure: "EX-102 (unclassifiable kind -> hold in TRANSIENT_1Y pending records review)" }
+        - { id: S3, name: Human verification,          type: user-action,   actor: ACT-002, inputs: [document], outputs: [verify-verdict], on-success: S4, on-failure: "EX-103 (rejected -> NOT-001 asks hire to resubmit; case waits)", audit-event: AUD-003 }
+        - { id: S4, name: Evaluate disposition/hold,   type: decision,      actor: ACT-006, inputs: [disposition-date, legal-hold], outputs: [disposition-action], on-success: END, on-failure: "EX-104 (hold active -> deletion blocked; AUD-005; never auto-purged)", audit-event: AUD-005 }
+      exceptions:
+        - { id: EX-101, condition: "malware or invalid format",       handling: "400; document rejected; hire prompted to re-upload; nothing stored", notification: null }
+        - { id: EX-102, condition: "document kind not classifiable",  handling: "stored as TRANSIENT_1Y and queued for records review; never left without a class", notification: NOT-005 }
+        - { id: EX-103, condition: "verifier rejects the document",   handling: "document marked rejected; NOT-001 to hire; readiness review surfaces the gap", notification: NOT-001 }
+        - { id: EX-104, condition: "disposition due but legal hold active", handling: "deletion blocked; attempt logged (AUD-005); document retained until hold released", notification: null }
+      sla: "upload -> verification decision: 1 business day (p95)"
+    - id: WF-003
+      name: Day-One Access Provisioning
+      trigger: "Confirmed start date reached for an open case (timer)"
+      actors: [ACT-003, ACT-004]
+      requirements: [REQ-013, REQ-014, REQ-003]
+      steps:
+        - { id: S1, name: Resolve role template,       type: system-action, actor: ACT-004, inputs: [role-template], outputs: [permission-set], on-success: S2, on-failure: "EX-201 (unknown template -> block; page IT; no default-allow)" }
+        - { id: S2, name: Create accounts (disabled),  type: system-action, actor: ACT-004, inputs: [permission-set], outputs: [accounts], on-success: S3, on-failure: "EX-202 (create failure -> retry; nothing partially enabled)" }
+        - { id: S3, name: Activate on start date,      type: timer,         actor: ACT-004, inputs: [start-date], outputs: [accounts-active], on-success: S4, on-failure: "EX-203 (activation before start date -> refused; window kept closed)", audit-event: AUD-002 }
+        - { id: S4, name: Assign mandatory training,    type: system-action, actor: ACT-004, inputs: [security-curriculum], outputs: [training-assigned], on-success: END, on-failure: "EX-204 (LMS down -> retry; deadline clock starts on assignment)" }
+      exceptions:
+        - { id: EX-201, condition: "role template unresolved",        handling: "provisioning blocked; IT paged (ALT-002); no fallback broad grant", notification: NOT-003 }
+        - { id: EX-202, condition: "account create failure",          handling: "retry with backoff; no partially-enabled account persisted", notification: null }
+        - { id: EX-203, condition: "activation attempted before start date", handling: "refused; accounts stay disabled to avoid an open credential window", notification: null }
+        - { id: EX-204, condition: "training LMS unavailable",         handling: "retry; 30-day deadline begins at successful assignment; manager notified on miss (NOT-004)", notification: NOT-004 }
+      sla: "start date reached -> accounts active: within 1 business day"
+
+# DMN decision service invoked by WF-002 step S4 (disposition/hold evaluation).
+# Converted to <key>.dmn by `awp flowable convert`.
+decision-tables:
+  - id: DEC-001
+    name: Document Disposition Decision
+    hit-policy: FIRST
+    trace: { requirement: REQ-012, invoked-by: WF-002.S4 }
+    inputs:
+      - { id: input1, label: "Legal hold active", expression: legal_hold, type: boolean }
+      - { id: input2, label: "Past disposition date", expression: past_disposition, type: boolean }
+      - { id: input3, label: "Retention class", expression: retention_class, type: string }
+    outputs:
+      - { id: output1, label: "Action", name: action, type: string }
+    rules:
+      - { when: "legal_hold = true", then: "block-deletion-and-log" }
+      - { when: "past_disposition = true", then: "flag-for-approval-gate" }
+      - { when: "retention_class = 'TRANSIENT_1Y'", then: "review-then-dispose" }
+      - { when: "otherwise", then: "retain" }
+
+notifications:
+  - { id: NOT-001, trigger: "required document missing or rejected (EX-002/EX-103)", channel: email, recipient: ACT-001, template: document-reminder-v1,  locale-support: true, retry-policy: "3 attempts, exponential backoff, DLQ after 1h" }
+  - { id: NOT-002, trigger: "discretionary task blocked or hire marked not ready",   channel: in-app, recipient: ACT-002, template: case-attention-v1,      locale-support: true, retry-policy: "3 attempts, exponential backoff" }
+  - { id: NOT-003, trigger: "provisioning failure or unresolved role template",      channel: email, recipient: ACT-002, template: provisioning-alert-v1,    locale-support: true, retry-policy: "3 attempts, exponential backoff, DLQ after 1h" }
+  - { id: NOT-004, trigger: "mandatory training incomplete after 30-day deadline",   channel: email, recipient: ACT-003, template: training-overdue-v1,      locale-support: true, retry-policy: "3 attempts, exponential backoff" }
+  - { id: NOT-005, trigger: "document could not be classified (EX-102)",             channel: in-app, recipient: ACT-002, template: records-review-v1,       locale-support: true, retry-policy: "1 attempt, best effort" }
+
+monitoring:
+  metrics:
+    - { name: onboarding_cases_open,           type: gauge,     purpose: "live count of open onboarding cases",        labels: [state] }
+    - { name: onboarding_time_to_ready_days,   type: histogram, purpose: "distribution of case-open to day-one-ready", labels: [role-template] }
+    - { name: onboarding_documents_total,      type: counter,   purpose: "documents by verification outcome",          labels: [kind, outcome] }
+    - { name: onboarding_discretionary_activations_total, type: counter, purpose: "how often each optional task is activated", labels: [task-kind] }
+    - { name: onboarding_provisioning_duration_seconds,   type: histogram, purpose: "day-one provisioning latency",       labels: [outcome] }
+  alerts:
+    - { name: ALT-001, condition: "median time-to-day-one-ready exceeds SLO over 7d", severity: warning,  channel: people-ops-chat, runbook: RB-001 }
+    - { name: ALT-002, condition: "day-one provisioning failures > 1 in any 24h window", severity: critical, channel: it-oncall-pager, runbook: RB-002 }
+    - { name: ALT-003, condition: "disposition/retention service unreachable > 15m", severity: warning,  channel: records-chat,    runbook: RB-004 }
+  slos:
+    - { name: day-one-ready-on-time, target: "100% of hires ready by start date", window: 30d, error-budget: "0 late starts/month" }
+    - { name: document-verify-latency, target: "< 1 business day p95", window: 30d, error-budget: "5% of documents" }
+  dashboards: [onboarding-overview, case-aging, provisioning-health]
+
+logging:
+  categories:
+    - { name: application, level: info,  sink: "stdout -> log pipeline", retention: 30d,  pii-policy: "employee names masked; national_id never logged" }
+    - { name: security,    level: info,  sink: "SIEM stream",            retention: 365d, pii-policy: "actor + target ids retained; IP retained (legitimate interest)" }
+    - { name: access,      level: info,  sink: "gateway access logs",    retention: 90d,  pii-policy: "IP truncated to /24 after 7 days" }
+    - { name: performance, level: warn,  sink: "APM",                    retention: 14d,  pii-policy: "no employee identifiers" }
+  correlation: "W3C traceparent propagated from the case UI through case-service to provisioning, e-signature, and records integrations; case-id echoed in error responses"
+  structured: true
+
+audit:
+  events:
+    - { id: AUD-001, event: case.opened,             trigger: "onboarding case created",             captured-fields: [case-id, actor-id, role-template, ats-hire-ref, timestamp], actor-recorded: true }
+    - { id: AUD-002, event: access.provisioned,      trigger: "day-one accounts activated",          captured-fields: [case-id, employee-id, role-template, permission-set-hash, timestamp], actor-recorded: true }
+    - { id: AUD-003, event: document.verified,       trigger: "verifier accepts or rejects a document", captured-fields: [case-id, document-id, verdict, verifier-id, timestamp], actor-recorded: true }
+    - { id: AUD-004, event: document.signed,         trigger: "e-signature evidence package produced", captured-fields: [case-id, document-id, signer-id, method, content-hash, timestamp], actor-recorded: true }
+    - { id: AUD-005, event: retention.hold-blocked,  trigger: "deletion blocked by legal hold",       captured-fields: [document-id, disposition-date, hold-ref, actor-id, timestamp], actor-recorded: true }
+    - { id: AUD-006, event: readiness.decided,       trigger: "hiring manager records readiness verdict", captured-fields: [case-id, verdict, manager-id, timestamp], actor-recorded: true }
+    - { id: AUD-007, event: case.closed,             trigger: "case closed at 100% checklist",        captured-fields: [case-id, checklist-hash, actor-id, timestamp], actor-recorded: true }
+  retention: "7 years (SOC2 + HR statutory limitation periods)"
+  immutability: "append-only table with hash chaining; no UPDATE/DELETE grants; WORM export monthly"
+  access: [ROLE-HOLD-ADMIN]

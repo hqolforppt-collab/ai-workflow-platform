@@ -55,7 +55,7 @@ levels:
       traceability. This is the level the flagship examples ship at.
     adds: [governance, compliance]
     hidden-discovery: full
-    validates-against: ALL   # all 17 rules, errors AND warnings enforced
+    validates-against: ALL   # all 26 rules, errors AND warnings enforced
     use-when: "Default. Regulated environments, audits, flagship blueprints."
 
 rules:

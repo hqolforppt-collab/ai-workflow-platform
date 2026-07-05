@@ -1,12 +1,22 @@
 id: documentation
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: DOC-C1, rule: "API reference, user guide, admin runbook, and ADRs produced per feature" }
-  - { id: DOC-C2, rule: "Docs versioned with code; PRs touching behaviour must update docs" }
+  - id: DOC-C1
+    rule: API reference, user guide, admin runbook, and ADRs produced per feature
+  - id: DOC-C2
+    rule: Docs versioned with code; PRs touching behaviour must update docs
 requirement-seeds:
   - id: discovery/documentation/REQ-1
     title: Feature documentation set
-    ac: "Given the feature ships, When release completes, Then user guide, API docs, and ops runbook are published"
-blueprint-sections: [documentation, knowledge, requirements]
+    ac: Given the feature ships, When release completes, Then user guide, API docs, and ops runbook are published
+blueprint-sections:
+  - documentation
+  - knowledge
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

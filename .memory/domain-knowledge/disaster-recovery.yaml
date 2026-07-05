@@ -1,12 +1,22 @@
 id: disaster-recovery
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: DRC-C1, rule: "RTO and RPO declared per service (default RTO 4h, RPO 1h)" }
-  - { id: DRC-C2, rule: "DR plan documented and exercised yearly; dependencies mapped" }
+  - id: DRC-C1
+    rule: RTO and RPO declared per service (default RTO 4h, RPO 1h)
+  - id: DRC-C2
+    rule: DR plan documented and exercised yearly; dependencies mapped
 requirement-seeds:
   - id: discovery/disaster-recovery/REQ-1
     title: Declared recovery objectives
-    ac: "Given the blueprint, When operations section is reviewed, Then RTO/RPO values exist for every stateful component"
-blueprint-sections: [operations, risks, requirements]
+    ac: Given the blueprint, When operations section is reviewed, Then RTO/RPO values exist for every stateful component
+blueprint-sections:
+  - operations
+  - risks
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

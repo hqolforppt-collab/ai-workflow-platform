@@ -1,0 +1,31 @@
+id: data-quality
+type: cross-cutting
+version: 1.0.0
+pack: data
+triggers:
+  - data quality
+  - { term: validation, synonyms: [validate, data validation, quality check, dq check] }
+  - { term: quarantine, synonyms: [dead-letter, reject, bad records, drift] }
+  - { term: completeness, synonyms: [accuracy, freshness check, anomaly detection] }
+implies: [monitoring, notification, error-management, audit, observability]
+standards:
+  - { id: ISO-8000, version: "8000-61:2016", verified: 2026-07-05, url: "https://www.iso.org/standard/63086.html" }
+  - { id: GDPR-Art5, version: "2016/679 Art.5(1)(d)", verified: 2026-07-05, url: "https://gdpr-info.eu/art-5-gdpr/" }
+constraints:
+  - { id: DQ-C1, rule: "Rows failing a hard validation rule (schema, referential, or business invariant) are routed to a quarantine store with the failing rule id and raw payload; they are never silently dropped" }
+  - { id: DQ-C2, rule: "A completeness check alerts if the ingested row count deviates >20% from the trailing 7-day mean for that source; the batch is held pending review rather than auto-promoted" }
+  - { id: DQ-C3, rule: "Every dataset publishes accuracy dimensions (null rate, uniqueness of keys, valid-domain %) as metrics; a null rate on a required column exceeding 1% fails the run" }
+  - { id: DQ-C4, rule: "Quarantined records are retryable: once a fix is deployed they can be re-submitted through the same validation path, and resolution (fixed vs discarded) is auditable" }
+  - { id: DQ-C5, rule: "Freshness SLA is asserted per dataset (e.g. max source-to-available lag of 60 min); a breach raises an alert and marks the dataset stale to consumers" }
+requirement-seeds:
+  - id: discovery/data-quality/REQ-1
+    title: Quarantine on hard failure
+    ac: "Given a row violating a hard rule, When the batch runs, Then the row lands in quarantine with its rule id and the good rows still publish"
+  - id: discovery/data-quality/REQ-2
+    title: Volume-drift alert
+    ac: "Given today's row count is 25% below the trailing 7-day mean, When the load finishes, Then an alert fires and the dataset is not promoted to consumers"
+blueprint-sections: [requirements, monitoring, workflows]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: data-platform-wg
