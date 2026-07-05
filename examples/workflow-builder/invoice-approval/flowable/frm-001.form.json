@@ -1,34 +1,53 @@
 {
   "key": "FRM-001",
   "name": "Invoice Submission Form",
+  "version": 0,
   "fields": [
     {
       "id": "invoiceReference",
       "name": "Invoice reference",
       "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Invoice reference"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Invoice reference",
+      "layout": null
     },
     {
       "id": "department",
       "name": "Department",
-      "type": "select",
+      "type": "dropdown",
+      "value": null,
       "required": true,
-      "placeholder": "Department"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Department",
+      "layout": null
     },
     {
       "id": "grossAmount",
       "name": "Gross amount",
       "type": "number",
+      "value": null,
       "required": true,
-      "placeholder": "Gross amount"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Gross amount",
+      "layout": null
     },
     {
       "id": "vendorRisk",
       "name": "Vendor risk",
-      "type": "select",
+      "type": "dropdown",
+      "value": null,
       "required": true,
-      "placeholder": "Vendor risk"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Vendor risk",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }

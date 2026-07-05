@@ -257,6 +257,30 @@ export async function flowableValidate(flags) {
   let valid = 0
   let invalid = 0
 
+  // Route each artifact to the engine that owns it. Deploying to the real
+  // engine is the strongest validity proof — it parses, validates, and compiles
+  // the model — and we delete the test deployment immediately so validation
+  // stays non-mutating. If an engine's REST API is not mounted in the target
+  // image (404) we fall back to a structural check and say so — never a silent
+  // pass. CMMN has no engine route here yet, so it gets the structural check.
+  const auth = basicAuth(user, pass)
+  const ENDPOINTS = {
+    "bpmn20.xml": { api: "/service/repository/deployments", cascade: true, ct: "text/xml", engine: "process" },
+    dmn: { api: "/dmn-api/dmn-repository/deployments", ct: "text/xml", engine: "DMN" },
+    "form.json": { api: "/form-api/form-repository/deployments", ct: "application/json", engine: "form", resource: (f) => f.replace(/\.json$/, "") },
+  }
+
+  const structural = (art, content) => {
+    const err = structuralError(art.type, content)
+    if (err) {
+      console.log(`  ✗ ${art.file} — malformed: ${err}`)
+      invalid++
+    } else {
+      console.log(`  ⚠ ${art.file} — valid (structural only)`)
+      valid++
+    }
+  }
+
   for (const art of artifacts) {
     const fp = join(flowableDir, art.file)
     if (!existsSync(fp)) {
@@ -264,45 +288,42 @@ export async function flowableValidate(flags) {
       continue
     }
 
-    try {
-      const content = readFileSync(fp, "utf8")
+    const content = readFileSync(fp, "utf8")
+    const ep = ENDPOINTS[art.type]
+    if (!ep) {
+      structural(art, content) // no owning engine (e.g. CMMN)
+      continue
+    }
 
-      // The process repository endpoint only accepts BPMN (.bpmn20.xml/.bar/.zip)
-      // — it rejects DMN/Form/CMMN. Deploy-validate BPMN against the live
-      // engine (the strongest proof); structurally validate the others. Live
-      // DMN/Form engine validation is gated on the richer generators
-      // (yamlToDmn is a known structural stub), so it is a documented follow-up.
-      if (art.type === "bpmn20.xml") {
-        const formData = new FormData()
-        formData.append("file", new Blob([content], { type: "text/xml" }), art.file)
-        const res = await fetch(`${baseUrl}/service/repository/deployments`, {
-          method: "POST",
-          headers: { Authorization: basicAuth(user, pass) },
-          body: formData,
-        })
-        if (res.status === 201) {
-          const dep = await res.json()
-          // Clean up: delete the test deployment (no-mutation validation).
-          await fetch(`${baseUrl}/service/repository/deployments/${dep.id}?cascade=true`, {
-            method: "DELETE",
-            headers: { Authorization: basicAuth(user, pass) },
-          })
-          console.log(`  ✓ ${art.file} — valid (deployed to live engine)`)
-          valid++
-        } else {
-          const body = await res.text().catch(() => "")
-          console.log(`  ✗ ${art.file} — rejected by engine: ${body.slice(0, 200)}`)
-          invalid++
+    try {
+      const resource = ep.resource ? ep.resource(art.file) : art.file
+      const form = new FormData()
+      form.append("file", new Blob([content], { type: ep.ct }), resource)
+      const res = await fetch(`${baseUrl}${ep.api}`, { method: "POST", headers: { Authorization: auth }, body: form })
+
+      if (res.status === 201) {
+        const dep = await res.json().catch(() => ({}))
+        if (dep.id) {
+          // Clean up the test deployment (non-mutating validation).
+          const q = ep.cascade ? "?cascade=true" : ""
+          await fetch(`${baseUrl}${ep.api}/${dep.id}${q}`, { method: "DELETE", headers: { Authorization: auth } })
         }
-      } else {
+        console.log(`  ✓ ${art.file} — valid (deployed to live ${ep.engine} engine)`)
+        valid++
+      } else if (res.status === 404) {
+        // That engine's REST API is not mounted in this image — be honest.
         const err = structuralError(art.type, content)
         if (err) {
           console.log(`  ✗ ${art.file} — malformed: ${err}`)
           invalid++
         } else {
-          console.log(`  ✓ ${art.file} — valid (structural; ${art.type} engine deploy is a documented follow-up)`)
+          console.log(`  ⚠ ${art.file} — valid (structural; ${ep.engine} REST API not available at ${ep.api})`)
           valid++
         }
+      } else {
+        const body = await res.text().catch(() => "")
+        console.log(`  ✗ ${art.file} — rejected by ${ep.engine} engine (HTTP ${res.status}): ${body.slice(0, 200)}`)
+        invalid++
       }
     } catch (err) {
       console.log(`  ✗ ${art.file} — error: ${err.message}`)
@@ -429,6 +450,11 @@ function xmlAttr(v) {
   return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
 
+// XML text-node escaper (element content; quotes need not be escaped).
+function xmlText(v) {
+  return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
 function yamlToBpmn(wf, key) {
   const steps = getItems(wf.steps || wf)
   const name = wf.name || key
@@ -500,34 +526,193 @@ function yamlToCmmn(wf, key) {
 `
 }
 
-function yamlToDmn(dt, key) {
-  const name = dt.name || key
-  const decId = dt.id || `${key}-decision`
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="http://www.omg.org/spec/DMN/20191111/MODEL"
-             namespace="http://flowable.org/dmn">
-  <decision id="${decId}" name="${name}">
-    <decisionTable id="${decId}Table">
-      <input id="input1" label="Input"/>
-      <output id="output1" label="Output" typeRef="string"/>
-    </decisionTable>
-  </decision>
-</definitions>
-`
+// ---------------------------------------------------------------------------
+// DMN 1.3 generation — a real decision table the Flowable DMN engine deploys,
+// not a stub. Inputs carry a typed <inputExpression>; every rule is expanded
+// into one <inputEntry> per input column and one <outputEntry> per output,
+// parsed from the blueprint's when/then grammar.
+// ---------------------------------------------------------------------------
+
+const DMN_NS = "https://www.omg.org/spec/DMN/20191111/MODEL/"
+
+/** blueprint type → DMN FEEL typeRef. */
+function dmnTypeRef(t) {
+  switch (String(t || "string").toLowerCase()) {
+    case "number":
+    case "integer":
+    case "long":
+    case "double":
+      return "number"
+    case "boolean":
+    case "bool":
+      return "boolean"
+    case "date":
+    case "datetime":
+      return "date"
+    default:
+      return "string"
+  }
 }
 
-function yamlToFormJson(form, key) {
-  const fields = (form.fields || []).map(f => ({
-    id: f.name || f.id,
-    name: f.label || f.name,
-    type: f.type || "text",
-    required: f.required !== false,
-    placeholder: f.label || "",
-  }))
+/** Render a raw blueprint value as a FEEL literal (used in output/equality entries). */
+function feelLiteral(raw) {
+  const r = String(raw ?? "").trim()
+  const q = r.match(/^'(.*)'$/s) || r.match(/^"(.*)"$/s)
+  if (q) return `"${q[1].replace(/"/g, '\\"')}"`
+  if (/^(true|false)$/i.test(r)) return r.toLowerCase()
+  if (/^-?\d+(\.\d+)?$/.test(r)) return r
+  return `"${r.replace(/"/g, '\\"')}"` // bare token → string literal
+}
+
+/** Build a FEEL unary test for an input cell from an operator + value. */
+function feelUnaryTest(op, raw) {
+  const v = feelLiteral(raw)
+  if (op === "=") return v // equality is expressed as the bare literal
+  if (op === "!=") return `not(${v})`
+  return `${op} ${v}` // >=, <=, >, <
+}
+
+/** Parse a rule `when` into one unary test per input column ("-" = any). */
+function parseWhen(when, inputs) {
+  const w = String(when ?? "").trim()
+  const byExpr = {}
+  if (w && !/^otherwise$/i.test(w)) {
+    for (const term of w.split(/\s+and\s+/i)) {
+      const m = term.trim().match(/^(.+?)\s*(>=|<=|!=|=|>|<)\s*(.+)$/)
+      if (m) byExpr[m[1].trim()] = feelUnaryTest(m[2], m[3].trim())
+    }
+  }
+  return inputs.map((inp, i) => byExpr[inp.expression || inp.id || `input${i + 1}`] ?? "-")
+}
+
+/** Parse a rule `then` into one FEEL literal per output column. */
+function parseThen(then, outputs) {
+  const t = String(then ?? "").trim()
+  if (t.includes("=")) {
+    const byName = {}
+    for (const part of t.split(",")) {
+      const m = part.trim().match(/^(.+?)\s*=\s*(.+)$/)
+      if (m) byName[m[1].trim()] = feelLiteral(m[2].trim())
+    }
+    return outputs.map((o, i) => byName[o.name || o.id || `output${i + 1}`] ?? '""')
+  }
+  // A single bare outcome value populates the (single) output column.
+  return outputs.map((o, i) => (i === 0 && t ? feelLiteral(t) : '""'))
+}
+
+export function yamlToDmn(dt, key) {
+  const name = dt.name || key
+  const decId = dt.id || `${key}-decision`
+  const tableId = `${decId}-table`
+  const hitPolicy = String(dt["hit-policy"] || dt.hitPolicy || "FIRST").toUpperCase()
+
+  const inputs = getItems(dt.inputs)
+  const outputs = getItems(dt.outputs)
+  const rules = getItems(dt.rules)
+
+  // A decision table must have at least one input and output to be valid.
+  const inDefs = inputs.length ? inputs : [{ id: "input1", label: "Input", expression: "input", type: "string" }]
+  const outDefs = outputs.length ? outputs : [{ id: "output1", label: "Output", name: "output", type: "string" }]
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`
+  xml += `<definitions xmlns="${DMN_NS}" id="definitions_${xmlAttr(decId)}" name="${xmlAttr(name)}" namespace="http://flowable.org/dmn">\n`
+  xml += `  <decision id="${xmlAttr(decId)}" name="${xmlAttr(name)}">\n`
+  xml += `    <decisionTable id="${xmlAttr(tableId)}" hitPolicy="${hitPolicy}">\n`
+
+  inDefs.forEach((inp, i) => {
+    const id = inp.id || `input${i + 1}`
+    xml += `      <input id="${xmlAttr(id)}" label="${xmlAttr(inp.label || id)}">\n`
+    xml += `        <inputExpression id="${xmlAttr(id)}_expr" typeRef="${dmnTypeRef(inp.type)}">\n`
+    xml += `          <text>${xmlText(inp.expression || inp.label || id)}</text>\n`
+    xml += `        </inputExpression>\n`
+    xml += `      </input>\n`
+  })
+
+  outDefs.forEach((out, i) => {
+    const id = out.id || `output${i + 1}`
+    xml += `      <output id="${xmlAttr(id)}" label="${xmlAttr(out.label || id)}" name="${xmlAttr(out.name || id)}" typeRef="${dmnTypeRef(out.type)}"/>\n`
+  })
+
+  rules.forEach((rule, i) => {
+    const rid = rule.id || `rule${i + 1}`
+    const ins = parseWhen(rule.when, inDefs)
+    const outs = parseThen(rule.then, outDefs)
+    xml += `      <rule id="${xmlAttr(rid)}">\n`
+    if (rule.description) xml += `        <description>${xmlText(rule.description)}</description>\n`
+    ins.forEach((t) => (xml += `        <inputEntry><text>${xmlText(t)}</text></inputEntry>\n`))
+    outs.forEach((t) => (xml += `        <outputEntry><text>${xmlText(t)}</text></outputEntry>\n`))
+    xml += `      </rule>\n`
+  })
+
+  xml += `    </decisionTable>\n  </decision>\n</definitions>\n`
+  return xml
+}
+
+/** blueprint field type → Flowable form-engine field type. */
+function flowableFormType(t) {
+  switch (String(t || "text").toLowerCase()) {
+    case "email":
+    case "password":
+    case "tel":
+    case "phone":
+    case "url":
+    case "string":
+    case "text":
+      return "text"
+    case "textarea":
+    case "multiline":
+    case "multi-line-text":
+      return "multi-line-text"
+    case "number":
+    case "integer":
+    case "amount":
+      return "number"
+    case "checkbox":
+    case "boolean":
+    case "bool":
+      return "boolean"
+    case "date":
+    case "datetime":
+      return "date"
+    case "select":
+    case "dropdown":
+      return "dropdown"
+    case "radio":
+    case "radio-buttons":
+      return "radio-buttons"
+    case "upload":
+    case "file":
+      return "upload"
+    default:
+      return "text"
+  }
+}
+
+// Emit a Flowable form-engine FormModel (the shape a `.form` resource carries).
+// Deployed to /form-api/form-repository, this is a real, engine-parseable form
+// definition — not the ad-hoc shape the previous converter produced.
+export function yamlToFormJson(form, key) {
+  const fields = getItems(form.fields).map((f, i) => {
+    const id = f.name || f.id || `field${i + 1}`
+    return {
+      id,
+      name: f.label || f.name || id,
+      type: flowableFormType(f.type),
+      value: null,
+      required: f.required !== false,
+      readOnly: false,
+      overrideId: true,
+      placeholder: f.placeholder || f.label || "",
+      layout: null,
+    }
+  })
 
   return {
     key: form.id || key,
     name: form.name || key,
+    version: 0,
     fields,
+    outcomes: [],
+    outcomeVariableName: null,
   }
 }
