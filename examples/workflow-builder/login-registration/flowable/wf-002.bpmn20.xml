@@ -7,17 +7,17 @@
              targetNamespace="http://flowable.org/process">
   <process id="WF-002" name="Login and Session Issuance" isExecutable="true">
     <startEvent id="start" name="Start"/>
-    <serviceTask id="S1" name="Rate-limit check"/>
+    <serviceTask id="S1" name="Rate-limit check" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
     <exclusiveGateway id="S2" name="Lockout check"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
-    <serviceTask id="S3" name="Verify credentials"/>
+    <serviceTask id="S3" name="Verify credentials" flowable:expression="${awpService.execute('S3')}"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
-    <serviceTask id="S4" name="Anomaly scoring"/>
+    <serviceTask id="S4" name="Anomaly scoring" flowable:expression="${awpService.execute('S4')}"/>
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
-    <serviceTask id="S5" name="Issue session"/>
+    <serviceTask id="S5" name="Issue session" flowable:expression="${awpService.execute('S5')}"/>
     <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
-    <sendTask id="S6" name="Notify if anomalous"/>
+    <serviceTask id="S6" name="Notify if anomalous" flowable:expression="${awpNotifier.execute('S6')}"/>
     <sequenceFlow id="flow_S5_S6" sourceRef="S5" targetRef="S6"/>
     <endEvent id="end" name="End"/>
     <sequenceFlow id="flow_S6_end" sourceRef="S6" targetRef="end"/>

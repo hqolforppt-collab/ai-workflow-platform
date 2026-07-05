@@ -7,15 +7,15 @@
              targetNamespace="http://flowable.org/process">
   <process id="WF-001" name="Registration with Email Verification" isExecutable="true">
     <startEvent id="start" name="Start"/>
-    <serviceTask id="S1" name="Validate input"/>
+    <serviceTask id="S1" name="Validate input" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
-    <serviceTask id="S2" name="Check password policy"/>
+    <serviceTask id="S2" name="Check password policy" flowable:expression="${awpService.execute('S2')}"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
     <exclusiveGateway id="S3" name="Detect duplicate email"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
-    <serviceTask id="S4" name="Create account + token"/>
+    <serviceTask id="S4" name="Create account + token" flowable:expression="${awpService.execute('S4')}"/>
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
-    <sendTask id="S5" name="Send verification email"/>
+    <serviceTask id="S5" name="Send verification email" flowable:expression="${awpNotifier.execute('S5')}"/>
     <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
     <userTask id="S6" name="Consume verify link" flowable:assignee="ACT-001"/>
     <sequenceFlow id="flow_S5_S6" sourceRef="S5" targetRef="S6"/>

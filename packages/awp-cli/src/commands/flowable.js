@@ -266,30 +266,43 @@ export async function flowableValidate(flags) {
 
     try {
       const content = readFileSync(fp, "utf8")
-      const formData = new FormData()
-      const blob = new Blob([content], { type: art.type.includes("json") ? "application/json" : "text/xml" })
-      formData.append("file", blob, art.file)
 
-      // Dry-run deploy
-      const res = await fetch(`${baseUrl}/service/repository/deployments`, {
-        method: "POST",
-        headers: { Authorization: basicAuth(user, pass) },
-        body: formData,
-      })
-
-      if (res.status === 201) {
-        const dep = await res.json()
-        // Clean up: delete the test deployment
-        await fetch(`${baseUrl}/service/repository/deployments/${dep.id}?cascade=true`, {
-          method: "DELETE",
+      // The process repository endpoint only accepts BPMN (.bpmn20.xml/.bar/.zip)
+      // — it rejects DMN/Form/CMMN. Deploy-validate BPMN against the live
+      // engine (the strongest proof); structurally validate the others. Live
+      // DMN/Form engine validation is gated on the richer generators
+      // (yamlToDmn is a known structural stub), so it is a documented follow-up.
+      if (art.type === "bpmn20.xml") {
+        const formData = new FormData()
+        formData.append("file", new Blob([content], { type: "text/xml" }), art.file)
+        const res = await fetch(`${baseUrl}/service/repository/deployments`, {
+          method: "POST",
           headers: { Authorization: basicAuth(user, pass) },
+          body: formData,
         })
-        console.log(`  ✓ ${art.file} — valid`)
-        valid++
+        if (res.status === 201) {
+          const dep = await res.json()
+          // Clean up: delete the test deployment (no-mutation validation).
+          await fetch(`${baseUrl}/service/repository/deployments/${dep.id}?cascade=true`, {
+            method: "DELETE",
+            headers: { Authorization: basicAuth(user, pass) },
+          })
+          console.log(`  ✓ ${art.file} — valid (deployed to live engine)`)
+          valid++
+        } else {
+          const body = await res.text().catch(() => "")
+          console.log(`  ✗ ${art.file} — rejected by engine: ${body.slice(0, 200)}`)
+          invalid++
+        }
       } else {
-        const body = await res.text().catch(() => "")
-        console.log(`  ✗ ${art.file} — rejected: ${body.slice(0, 200)}`)
-        invalid++
+        const err = structuralError(art.type, content)
+        if (err) {
+          console.log(`  ✗ ${art.file} — malformed: ${err}`)
+          invalid++
+        } else {
+          console.log(`  ✓ ${art.file} — valid (structural; ${art.type} engine deploy is a documented follow-up)`)
+          valid++
+        }
       }
     } catch (err) {
       console.log(`  ✗ ${art.file} — error: ${err.message}`)
@@ -332,6 +345,31 @@ function basicAuth(user, pass) {
 }
 
 /**
+ * Structural well-formedness check for artifacts the process-engine deployment
+ * endpoint can't accept (DMN, Form, CMMN). Returns an error string if the
+ * artifact is malformed, or null if it passes. This is deliberately a
+ * structural check, not live-engine validation — see flowableValidate.
+ */
+function structuralError(type, content) {
+  if (type.includes("json")) {
+    let doc
+    try {
+      doc = JSON.parse(content)
+    } catch (e) {
+      return `invalid JSON (${e.message})`
+    }
+    if (!doc || !Array.isArray(doc.fields)) return "form definition missing a fields[] array"
+    return null
+  }
+  // XML artifacts (dmn, cmmn.xml): must be a well-formed <definitions> document
+  // with the expected root model element.
+  if (!/<definitions[\s>]/.test(content)) return "missing <definitions> root"
+  if (type === "dmn" && !/<decision[\s>]/.test(content)) return "DMN missing a <decision>"
+  if (type === "cmmn.xml" && !/<case[\s>]/.test(content)) return "CMMN missing a <case>"
+  return null
+}
+
+/**
  * Load blueprint sections from either staged files (01..06-*.yaml) or a
  * monolithic blueprint.yaml. Returns a flat section map plus the resolved
  * blueprint id so the converter behaves identically on both output shapes
@@ -369,6 +407,28 @@ function loadBlueprintSections(bpDir) {
 // scripts/bpmn-roundtrip.mjs and scripts/flowable-deploy-test.mjs)
 // ---------------------------------------------------------------------------
 
+// Flowable's `flowable-executable-process` validation set refuses to deploy a
+// service/send task that has no implementation (one of class / expression /
+// delegateExpression / type). A blueprint is a spec, not wired to real Java
+// delegates, so we emit a JUEL expression — the same proven-deployable pattern
+// the hand-written login-flow.bpmn20.xml uses. An explicit implementation on
+// the step (expression / delegateExpression / class) always wins; otherwise we
+// synthesize a stable, valid placeholder bound to the step id.
+function taskImplAttr(step, stepId, defaultBean) {
+  if (step.expression) {
+    const e = /^\$\{.*\}$/.test(step.expression) ? step.expression : `\${${step.expression}}`
+    return ` flowable:expression="${xmlAttr(e)}"`
+  }
+  if (step.delegateExpression) return ` flowable:delegateExpression="${xmlAttr(step.delegateExpression)}"`
+  if (step.class || step.implementation) return ` flowable:class="${xmlAttr(step.class || step.implementation)}"`
+  return ` flowable:expression="\${${defaultBean}.execute('${xmlAttr(stepId)}')}"`
+}
+
+// Minimal XML attribute escaper (the converter previously emitted raw values).
+function xmlAttr(v) {
+  return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+}
+
 function yamlToBpmn(wf, key) {
   const steps = getItems(wf.steps || wf)
   const name = wf.name || key
@@ -400,11 +460,15 @@ function yamlToBpmn(wf, key) {
       if (stepType === "user-action" || stepType === "user-task") {
         xml += `    <userTask id="${stepId}" name="${stepName}" flowable:assignee="${step.actor || ""}"/>\n`
       } else if (stepType === "system-action" || stepType === "service-task") {
-        xml += `    <serviceTask id="${stepId}" name="${stepName}"/>\n`
+        xml += `    <serviceTask id="${stepId}" name="${stepName}"${taskImplAttr(step, stepId, "awpService")}/>\n`
       } else if (stepType === "decision" || stepType === "exclusive-gateway") {
         xml += `    <exclusiveGateway id="${stepId}" name="${stepName}"/>\n`
       } else if (stepType === "notification" || stepType === "send-task") {
-        xml += `    <sendTask id="${stepId}" name="${stepName}"/>\n`
+        // Flowable's <sendTask> requires a bound `type` (mail) or `operation`
+        // (web-service) — it rejects a plain expression. A blueprint has no
+        // mail/WS binding yet, so emit the notification as an expression-backed
+        // <serviceTask> (proven deployable) that names the notifier service.
+        xml += `    <serviceTask id="${stepId}" name="${stepName}"${taskImplAttr(step, stepId, "awpNotifier")}/>\n`
       } else {
         xml += `    <userTask id="${stepId}" name="${stepName}"/>\n`
       }
