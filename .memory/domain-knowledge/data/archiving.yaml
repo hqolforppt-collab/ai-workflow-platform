@@ -1,0 +1,30 @@
+id: archiving
+type: cross-cutting
+version: 1.0.0
+pack: data
+triggers:
+  - archive
+  - { term: archiving, synonyms: [cold storage, retention, purge, tiering, glacier] }
+  - { term: retention, synonyms: [retention policy, expiry, data lifecycle, ttl] }
+implies: [backup, compliance, privacy, audit, disaster-recovery]
+standards:
+  - { id: GDPR-Art5, version: "2016/679 Art.5(1)(e)", verified: 2026-07-05, url: "https://gdpr-info.eu/art-5-gdpr/" }
+  - { id: DAMA-DMBOK, version: "2", verified: 2026-07-05, url: "https://www.dama.org/cpages/body-of-knowledge" }
+constraints:
+  - { id: ARCH-C1, rule: "Every dataset carries a retention policy with a defined period and a lawful basis; data past its period is purged or irreversibly anonymised on a scheduled job, satisfying GDPR storage-limitation (Art.5(1)(e))" }
+  - { id: ARCH-C2, rule: "Storage tiers are explicit (hot / warm / cold-archive) with a documented transition age; e.g. records untouched for 90 days move to cold storage automatically" }
+  - { id: ARCH-C3, rule: "Retrieval SLAs are stated per tier (hot <1s, cold-archive minutes-to-hours) and surfaced to callers so a request against archived data returns a restore-pending response rather than a timeout" }
+  - { id: ARCH-C4, rule: "Legal hold overrides retention: a record under hold is exempt from purge until the hold is lifted, and hold placement/removal is audit-logged" }
+  - { id: ARCH-C5, rule: "Archived data remains restorable and integrity-verified: a periodic restore test validates a sampled object's checksum, and a GDPR erasure request reaches archived tiers, not just hot storage" }
+requirement-seeds:
+  - id: discovery/archiving/REQ-1
+    title: Retention purge
+    ac: "Given a record older than its retention period and not under legal hold, When the retention job runs, Then the record is purged or anonymised and the action is audit-logged"
+  - id: discovery/archiving/REQ-2
+    title: Cold-tier retrieval SLA
+    ac: "Given a read request for cold-archived data, When it is issued, Then the caller receives a restore-pending status with an ETA rather than a timeout"
+blueprint-sections: [requirements, workflows, security]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: data-platform-wg

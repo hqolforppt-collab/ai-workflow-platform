@@ -1,0 +1,28 @@
+id: document-lifecycle
+type: functional
+version: 1.0.0
+pack: documents
+triggers:
+  - { term: lifecycle, synonyms: [workflow, state, status, stage] }
+  - { term: publish, synonyms: [draft, review, approve, archive] }
+implies: [authorization, audit, notification, versioning, retention]
+standards:
+  - { id: ISO-15489, version: "2016", verified: 2026-07-05, url: "https://www.iso.org/standard/62542.html" }
+constraints:
+  - { id: DLC-C1, rule: "States are a fixed machine: draft -> review -> approved -> published -> archived; transitions validated server-side and illegal jumps (e.g. draft -> published) rejected with 409" }
+  - { id: DLC-C2, rule: "Transitions are role-gated: author submits to review, only a distinct reviewer/approver moves review -> approved (segregation of duties, author cannot approve own document)" }
+  - { id: DLC-C3, rule: "published state is immutable; edits require a new draft version; the previously published version stays retrievable until superseded or archived" }
+  - { id: DLC-C4, rule: "Every transition writes an audit record (from-state, to-state, actor, timestamp, reason) and notifies subscribed stakeholders within 1 minute" }
+  - { id: DLC-C5, rule: "archived documents are read-only and excluded from active listings but retained per the applicable retention schedule" }
+requirement-seeds:
+  - id: discovery/document-lifecycle/REQ-1
+    title: Enforced state transitions
+    ac: "Given a document in draft state, When a transition directly to published is requested, Then it is rejected with 409 and the state is unchanged"
+  - id: discovery/document-lifecycle/REQ-2
+    title: Segregation of duties on approval
+    ac: "Given a document in review authored by user A, When user A attempts to approve it, Then the action is denied with 403 and logged"
+blueprint-sections: [workflows, authorization, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

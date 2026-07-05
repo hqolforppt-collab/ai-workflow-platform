@@ -26,19 +26,36 @@ jobs:
       - name: Platform validation (awp validate)
         run: node packages/awp-cli/bin/awp.js validate
 
+      - name: Knowledge-base graph integrity (awp validate --kb)
+        run: node packages/awp-cli/bin/awp.js validate --kb
+
+      - name: KB index is not stale (awp kb build-index --check)
+        run: node packages/awp-cli/bin/awp.js kb build-index --check
+
+      - name: Blueprint schema parses + summary in sync (awp schema check)
+        run: node packages/awp-cli/bin/awp.js schema check
+
       - name: Blueprint integrity (awp build --check)
         run: node packages/awp-cli/bin/awp.js build --check
 
       - name: Unit tests (governance, CLI, MCP client)
         run: pnpm -r test
 
-      - name: Golden blueprint deterministic validation (17/17)
-        run: node packages/awp-cli/bin/awp.js validate examples/workflow-builder/login-registration --story="Create Login and Registration Feature" --level=L6
-
-      - name: Staged aggregation round-trips
+      # Every golden example: 26/26 deterministic validation, aggregate
+      # round-trip, and Flowable conversion. Add a new example dir + story here.
+      - name: Golden examples — validate 26/26, aggregate diff, convert
         run: |
-          node packages/awp-cli/bin/awp.js build --aggregate --out=examples/workflow-builder/login-registration
-          git diff --exit-code examples/workflow-builder/login-registration/blueprint.yaml
-
-      - name: Flowable conversion emits artifacts
-        run: node packages/awp-cli/bin/awp.js flowable convert examples/workflow-builder/login-registration --out=/tmp/awp-flowable-out
+          set -e
+          declare -A STORIES
+          STORIES[login-registration]="Create Login and Registration Feature"
+          STORIES[invoice-approval]="Invoice approval workflow with amount-based routing and four-eyes for large invoices"
+          STORIES[employee-onboarding]="Employee onboarding case with document collection, equipment provisioning, and training"
+          for ex in "${!STORIES[@]}"; do
+            dir="examples/workflow-builder/$ex"
+            [ -d "$dir" ] || { echo "skip missing $dir"; continue; }
+            echo "== $ex =="
+            node packages/awp-cli/bin/awp.js validate "$dir" --story="${STORIES[$ex]}" --level=L6
+            node packages/awp-cli/bin/awp.js build --aggregate --out="$dir"
+            git diff --exit-code "$dir/blueprint.yaml"
+            node packages/awp-cli/bin/awp.js flowable convert "$dir" --out="/tmp/awp-flowable-$ex"
+          done

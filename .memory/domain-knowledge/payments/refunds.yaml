@@ -1,0 +1,31 @@
+id: refunds
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - refund
+  - { term: chargeback, synonyms: [dispute, reversal] }
+  - { term: return, synonyms: [money-back, credit-back] }
+  - void
+implies: [payments, audit, fraud-detection, notification, compliance]
+standards:
+  - { id: PCI-DSS, version: "4.0", verified: 2026-07-05, url: "https://www.pcisecuritystandards.org" }
+  - { id: ISO-4217, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/iso-4217-currency-codes.html" }
+constraints:
+  - { id: REF-C1, rule: "Refunds allowed within 180 days of capture; sum of partial refunds must be <= original captured amount" }
+  - { id: REF-C2, rule: "Refunds settle to the original payment instrument only; never to a different card/account (anti-fraud)" }
+  - { id: REF-C3, rule: "Refund requests are idempotent via idempotency key; a retried refund never double-credits the customer" }
+  - { id: REF-C4, rule: "Uncaptured authorizations are voided (not refunded); captured funds are refunded; the path is chosen by charge state" }
+  - { id: REF-C5, rule: "Chargebacks tracked with reason code and evidence-due date; represented within card-network deadline (typically <= 20 days)" }
+requirement-seeds:
+  - id: discovery/refunds/REQ-1
+    title: Partial refund cap
+    ac: "Given a captured payment, When cumulative refunds would exceed the original amount, Then the refund is rejected with a 422 error"
+  - id: discovery/refunds/REQ-2
+    title: Idempotent refund
+    ac: "Given a refund with an idempotency key, When it is retried, Then the customer is credited at most once"
+blueprint-sections: [api, workflows, requirements, compliance, security]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

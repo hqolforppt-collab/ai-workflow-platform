@@ -1,0 +1,30 @@
+id: ordering
+type: functional
+version: 1.0.0
+pack: commerce
+triggers:
+  - order
+  - { term: cart, synonyms: [place order, purchase order, basket, checkout basket] }
+  - { term: order status, synonyms: [order state, order lifecycle] }
+implies: [inventory, catalog, fraud-detection, audit, notification, error-management]
+standards:
+  - { id: GS1, version: "2024", verified: 2026-07-05, url: "https://www.gs1.org" }
+  - { id: ISO-8601, version: "2019", verified: 2026-07-05, url: "https://www.iso.org/iso-8601-date-and-time-format.html" }
+constraints:
+  - { id: ORD-C1, rule: "Order total recomputed server-side from current catalog prices, taxes, and shipping; client-supplied prices never trusted" }
+  - { id: ORD-C2, rule: "Order state machine is one-directional: cart -> placed -> paid -> fulfilled -> closed, with cancelled/refunded terminal branches; illegal transitions rejected" }
+  - { id: ORD-C3, rule: "Order submission carries an idempotency key retained >= 24h; a retry with the same key creates at most one order" }
+  - { id: ORD-C4, rule: "Stock is reserved atomically at order placement; if any line item is unavailable the order is rejected or backordered per policy, never silently accepted" }
+  - { id: ORD-C5, rule: "Every state transition emits a timestamped (ISO-8601) audit event with actor, previous state, and new state" }
+requirement-seeds:
+  - id: discovery/ordering/REQ-1
+    title: Stock check at order
+    ac: "Given an item out of stock, When a customer submits an order, Then the order is rejected or backordered per policy, never silently accepted"
+  - id: discovery/ordering/REQ-2
+    title: Server-side pricing
+    ac: "Given a cart with client-supplied prices, When the order is submitted, Then the total is recomputed server-side from catalog prices and any client price mismatch is discarded"
+blueprint-sections: [workflows, requirements, data-model, api]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: commerce-wg

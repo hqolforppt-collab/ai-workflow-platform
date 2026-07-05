@@ -1,0 +1,30 @@
+id: pricing
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - pricing
+  - { term: price, synonyms: [rate-card, list-price] }
+  - { term: discount, synonyms: [coupon, promo, promotion] }
+  - { term: quote, synonyms: [price-book] }
+implies: [payments, tax, audit, analytics]
+standards:
+  - { id: ISO-4217, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/iso-4217-currency-codes.html" }
+constraints:
+  - { id: PRICE-C1, rule: "Prices stored per-currency in integer minor units; never FX-convert at charge time from a single base price without a locked rate" }
+  - { id: PRICE-C2, rule: "Every price has an effective-from/effective-to window; the price applied to an order is snapshotted and immutable after order placement" }
+  - { id: PRICE-C3, rule: "Discount stacking is bounded: order total after all discounts must be >= 0; percentage + fixed discounts apply in a defined deterministic order" }
+  - { id: PRICE-C4, rule: "Coupon codes enforce max-redemptions, per-customer limits, and expiry; redemption is atomic to prevent over-issue under concurrency" }
+  - { id: PRICE-C5, rule: "Displayed price signals tax-inclusive vs tax-exclusive explicitly per locale; B2C EU prices shown tax-inclusive" }
+requirement-seeds:
+  - id: discovery/pricing/REQ-1
+    title: Price snapshot
+    ac: "Given an order is placed, When the catalog price later changes, Then the order retains the price captured at placement time"
+  - id: discovery/pricing/REQ-2
+    title: Discount floor
+    ac: "Given stacked discounts on an order, When totals are computed, Then the payable amount is never below zero"
+blueprint-sections: [api, workflows, requirements, analytics]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

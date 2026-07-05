@@ -1,0 +1,32 @@
+id: payments
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - payment
+  - { term: checkout, synonyms: [pay, purchase, charge] }
+  - { term: card, synonyms: [credit-card, debit-card, wallet] }
+  - psp
+implies: [fraud-detection, audit, compliance, security, notification, refunds]
+standards:
+  - { id: PCI-DSS, version: "4.0", verified: 2026-07-05, url: "https://www.pcisecuritystandards.org" }
+  - { id: PSD2-SCA, version: "RTS-2018", verified: 2026-07-05, url: "https://eur-lex.europa.eu/eli/reg_del/2018/389/oj" }
+  - { id: ISO-4217, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/iso-4217-currency-codes.html" }
+constraints:
+  - { id: PAY-C1, rule: "Card data never stored; tokenize via PSP; PAN/CVV never logged or persisted (PCI-DSS 3.2/3.4)" }
+  - { id: PAY-C2, rule: "All amounts in minor units (integer cents); currency ISO-4217 3-letter code; never use floats for money" }
+  - { id: PAY-C3, rule: "Charge requests carry an idempotency key retained >= 24h; a retry with the same key charges at most once" }
+  - { id: PAY-C4, rule: "Transactions >= EUR 30 in EU require PSD2 Strong Customer Authentication (2-of-3 factors) unless a documented exemption applies" }
+  - { id: PAY-C5, rule: "Auth-then-capture window <= 7 days; uncaptured authorizations auto-void; every state transition emits an audit event" }
+requirement-seeds:
+  - id: discovery/payments/REQ-1
+    title: Idempotent charge
+    ac: "Given a payment with an idempotency key, When the request is retried, Then the customer is charged at most once and the original result is returned"
+  - id: discovery/payments/REQ-2
+    title: SCA challenge
+    ac: "Given an EU card payment >= EUR 30, When no SCA exemption applies, Then a 3-D Secure challenge is completed before capture"
+blueprint-sections: [security, api, workflows, requirements, compliance]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

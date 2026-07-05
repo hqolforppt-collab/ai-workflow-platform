@@ -1,18 +1,23 @@
 /**
- * validate.js — deterministic 17-rule validation engine.
+ * validate.js — deterministic 26-rule validation engine.
  *
  * Runs against the staged blueprint files (01..06-*.yaml) or a monolithic
  * blueprint.yaml. All checks are code, not LLM judgment — this is the
- * guarantee that cheap models can't hallucinate "17/17 passed".
+ * guarantee that cheap models can't hallucinate "N/N passed".
  *
- * Rules: VAL-001, 002, 010, 011, 012, 013, 020, 021, 022, 023, 024,
- *        030, 031, 032, 040, 041, 042 (17 total).
+ * Structural + traceability (this file): VAL-001, 002, 010, 011, 012, 013,
+ *   020, 021, 022, 023, 024, 030, 031, 032, 040, 041, 042 (17).
+ * Schema conformance (rules-ext.js): VAL-050..054 (5).
+ * Substance lints (rules-ext.js):    VAL-060..063 (4).
+ * Total: 26.
  *
- * Returns {passed: string[], failed: {rule, file, path, hint}[]}
+ * Returns {passed: string[], failed: {rule, file, path, hint}[],
+ *          warnings: {rule, file, path, hint}[]}
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { readYaml, tryReadYaml } from "./lib/repo.js"
+import { extendedRules } from "./rules-ext.js"
 
 const REQUIRED_SECTIONS = [
   "project", "domains", "requirements", "actors", "roles",
@@ -28,6 +33,11 @@ const ALWAYS_POPULATED = [
   "deployment", "operations", "documentation", "risks",
   "assumptions", "governance", "compliance",
 ]
+
+// Optional sections the blueprint MAY carry beyond the 28 required ones
+// (e.g. DMN decision tables). Recognized by VAL-051 so they aren't flagged
+// as undeclared, but not required by VAL-001.
+const OPTIONAL_SECTIONS = ["decision-tables", "decisions"]
 
 const AUTH_TRIGGERS = /login|registration|signin|auth|password|account/i
 
@@ -363,7 +373,12 @@ export function validateBlueprint(root, targetPath, opts = {}) {
     passed.push("VAL-042")
   }
 
-  return { passed, failed }
+  // VAL-050..054 (schema conformance) + VAL-060..063 (substance lints).
+  const ext = extendedRules(allContent, filesMap, { level, schemaSections: [...REQUIRED_SECTIONS, ...OPTIONAL_SECTIONS] })
+  passed.push(...ext.passed)
+  failed.push(...ext.failed)
+
+  return { passed, failed, warnings: ext.warnings }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,111 @@
+# 06-forms.yaml — Stage 6/6 (Forms)
+# Sections: forms, pages, testing, deployment, operations, support, documentation, governance, compliance
+_meta:
+  blueprint_id: BLU-INVOICE-APPROVAL
+  stage: stage-06
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-04, stage-05]
+  trace:
+    upstream: [04-root-models.yaml, 05-dependent-models.yaml]
+
+forms:
+  - id: FRM-001
+    name: Invoice Submission Form
+    used-in: [WF-001, PG-001]
+    fields:
+      - { name: invoiceReference, label: "Invoice reference", type: text,     required: true, validation: "matches issued gapless reference; not previously submitted", error-message: "Enter the exact invoice reference from the issued document.", accessibility: "autocomplete=off; described-by inline error" }
+      - { name: department,       label: "Department",         type: select,   required: true, validation: "one of master-data:department", error-message: "Select the department that owns this cost.", accessibility: "native select; labelled options" }
+      - { name: grossAmount,      label: "Gross amount",       type: number,   required: true, validation: "> 0; equals sum(lines)+sum(tax) server-side", error-message: "Gross amount must be positive and match the invoice line and tax totals.", accessibility: "inputmode=decimal; currency announced" }
+      - { name: vendorRisk,       label: "Vendor risk",        type: select,   required: true, validation: "one of master-data:vendor-risk", error-message: "Select the vendor risk band supplied by procurement.", accessibility: "native select; default from vendor master" }
+    submit-behavior: "POST API-001; disable submit while pending; on 400 show totals-mismatch inline; on 202 show routed-confirmation"
+    security: [csrf-token, rate-limited, sso-authenticated]
+  - id: FRM-002
+    name: Approval Decision Form
+    used-in: [WF-001, WF-003, PG-002]
+    fields:
+      - { name: decision, label: "Decision", type: select,   required: true, validation: "one of approve|reject", error-message: "Choose whether to approve or reject this invoice.", accessibility: "radio-group semantics; announced" }
+      - { name: reason,   label: "Reason",   type: text,     required: true, validation: "min 10 chars; required for both approve and reject (APRV-C1)", error-message: "Enter a reason of at least 10 characters for this decision.", accessibility: "aria-describedby character-count" }
+    submit-behavior: "POST API-002; on 403 show segregation-of-duties or over-limit banner; never disclose the maker's identity to a blocked checker"
+    security: [csrf-token, rate-limited, sso-authenticated, decision-time-limit-check]
+
+pages:
+  - { id: PG-001, name: Submit Invoice,   route: /invoices/submit,        access: [ROLE-AP-CLERK],                                  states: [default, submitting, routed, totals-error], components: [FRM-001, invoice-preview], navigation: { entry-points: [ap-inbox], exit-points: [/approvals] } }
+  - { id: PG-002, name: Approval Inbox,   route: /approvals,              access: [ROLE-APPROVER, ROLE-CFO],                        states: [default, loading, empty, error], components: [assigned-list, sla-badges, FRM-002], navigation: { entry-points: [notification-link, dashboard], exit-points: ["/approvals/{id}"] } }
+  - { id: PG-003, name: Approval Detail,  route: "/approvals/{id}",       access: [ROLE-AP-CLERK, ROLE-APPROVER, ROLE-CFO, ROLE-AUDITOR], states: [pending-approver, pending-checker, escalated, approved, rejected], components: [invoice-detail, chain-timeline, four-eyes-indicator, FRM-002], navigation: { entry-points: [/approvals], exit-points: [/approvals] } }
+  - { id: PG-004, name: Exception Queue,  route: /approvals/exceptions,   access: [ROLE-CFO],                                       states: [default, loading, empty], components: [exception-list, manual-route-action], navigation: { entry-points: [ALT-002-alert, dashboard], exit-points: ["/approvals/{id}"] } }
+
+testing:
+  strategy: "Test pyramid: unit (DEC-001 rule matrix, four-eyes distinctness, effective-limit math) > integration (API + datastore + notification stub) > e2e (submit -> route -> approve -> four-eyes -> finalize). Decision-table and four-eyes tests run in CI on every PR; SLA/escalation tested with a simulated clock."
+  coverage-targets: { unit: "95% on routing + four-eyes + limit logic", integration: "all 4 API endpoints x all documented responses", e2e: "WF-001, WF-002, WF-003 happy + primary failure paths" }
+  golden-scenarios:
+    - { id: GS-001, name: Small invoice single approval,   given: "a 4,000 EUR low-risk marketing invoice",  when: "it is submitted and routed via DEC-001",           then: "it goes to a team-lead approver with requires-four-eyes false and finalizes on one approval", requirement: REQ-001 }
+    - { id: GS-002, name: Large invoice needs four-eyes,   given: "a 60,000 EUR invoice",                    when: "it is submitted and routed via DEC-001",           then: "it routes to a CFO approver with requires-four-eyes true and cannot finalize on one approval",  requirement: REQ-002 }
+    - { id: GS-003, name: Maker cannot be checker,         given: "a large invoice approved once by user A", when: "user A attempts the second checker approval",      then: "the approval is rejected server-side with a SoD error and AUD-004 is recorded",                 requirement: REQ-002 }
+    - { id: GS-004, name: SLA breach escalates,            given: "an approval stage with a 24 business-hour SLA", when: "24 business hours elapse with no decision",   then: "the stage is flagged breached and escalates to the next authority with NOT-002 and AUD-005",   requirement: REQ-011 }
+    - { id: GS-005, name: Delegation capped at delegator,  given: "a 10,000 EUR delegator delegating authority", when: "the delegate approves a 20,000 EUR invoice",    then: "the approval is rejected for exceeding the delegator cap and AUD-006 records both identities",  requirement: REQ-013 }
+    - { id: GS-006, name: High-risk vendor forces four-eyes, given: "a 6,000 EUR invoice from a high-risk vendor", when: "it is routed via DEC-001 rule R3",             then: "requires-four-eyes is true even though the amount is below the large-invoice threshold",       requirement: REQ-001 }
+  security-tests: [self-approval-attempt-on-all-endpoints, over-limit-approval-bypass, delegation-cap-bypass, expired-delegation-replay, audit-tamper-detection, csrf-on-decide-and-delegate, idor-on-approval-read]
+  performance-tests: [routing-60s-p95-at-50-submissions-per-min, sla-timer-tick-under-5min-at-10k-open-requests, escalation-storm-after-holiday-backlog]
+
+deployment:
+  environments: [dev, staging, production]
+  pipeline: [lint, unit-tests, decision-table-tests, integration-tests, security-scan, build, deploy-staging, e2e-on-staging, manual-gate, deploy-production]
+  rollout: canary
+  rollback: "automatic on ALT-001 firing during canary window; otherwise one-click revert to previous image; DEC-001 changes are versioned and roll back independently of code; DB migrations are expand-contract"
+  feature-flags: [four-eyes-strict-mode, sla-escalation-enabled, high-risk-vendor-override]
+  configuration: [DATABASE_URL, IDP_ISSUER_URL, IDP_CLIENT_SECRET, NOTIFICATION_API_KEY, PAYMENTS_SERVICE_URL, BUSINESS_CALENDAR_URL]
+
+operations:
+  runbooks:
+    - { id: RB-001, scenario: "SLA-breach rate above SLO (ALT-001)", steps: ["check sla-breach-trends dashboard for the stalling stage", "inspect open-request queue by approver for absentees", "trigger delegation or manual escalation for blocked approvers", "if systemic: check SLA timer health and business-calendar config", "post an incident note in #ap-ops"], owner: sre-lead }
+    - { id: RB-002, scenario: "Exception queue backing up (ALT-002)", steps: ["open the exception queue page (PG-004)", "triage DEC-001 no-match items — confirm department and vendor-risk inputs", "manually route or return each item with a reason", "if a routing gap recurs, open a G3 change to DEC-001"], owner: ap-controller }
+    - { id: RB-003, scenario: "Segregation-of-duties block observed (ALT-003)", steps: ["review approval.sod-blocked events in the compliance dashboard", "confirm whether a shared account or self-approval was attempted", "notify compliance-officer; preserve audit evidence", "if abuse: suspend the account and file a control-incident"], owner: compliance-officer }
+  capacity: { expected-load: "50 invoice submissions/min steady, 10k open approval requests", peak-load: "300 submissions/min at month-end close", scaling-strategy: "horizontal auto-scale on CPU+queue-depth; SLA timer partitioned by tenant; audit writes buffered" }
+  maintenance: [weekly-dependency-patching, monthly-secret-rotation-check, quarterly-DEC-001-threshold-review-with-internal-audit]
+  on-call: "platform on-call rota; approval-service pages route to AP backend on-call with compliance-officer escalation for SoD signals"
+
+support:
+  tiers: [self-service-help-center, tier-1-ap-support, tier-2-approval-team, compliance-escalation]
+  escalation: "tier-1 -> tier-2 within 4 business hours; suspected control bypass -> compliance-officer immediately"
+  common-issues:
+    - { issue: "Invoice stuck in approval", resolution: "check the approval detail SLA badge; if breached it will auto-escalate; tier-2 can trigger delegation for an absent approver", kb-ref: KB-AP-001 }
+    - { issue: "Approval blocked as segregation-of-duties", resolution: "a different person must approve; the maker of an invoice can never be its checker; tier-2 confirms the second eligible approver", kb-ref: KB-AP-002 }
+    - { issue: "Invoice returned for totals mismatch", resolution: "correct the line/tax totals and resubmit; the reference stays the same, a corrected document is issued", kb-ref: KB-AP-003 }
+  user-impact-comms: "status page entry + in-app banner for approval-service incidents > 10 min; templated comms owned by ap-controller"
+
+documentation:
+  - { type: user-guide,     audience: "AP clerks and approvers", owner: ap-controller,      location: help-center/approvals/,          update-trigger: "any UX or policy change visible to users" }
+  - { type: api-reference,  audience: "client developers",       owner: approval-service-team, location: docs/api/approvals.md,        update-trigger: "any API contract change (CI-enforced)" }
+  - { type: runbook,        audience: "on-call engineers",       owner: sre-lead,           location: operations.runbooks,             update-trigger: "every incident post-mortem" }
+  - { type: architecture,   audience: "engineers and auditors",  owner: architect,          location: docs/architecture/approvals.md,  update-trigger: "any ADR affecting routing, four-eyes, or DEC-001" }
+  - { type: onboarding,     audience: "new team members",        owner: approval-service-team, location: docs/onboarding/approvals.md,  update-trigger: "quarterly review" }
+
+governance:
+  approvals:
+    - { gate: G1-requirements, approver-role: ap-controller,      status: pending }
+    - { gate: G2-architecture, approver-role: architect,          status: pending }
+    - { gate: G3-data-model,   approver-role: architect,          status: pending }
+    - { gate: G4-security,     approver-role: compliance-officer, status: pending }
+  lifecycle: draft
+  version: 1.0.0
+  change-policy: "changes to must-priority requirements, DEC-001 routing rules, or the four-eyes threshold reopen the affected gate; all changes via PR with trace update and internal-audit sign-off"
+  traceability: "every hidden requirement and cross-cutting domain cites discovery/<domain>/<rule-id>; explicit items cite the verbatim story; workflows reference requirement ids; DEC-001 traces to REQ-001 and WF-001.S2; audit/notification/runbook ids cross-link"
+
+compliance:
+  regulations:
+    - { name: SOX,     applicable: true,  rationale: "money-moving approval with segregation-of-duties controls (four-eyes) requires SOX 404 evidence", obligations: [segregation-of-duties-enforcement, immutable-audit-trail, change-management-evidence, quarterly-control-testing] }
+    - { name: SOC2,    applicable: true,  rationale: "B2B customers expected to request SOC2 Type II reports for the approval platform", obligations: [logical-access-controls-CC6, audit-trail-retention, incident-response-runbooks] }
+    - { name: GDPR,    applicable: true,  rationale: "processes personal data (approver identities, sole-trader vendor names)", obligations: [lawful-basis-legitimate-interest, data-subject-rights-support, retention-limitation] }
+    - { name: PCI-DSS, applicable: false, rationale: "no cardholder data; disbursement and card handling are out of scope (ASM-003)" }
+  privacy:
+    pii-inventory: [ENT-Invoice.vendor_name, ENT-ApprovalRequest.maker_id, ENT-ApprovalRequest.checker_id, ENT-AuditEntry.actor_id]
+    consent: "processing of approver identities relies on legitimate-interest/employment basis, not consent; documented in the privacy notice for staff"
+    data-subject-rights: [access, rectification, erasure-where-not-under-legal-hold]
+  backup:
+    strategy: "automated daily snapshots + continuous WAL archiving; encrypted at rest; cross-region copy; audit store backed up before each WORM export"
+    rpo: "5 minutes"
+    rto: "1 hour"
+  disaster-recovery:
+    plan: "warm standby in a secondary region; DNS failover; SLA timers resume from persisted sla_due_at so no breach is lost; in-flight approvals re-validate eligibility on recovery"
+    test-frequency: "twice yearly game-day, including restore-from-backup and audit-chain-verification drill"

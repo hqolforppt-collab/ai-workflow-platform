@@ -1,0 +1,30 @@
+id: master-data-sync
+type: functional
+version: 1.0.0
+pack: data
+triggers:
+  - master data
+  - mdm
+  - { term: sync, synonyms: [synchronise, synchronize, replication, golden record, source of truth] }
+  - { term: reconcile, synonyms: [conflict resolution, referential integrity, dedup, merge] }
+implies: [audit, monitoring, error-management, data-quality, notification]
+standards:
+  - { id: DAMA-DMBOK, version: "2", verified: 2026-07-05, url: "https://www.dama.org/cpages/body-of-knowledge" }
+constraints:
+  - { id: MDM-C1, rule: "One system is the declared source of truth per entity; downstream copies are read-mostly and stamped with source id and sync timestamp so provenance of every attribute is traceable" }
+  - { id: MDM-C2, rule: "Conflicts are resolved by an explicit, deterministic policy (last-writer-wins on source updated_at, or field-level survivorship rules) — never arbitrary; the losing value is retained in history, not overwritten silently" }
+  - { id: MDM-C3, rule: "Referential integrity is enforced on sync: a record referencing a not-yet-synced parent is deferred to a pending queue and retried, not written as an orphan" }
+  - { id: MDM-C4, rule: "Sync cadence is defined per entity (e.g. near-real-time via CDC for accounts, hourly batch for reference data) with a bounded max staleness SLA that is monitored and alerted on breach" }
+  - { id: MDM-C5, rule: "A periodic full reconciliation compares source vs target counts and checksums; any divergence beyond 0.1% of records raises an alert and triggers a targeted re-sync" }
+requirement-seeds:
+  - id: discovery/master-data-sync/REQ-1
+    title: Deterministic conflict resolution
+    ac: "Given the same record updated in two systems, When sync runs, Then the survivorship policy selects one value deterministically and the discarded value is preserved in history"
+  - id: discovery/master-data-sync/REQ-2
+    title: Reconciliation drift alert
+    ac: "Given source and target diverge by more than 0.1% of records, When reconciliation runs, Then an alert fires and a targeted re-sync is enqueued"
+blueprint-sections: [workflows, requirements, monitoring]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: data-platform-wg

@@ -1,0 +1,2061 @@
+project:
+  name: Invoice Approval Workflow
+  id: BLU-INVOICE-APPROVAL
+  blueprint-schema-version: 2.0.0
+  maturity-level: L6
+  story: Invoice approval workflow with amount-based routing and four-eyes for
+    large invoices
+  summary: >
+    Accounts-payable invoice approval with amount-based routing driven by a DMN
+    decision table and mandatory four-eyes (maker != checker) on large invoices.
+    The user asked for 2 things (amount-based routing, four-eyes for large
+    invoices). Discovery expanded these into 24 domains: the approval mechanics
+    (approval-chains, four-eyes, escalation, delegation, sla-management), the
+    financial substance the invoices carry (invoicing, tax, payments), and the
+    obligations any money-moving enterprise process incurs (SOX/segregation-of-
+    duties audit, security, observability, resilience, and operations).
+  scope:
+    in-scope:
+      - Amount-based approval routing via DMN decision DEC-001 (amount,
+        department, vendor-risk -> approver-role, requires-four-eyes)
+      - Mandatory four-eyes (distinct maker and checker) for invoices at or
+        above the large-invoice threshold
+      - SLA-timed approval stages with automatic escalation to the next
+        authority on timeout
+      - Delegation of approval authority (time-boxed, capped,
+        four-eyes-preserving) for approver absence
+      - Immutable audit trail, structured logging, metrics, and SLOs for every
+        routing and approval decision
+    out-of-scope:
+      - Invoice capture / OCR ingestion (invoices arrive already parsed from the
+        AP inbox; see ASM-002)
+      - Actual payment disbursement and bank-file generation (handed to the
+        payments service post-approval; see ASM-003)
+      - Purchase-order matching and goods-receipt (3-way match handled upstream
+        in procurement; see ASM-004)
+      - Vendor master-data onboarding and vendor-risk scoring (consumed as an
+        input, not owned here)
+  stakeholders:
+    - ap-controller
+    - cfo
+    - procurement-lead
+    - compliance-officer
+    - sre-lead
+    - internal-audit
+  created: 2026-07-05
+domains:
+  functional:
+    - id: invoice-approval
+      name: Invoice Approval
+      source: user
+    - id: approval-chains
+      name: Approval Routing
+      source: user
+    - id: four-eyes
+      name: Four-Eyes Control
+      source: user
+    - id: invoicing
+      name: Invoicing
+      source: discovery
+      rationale: "implication-map: invoice-approval -> invoicing (the artifact being
+        approved is an invoice)"
+    - id: payments
+      name: Payments
+      source: discovery
+      rationale: "implication-map: invoice-approval -> payments (approval authorizes
+        disbursement)"
+    - id: escalation
+      name: Escalation
+      source: discovery
+      rationale: "implication-map: approval-chains -> escalation (stuck approvals must
+        move)"
+    - id: delegation
+      name: Delegation
+      source: discovery
+      rationale: "implication-map: approval-chains -> delegation (approver absence
+        coverage)"
+    - id: authorization
+      name: Authorization
+      source: discovery
+      rationale: "implication-map: four-eyes -> authorization (limits and eligibility)"
+  cross-cutting:
+    - id: audit
+      name: Audit Trail
+      source: discovery
+      discovery-rule: discovery/four-eyes/FOUR-C5
+      criticality: mandatory
+    - id: security
+      name: Security
+      source: discovery
+      discovery-rule: discovery/four-eyes/FOUR-C1
+      criticality: mandatory
+    - id: sla-management
+      name: SLA Management
+      source: discovery
+      discovery-rule: discovery/approval-chains/APRV-C2
+      criticality: mandatory
+    - id: tax
+      name: Tax
+      source: discovery
+      discovery-rule: discovery/invoicing/INV-C5
+      criticality: mandatory
+    - id: compliance
+      name: Compliance (SOX)
+      source: discovery
+      discovery-rule: discovery/four-eyes/SOX
+      criticality: mandatory
+    - id: notification
+      name: Notifications
+      source: discovery
+      discovery-rule: discovery/escalation/ESCL-C5
+      criticality: mandatory
+    - id: monitoring
+      name: Monitoring
+      source: discovery
+      discovery-rule: discovery/sla-management/SLA-C3
+      criticality: mandatory
+    - id: logging
+      name: Logging
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-01
+      criticality: mandatory
+    - id: observability
+      name: Observability
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-04
+      criticality: mandatory
+    - id: error-management
+      name: Error Management
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-03
+      criticality: mandatory
+    - id: documentation
+      name: Documentation
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-06
+      criticality: mandatory
+    - id: testing
+      name: Testing
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-07
+      criticality: mandatory
+    - id: deployment
+      name: Deployment
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-08
+      criticality: mandatory
+    - id: operations
+      name: Operations
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-09
+      criticality: mandatory
+    - id: backup
+      name: Backup
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-10
+      criticality: mandatory
+    - id: disaster-recovery
+      name: Disaster Recovery
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-11
+      criticality: mandatory
+    - id: privacy
+      name: Privacy (GDPR)
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-12
+      criticality: recommended
+    - id: analytics
+      name: Analytics
+      source: discovery
+      discovery-rule: discovery/baseline/ANY-UF-05
+      criticality: recommended
+requirements:
+  explicit:
+    - id: REQ-001
+      title: Amount-based approval routing
+      description: A submitted invoice is routed to the correct approver role based on
+        its amount, department, and vendor risk, using a versioned decision
+        table rather than hardcoded thresholds.
+      domain: approval-chains
+      source: user
+      priority: must
+      acceptance-criteria:
+        - Given an invoice for 4,000 EUR from a low-risk vendor in the marketing
+          department, When it is submitted for approval, Then decision DEC-001
+          routes it to a team-lead approver and does not require four-eyes.
+        - Given an invoice for 60,000 EUR from a high-risk vendor, When it is
+          submitted, Then decision DEC-001 routes it to a CFO approver and sets
+          requires-four-eyes to true.
+      depends-on: []
+      risks:
+        - RSK-001
+    - id: REQ-002
+      title: Four-eyes on large invoices
+      description: Invoices at or above the large-invoice threshold require two
+        distinct human identities to approve, and the maker may never be the
+        checker.
+      domain: four-eyes
+      source: user
+      priority: must
+      acceptance-criteria:
+        - Given a large invoice created by user A, When user A attempts to
+          provide the second (checker) approval on that same invoice, Then the
+          approval is rejected server-side with a segregation-of-duties error
+          and audit event AUD-004 is recorded.
+        - Given a large invoice with only the maker approval recorded, When no
+          distinct checker has approved yet, Then the invoice remains in state
+          PENDING_CHECKER and is never treated as fully approved.
+      depends-on:
+        - REQ-001
+      risks:
+        - RSK-002
+  hidden:
+    - id: REQ-010
+      title: SLA-timed approval stages
+      description: Every approval stage carries an explicit business-hours SLA whose
+        clock excludes weekends and holidays.
+      domain: sla-management
+      source: discovery/sla-management
+      priority: must
+      acceptance-criteria:
+        - Given a stage assigned with a 24 business-hour SLA, When the elapsed
+          business time exceeds 24 hours with no decision, Then the stage is
+          flagged breached within one 5-minute tick and a breach timestamp is
+          persisted.
+      risks:
+        - RSK-003
+    - id: REQ-011
+      title: Timeout auto-escalation
+      description: A breached approval stage escalates automatically to the
+        next-higher authority without lowering the required approval limit.
+      domain: escalation
+      source: discovery/escalation
+      priority: must
+      acceptance-criteria:
+        - Given a stage that has breached its SLA, When escalation fires, Then
+          the request moves to an approver with equal-or-higher limit, both
+          approvers are notified (NOT-002), and audit event AUD-005 is recorded.
+      risks:
+        - RSK-003
+    - id: REQ-012
+      title: Bounded escalation hops
+      description: Escalation is capped so a request can never loop indefinitely or be
+        auto-approved by timeout.
+      domain: escalation
+      source: discovery/escalation
+      priority: must
+      acceptance-criteria:
+        - Given a request that has already escalated three times, When the third
+          timer breaches, Then the request is parked in the manual exception
+          queue and is never auto-approved.
+      risks:
+        - RSK-003
+    - id: REQ-013
+      title: Time-boxed capped delegation
+      description: An approver may delegate authority during absence, bounded in time
+        and capped at the delegator's own limit.
+      domain: delegation
+      source: discovery/delegation
+      priority: must
+      acceptance-criteria:
+        - Given a delegator with a 10,000 EUR limit delegating to another
+          approver, When the delegate approves a 20,000 EUR invoice, Then the
+          approval is rejected for exceeding the delegator's cap and audit event
+          AUD-006 records both identities.
+      risks:
+        - RSK-004
+    - id: REQ-014
+      title: Immutable approval audit trail
+      description: Every routing and approval decision is captured immutably with
+        actor, timestamp, decision, and reason.
+      domain: audit
+      source: discovery/audit
+      priority: must
+      acceptance-criteria:
+        - Given any approval or rejection decision, When it is recorded, Then an
+          append-only audit entry exists within 5 seconds containing approver
+          id, ISO-8601 timestamp, decision, and a reason of at least 10
+          characters.
+      risks:
+        - RSK-005
+    - id: REQ-015
+      title: Reject terminates the chain
+      description: A single rejection at any stage stops the chain and returns the
+        invoice to the initiator.
+      domain: approval-chains
+      source: discovery/approval-chains
+      priority: must
+      acceptance-criteria:
+        - Given a multi-stage approval chain, When any approver rejects, Then
+          the chain stops immediately and the invoice is returned to the
+          initiator with the reject reason and audit event AUD-003.
+      risks:
+        - RSK-002
+    - id: REQ-016
+      title: Segregation-of-duties compliance (SOX)
+      description: The maker-checker separation and audit evidence satisfy SOX/COSO
+        internal-control obligations.
+      domain: compliance
+      source: discovery/compliance
+      priority: must
+      acceptance-criteria:
+        - Given a completed large-invoice approval, When the audit record is
+          inspected, Then it names both distinct identities, their roles, and
+          confirms maker is not equal to checker for the SOX evidence pack.
+      risks:
+        - RSK-005
+    - id: REQ-017
+      title: Tax and total integrity on the invoice
+      description: The amount used for routing reflects the invoice gross total
+        computed from validated tax and line items, not an unchecked field.
+      domain: tax
+      source: discovery/tax
+      priority: should
+      acceptance-criteria:
+        - Given an invoice whose line-item and tax sums do not equal the stated
+          gross total, When it is submitted, Then it is rejected with a
+          totals-mismatch error before any routing decision is made.
+      risks:
+        - RSK-006
+    - id: REQ-018
+      title: Approval observability — metrics, alerts, SLOs
+      description: Routing and SLA health is measurable and alertable before
+        controllers escalate manually.
+      domain: monitoring
+      source: discovery/monitoring
+      priority: must
+      acceptance-criteria:
+        - Given the production environment, When the SLA-breach rate over a
+          1-hour window exceeds 10 percent, Then alert ALT-001 fires to the AP
+          on-call channel with runbook RB-001 linked.
+      risks:
+        - RSK-003
+    - id: REQ-019
+      title: Gapless immutable invoice reference
+      description: Each approved invoice keeps a stable, immutable reference;
+        corrections are issued as new documents, never edited in place.
+      domain: invoicing
+      source: discovery/invoicing
+      priority: should
+      acceptance-criteria:
+        - Given an already-submitted invoice, When its amount must change, Then
+          a corrected invoice with a new reference is submitted and the original
+          record remains unaltered in the audit trail.
+      risks:
+        - RSK-006
+risks:
+  - id: RSK-001
+    description: Mis-tuned routing thresholds send large invoices down a low-authority path
+    category: compliance
+    likelihood: medium
+    impact: critical
+    mitigation: DEC-001 is versioned + gated at G3; routing decisions logged and
+      sampled monthly (RB-001)
+    owner: ap-controller
+  - id: RSK-002
+    description: Four-eyes bypass via shared accounts or self-approval
+    category: security
+    likelihood: medium
+    impact: critical
+    mitigation: server-side maker!=checker check (REQ-002); shared accounts blocked;
+      distinctness failure raises security event
+    owner: compliance-officer
+  - id: RSK-003
+    description: Approvals stall past SLA and payments miss vendor due dates
+    category: operational
+    likelihood: high
+    impact: high
+    mitigation: SLA timers + bounded auto-escalation (REQ-010..012) + ALT-001;
+      RB-001 for stuck queues
+    owner: sre-lead
+  - id: RSK-004
+    description: Delegated authority abused to approve above the delegator's limit
+    category: compliance
+    likelihood: low
+    impact: high
+    mitigation: effective limit = min(delegate, delegator) at decision time
+      (REQ-013); dual-id audit (AUD-006)
+    owner: compliance-officer
+  - id: RSK-005
+    description: Audit evidence gaps discovered during a SOX control test
+    category: compliance
+    likelihood: low
+    impact: critical
+    mitigation: append-only hash-chained audit (REQ-014); quarterly SOX evidence
+      dry-run with internal-audit
+    owner: internal-audit
+  - id: RSK-006
+    description: Routing on an invoice whose totals or tax are inconsistent
+    category: technical
+    likelihood: medium
+    impact: medium
+    mitigation: totals + tax integrity gate before routing (REQ-017);
+      credit-note-only corrections (REQ-019)
+    owner: ap-controller
+assumptions:
+  - id: ASM-001
+    statement: The large-invoice four-eyes threshold is 50,000 EUR at launch
+    impact-if-wrong: routing rules in DEC-001 and the four-eyes gate must be
+      re-tuned and re-approved at G3
+    validation-needed: Confirm the four-eyes threshold with the CFO and internal-audit.
+  - id: ASM-002
+    statement: Invoices arrive already parsed and validated from the AP inbox
+    impact-if-wrong: an OCR/capture stage and its error handling must be added to
+      the root workflow
+    validation-needed: Confirm with procurement whether capture is in or out of scope.
+  - id: ASM-003
+    statement: Payment disbursement is handled by a downstream payments service
+      after approval
+    impact-if-wrong: disbursement, bank-file, and payment-status workflows enter scope
+    validation-needed: Confirm the boundary with the treasury/payments team.
+  - id: ASM-004
+    statement: 3-way match (PO + goods-receipt + invoice) is completed upstream in
+      procurement
+    impact-if-wrong: match exceptions and their approval paths must be modeled here
+    validation-needed: Confirm match ownership with procurement-lead.
+  - id: ASM-005
+    statement: Approval SLAs are counted in an 8h/day business calendar excluding
+      weekends and holidays
+    impact-if-wrong: SLA timers, escalation thresholds, and breach metrics change
+    validation-needed: Confirm the working calendar per operating region with the AP controller.
+  - id: ASM-006
+    statement: 7-year audit retention satisfies SOX and statutory invoice-retention rules
+    impact-if-wrong: retention windows and storage costs change; possible compliance exposure
+    validation-needed: Confirm the retention schedule with compliance and legal.
+actors:
+  - id: ACT-001
+    name: AP Clerk
+    type: human
+    description: Accounts-payable clerk who submits a parsed invoice into the
+      approval workflow (the maker).
+    goals:
+      - submit invoices for approval
+      - track approval status
+      - resubmit corrected invoices
+    interactions:
+      - WF-001
+  - id: ACT-002
+    name: Approver
+    type: human
+    description: Budget-holding approver (team-lead, manager, or CFO) who approves
+      or rejects at their authority level.
+    goals:
+      - approve within limit
+      - reject with reason
+      - delegate during absence
+    interactions:
+      - WF-001
+      - WF-002
+      - WF-003
+  - id: ACT-003
+    name: Approval Service
+    type: service
+    description: Backend service owning routing, chain state, four-eyes checks,
+      delegation, and audit.
+    goals:
+      - route deterministically
+      - enforce four-eyes and limits
+      - record immutable audit
+    interactions:
+      - WF-001
+      - WF-002
+      - WF-003
+  - id: ACT-004
+    name: Notification Service
+    type: system
+    description: External channel that delivers assignment, reminder, escalation,
+      and decision notices.
+    goals:
+      - deliver approval notices within 60 seconds
+    interactions:
+      - WF-001
+      - WF-002
+  - id: ACT-005
+    name: SLA Timer
+    type: scheduler
+    description: Scheduled ticker that evaluates stage SLAs and fires warnings,
+      breaches, and escalations.
+    goals:
+      - detect breaches within one tick
+      - trigger escalation
+      - emit SLA metrics
+    interactions:
+      - WF-002
+roles:
+  - id: ROLE-AP-CLERK
+    name: AP Clerk
+    permissions:
+      - invoice:submit
+      - invoice:read-own
+      - invoice:resubmit
+    assigned-actors:
+      - ACT-001
+  - id: ROLE-APPROVER
+    name: Approver
+    permissions:
+      - approval:decide
+      - approval:read-assigned
+      - delegation:create-own
+    assigned-actors:
+      - ACT-002
+    separation-of-duties:
+      - ROLE-AP-CLERK
+  - id: ROLE-CFO
+    name: Chief Financial Officer
+    inherits: ROLE-APPROVER
+    permissions:
+      - approval:decide-unlimited
+      - approval:override-escalation
+    assigned-actors: []
+    separation-of-duties:
+      - ROLE-AP-CLERK
+  - id: ROLE-AUDITOR
+    name: Internal Auditor
+    permissions:
+      - audit:read
+      - approval:read-all
+    assigned-actors: []
+    separation-of-duties:
+      - ROLE-APPROVER
+data-model:
+  entities:
+    - id: ENT-Invoice
+      name: Invoice
+      description: The parsed invoice being routed for approval.
+      attributes:
+        - name: id
+          type: uuid
+          required: true
+          pii: false
+          unique: true
+          default: gen_random_uuid()
+          validation: uuidv4
+        - name: reference
+          type: text
+          required: true
+          pii: false
+          unique: true
+          default: null
+          validation: gapless immutable invoice reference (INV-C1)
+        - name: vendor_id
+          type: uuid
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: fk to vendor master; consumed, not owned
+        - name: vendor_name
+          type: text
+          required: true
+          pii: true
+          unique: false
+          default: null
+          validation: max 200 chars; may identify a sole-trader
+        - name: department
+          type: text
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: one of master-data:department
+        - name: gross_minor
+          type: bigint
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: integer minor units; = sum(lines) + sum(tax) (INV-C3)
+        - name: currency
+          type: char3
+          required: true
+          pii: false
+          unique: false
+          default: EUR
+          validation: ISO-4217
+        - name: vendor_risk
+          type: enum
+          required: true
+          pii: false
+          unique: false
+          default: low
+          validation: one of master-data:vendor-risk
+        - name: status
+          type: enum
+          required: true
+          pii: false
+          unique: false
+          default: SUBMITTED
+          validation: one of master-data:invoice-status
+        - name: created_at
+          type: timestamptz
+          required: true
+          pii: false
+          unique: false
+          default: now()
+          validation: not in future
+      relationships:
+        - target: ENT-ApprovalRequest
+          cardinality: 1-n
+          on-delete: restrict
+      retention: issued invoices retained immutably >= 7 years (INV-C4, SOX)
+      classification: confidential
+    - id: ENT-ApprovalRequest
+      name: ApprovalRequest
+      description: A routed approval chain instance for one invoice, with staged approvals.
+      attributes:
+        - name: id
+          type: uuid
+          required: true
+          pii: false
+          unique: true
+          default: gen_random_uuid()
+          validation: uuidv4
+        - name: invoice_id
+          type: uuid
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: fk ENT-Invoice
+        - name: chain_version
+          type: text
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: pinned chain version at start (APRV-C5)
+        - name: approver_role
+          type: text
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: output of DEC-001
+        - name: requires_four_eyes
+          type: boolean
+          required: true
+          pii: false
+          unique: false
+          default: false
+          validation: output of DEC-001
+        - name: maker_id
+          type: uuid
+          required: true
+          pii: true
+          unique: false
+          default: null
+          validation: identity of the submitter; must differ from checker
+        - name: checker_id
+          type: uuid
+          required: false
+          pii: true
+          unique: false
+          default: null
+          validation: distinct from maker_id when requires_four_eyes (FOUR-C1)
+        - name: sla_due_at
+          type: timestamptz
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: business-hours SLA deadline (SLA-C1)
+        - name: escalation_hops
+          type: smallint
+          required: true
+          pii: false
+          unique: false
+          default: 0
+          validation: 0..3 (ESCL-C3)
+        - name: state
+          type: enum
+          required: true
+          pii: false
+          unique: false
+          default: PENDING_APPROVER
+          validation: one of master-data:approval-state
+      relationships: []
+      retention: retained with the invoice >= 7 years (SOX evidence)
+      classification: confidential
+    - id: ENT-AuditEntry
+      name: AuditEntry
+      description: Append-only, hash-chained record of every routing and approval decision.
+      attributes:
+        - name: id
+          type: uuid
+          required: true
+          pii: false
+          unique: true
+          default: gen_random_uuid()
+          validation: uuidv4
+        - name: request_id
+          type: uuid
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: fk ENT-ApprovalRequest
+        - name: actor_id
+          type: uuid
+          required: true
+          pii: true
+          unique: false
+          default: null
+          validation: identity that took the action
+        - name: event
+          type: text
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: one of audit.events
+        - name: decision
+          type: enum
+          required: false
+          pii: false
+          unique: false
+          default: null
+          validation: approve|reject|route|escalate|delegate
+        - name: reason
+          type: text
+          required: false
+          pii: false
+          unique: false
+          default: null
+          validation: ">= 10 chars when decision is approve/reject (APRV-C1)"
+        - name: prev_hash
+          type: text
+          required: true
+          pii: false
+          unique: false
+          default: null
+          validation: sha256 of previous entry; hash chain
+        - name: created_at
+          type: timestamptz
+          required: true
+          pii: false
+          unique: false
+          default: now()
+          validation: not in future
+      relationships: []
+      retention: append-only; retained 7 years then WORM-archived
+      classification: restricted
+master-data:
+  - name: invoice-status
+    values:
+      - SUBMITTED
+      - ROUTED
+      - APPROVED
+      - REJECTED
+      - RETURNED
+      - PAID
+    owner: ap-controller
+    change-process: ADR + migration + G3 review
+  - name: approval-state
+    values:
+      - PENDING_APPROVER
+      - PENDING_CHECKER
+      - ESCALATED
+      - EXCEPTION_QUEUE
+      - APPROVED
+      - REJECTED
+    owner: ap-controller
+    change-process: ADR + migration + G3 review
+  - name: vendor-risk
+    values:
+      - low
+      - medium
+      - high
+    owner: procurement-lead
+    change-process: vendor-risk policy PR + compliance sign-off
+  - name: department
+    values:
+      - marketing
+      - engineering
+      - operations
+      - facilities
+      - legal
+    owner: ap-controller
+    change-process: cost-center registry PR
+  - name: notice-templates
+    values:
+      - assignment-v1
+      - reminder-v1
+      - escalation-v1
+      - decision-v1
+      - sod-block-v1
+    owner: ap-controller
+    change-process: template registry PR + compliance review for evidence-relevant copy
+knowledge:
+  glossary:
+    - term: maker-checker
+      definition: The four-eyes control requiring the initiator (maker) of a
+        transaction to be a different identity from its approver (checker).
+    - term: hit policy
+      definition: The DMN rule that decides which matched rule's output wins; FIRST
+        returns the first matching rule in order.
+    - term: escalation hop
+      definition: One automatic re-assignment of a breached stage to a higher
+        authority; bounded to 3 before the exception queue.
+    - term: business-hours SLA
+      definition: An SLA clock that counts only configured working hours, excluding
+        weekends and holidays.
+  domain-concepts:
+    - segregation-of-duties
+    - deterministic routing
+    - effective-limit min(delegate
+    - delegator)
+    - integer-minor-unit tax rounding
+  references:
+    - SOX (2002) §404 internal controls
+    - COSO 2013 internal-control framework
+    - ITIL 4 escalation management
+    - EN-16931 e-invoicing
+    - OMG DMN 1.3 (decision tables & hit policies)
+workflows:
+  root:
+    id: WF-001
+    name: Invoice Approval with Amount-Based Routing
+    trigger: AP Clerk submits a parsed invoice for approval (FRM-001)
+    actors:
+      - ACT-001
+      - ACT-002
+      - ACT-003
+      - ACT-004
+    requirements:
+      - REQ-001
+      - REQ-002
+      - REQ-014
+      - REQ-015
+      - REQ-016
+      - REQ-017
+    steps:
+      - id: S1
+        name: Validate totals and tax
+        type: system-action
+        actor: ACT-003
+        inputs:
+          - invoice
+        outputs:
+          - validated-invoice
+        on-success: S2
+        on-failure: EX-001 (totals/tax mismatch returned to clerk; no routing)
+      - id: S2
+        name: Route via DEC-001
+        type: decision
+        actor: ACT-003
+        inputs:
+          - gross_minor
+          - department
+          - vendor_risk
+        outputs:
+          - approver-role
+          - requires-four-eyes
+        on-success: S3
+        on-failure: EX-002 (no rule matched -> park in exception queue for AP controller)
+        audit-event: AUD-001
+      - id: S3
+        name: Assign approver + start SLA
+        type: system-action
+        actor: ACT-003
+        inputs:
+          - approver-role
+        outputs:
+          - assignment
+          - sla-due-at
+        on-success: S4
+        on-failure: EX-003 (no eligible approver -> escalate to next authority via WF-002)
+      - id: S4
+        name: Approver decision
+        type: user-action
+        actor: ACT-002
+        inputs:
+          - invoice
+          - assignment
+        outputs:
+          - decision
+          - reason
+        on-success: S5
+        on-failure: EX-004 (reject terminates chain; invoice RETURNED with reason)
+        audit-event: AUD-002
+      - id: S5
+        name: Four-eyes gate
+        type: decision
+        actor: ACT-003
+        inputs:
+          - requires-four-eyes
+          - maker_id
+          - checker_id
+        outputs:
+          - needs-checker
+        on-success: S6
+        on-failure: EX-005 (maker==checker -> SoD block, security event, stays
+          PENDING_CHECKER)
+        audit-event: AUD-004
+      - id: S6
+        name: Finalize and notify
+        type: notification
+        actor: ACT-004
+        inputs:
+          - decision
+        outputs:
+          - notice-sent
+          - invoice-APPROVED
+        on-success: END
+        on-failure: EX-006 (notice failure logged; approval stands, never blocks on notify)
+        audit-event: AUD-007
+    exceptions:
+      - id: EX-001
+        condition: invoice totals or tax inconsistent
+        handling: 400 totals-mismatch; invoice RETURNED to clerk for a corrected
+          resubmission (REQ-017)
+        notification: NOT-004
+      - id: EX-002
+        condition: DEC-001 matched no routing rule
+        handling: invoice parked in EXCEPTION_QUEUE; AP controller notified for manual
+          routing
+        notification: NOT-005
+      - id: EX-003
+        condition: no eligible approver for the role
+        handling: hand to escalation sub-workflow WF-002 to find the next authority
+        notification: NOT-002
+      - id: EX-004
+        condition: approver rejects
+        handling: chain terminates; invoice RETURNED to initiator with reject reason and
+          AUD-003
+        notification: NOT-003
+      - id: EX-005
+        condition: maker equals proposed checker
+        handling: segregation-of-duties block; second distinct approver required;
+          security event raised (AUD-004)
+        notification: NOT-003
+      - id: EX-006
+        condition: decision notification failed
+        handling: queued retry per NOT-003 policy; approval outcome is not blocked by
+          notification delivery
+        notification: null
+    sla: "invoice submitted -> routed and assigned: 60 seconds (p95); approver
+      decision SLA governed by WF-002"
+  dependent:
+    - id: WF-002
+      name: SLA Escalation
+      trigger: SLA Timer detects a stage that has breached its business-hours SLA (or
+        WF-001 finds no eligible approver)
+      actors:
+        - ACT-002
+        - ACT-003
+        - ACT-005
+      requirements:
+        - REQ-010
+        - REQ-011
+        - REQ-012
+        - REQ-018
+      steps:
+        - id: S1
+          name: Tick and evaluate SLA
+          type: system-action
+          actor: ACT-005
+          inputs:
+            - assignment
+            - sla-due-at
+            - business-calendar
+          outputs:
+            - breach-state
+          on-success: S2
+          on-failure: EX-101 (timer failure -> retry next tick; missed ticks reconciled on
+            recovery)
+        - id: S2
+          name: Warn at 75 percent
+          type: notification
+          actor: ACT-004
+          inputs:
+            - assignment
+          outputs:
+            - warning-sent
+          on-success: S3
+          on-failure: EX-102 (warning failure logged; does not stop breach detection)
+        - id: S3
+          name: Check hop budget
+          type: decision
+          actor: ACT-003
+          inputs:
+            - escalation_hops
+          outputs:
+            - can-escalate
+          on-success: S4
+          on-failure: EX-103 (hops exhausted -> park in EXCEPTION_QUEUE, never
+            auto-approve)
+          audit-event: AUD-005
+        - id: S4
+          name: Escalate to next level
+          type: system-action
+          actor: ACT-003
+          inputs:
+            - assignment
+          outputs:
+            - new-assignment
+            - incremented-hops
+          on-success: S5
+          on-failure: EX-104 (no higher authority -> EXCEPTION_QUEUE for manual handling)
+        - id: S5
+          name: Notify both approvers
+          type: notification
+          actor: ACT-004
+          inputs:
+            - old-approver
+            - new-approver
+          outputs:
+            - notice-sent
+          on-success: END
+          on-failure: EX-105 (notice retry; escalation itself is not rolled back on notify
+            failure)
+      exceptions:
+        - id: EX-101
+          condition: SLA timer tick failed
+          handling: retry on next tick; on recovery reconcile any missed breaches so none
+            are silently dropped
+          notification: null
+        - id: EX-102
+          condition: warning notification failed
+          handling: logged at warn; breach detection continues regardless
+          notification: null
+        - id: EX-103
+          condition: escalation hop budget exhausted
+          handling: request parked in EXCEPTION_QUEUE for manual handling; never
+            auto-approved (ESCL-C3)
+          notification: NOT-005
+        - id: EX-104
+          condition: no higher authority available
+          handling: request parked in EXCEPTION_QUEUE; AP controller paged
+          notification: NOT-005
+        - id: EX-105
+          condition: escalation notification failed
+          handling: queued retry per NOT-002 policy; escalation stands
+          notification: null
+      sla: "SLA breach detected -> escalation fired: 5 minutes (one tick)"
+    - id: WF-003
+      name: Four-Eyes Checker Verification
+      trigger: WF-001 four-eyes gate (S5) requires a distinct second approval on a
+        large invoice
+      actors:
+        - ACT-002
+        - ACT-003
+      requirements:
+        - REQ-002
+        - REQ-016
+        - REQ-013
+      steps:
+        - id: S1
+          name: Select distinct checker
+          type: system-action
+          actor: ACT-003
+          inputs:
+            - maker_id
+            - approver-role
+          outputs:
+            - candidate-checker
+          on-success: S2
+          on-failure: EX-201 (no distinct eligible checker -> escalate via WF-002)
+        - id: S2
+          name: Verify maker != checker
+          type: decision
+          actor: ACT-003
+          inputs:
+            - maker_id
+            - candidate-checker
+          outputs:
+            - distinct
+          on-success: S3
+          on-failure: EX-202 (maker==checker -> SoD block, security event, request stays
+            PENDING_CHECKER)
+          audit-event: AUD-004
+        - id: S3
+          name: Resolve effective limit
+          type: system-action
+          actor: ACT-003
+          inputs:
+            - checker
+            - delegation
+          outputs:
+            - effective-limit
+          on-success: S4
+          on-failure: EX-203 (over-limit or expired delegation -> reject decision, AUD-006)
+        - id: S4
+          name: Record checker decision
+          type: user-action
+          actor: ACT-002
+          inputs:
+            - invoice
+            - effective-limit
+          outputs:
+            - checker-decision
+            - reason
+          on-success: END
+          on-failure: EX-204 (checker reject terminates chain; invoice RETURNED with
+            reason)
+          audit-event: AUD-002
+      exceptions:
+        - id: EX-201
+          condition: no distinct eligible checker
+          handling: hand to WF-002 to escalate to a higher authority who can act as
+            checker
+          notification: NOT-002
+        - id: EX-202
+          condition: maker equals checker
+          handling: segregation-of-duties block; distinct second identity required;
+            security event (AUD-004)
+          notification: NOT-003
+        - id: EX-203
+          condition: checker over limit or delegation expired
+          handling: decision rejected; both delegate and delegator recorded (AUD-006);
+            route to higher authority
+          notification: NOT-002
+        - id: EX-204
+          condition: checker rejects
+          handling: chain terminates; invoice RETURNED to initiator with reject reason
+            (AUD-003)
+          notification: NOT-003
+      sla: "checker assignment -> checker decision: 24 business hours (governed by
+        WF-002)"
+security:
+  authentication:
+    methods:
+      - sso-oidc
+    password-policy:
+      min-length: 12
+      complexity: delegated to corporate IdP; zxcvbn score >= 3 enforced at the IdP,
+        not in this service
+      history: 5
+      max-age-days: 90
+    mfa:
+      required: true
+      methods:
+        - totp
+        - webauthn
+      enrollment: mandatory for any ROLE-APPROVER and ROLE-CFO before their first
+        approval; enforced at the IdP
+    session:
+      storage: OIDC access token (memory) + refresh handled by the IdP session
+      ttl-minutes: 15
+      idle-timeout-minutes: 30
+      refresh-strategy: rotate-on-use via IdP; approval actions re-check role + limit
+        at decision time
+      revocation: IdP session revocation propagates; in-flight approvals re-validate
+        eligibility (APRV-C4)
+    account-lockout:
+      threshold: 5
+      window-minutes: 15
+      lockout-minutes: 30
+      notification: NOT-002
+    rate-limiting:
+      scope: per-user and per-IP on all /approvals/* and /invoices/* endpoints
+      limit: 60
+      window: 1m
+      response: 429 + Retry-After header
+  authorization:
+    model: rbac
+    enforcement-points:
+      - api-gateway
+      - approval-service-middleware
+      - decision-time-limit-check
+  data-protection:
+    encryption-at-rest: AES-256 (managed Postgres); audit table WORM-exported monthly
+    encryption-in-transit: TLS 1.3 only; HSTS max-age=63072000
+    secrets-management: platform secret store; IdP client secret and notification
+      API key rotated every 90 days
+  threat-controls:
+    - threat: Self-approval / four-eyes bypass
+      mitigation: server-side maker!=checker enforcement (REQ-002); shared/service
+        accounts excluded as a second identity (FOUR-C2)
+      owner: compliance-officer
+    - threat: Privilege escalation past limit
+      mitigation: decision-time re-check of role and effective limit; delegation
+        capped at min(delegate, delegator)
+      owner: compliance-officer
+    - threat: Routing tampering
+      mitigation: DEC-001 is versioned and gated at G3; routing decisions audited (AUD-001)
+      owner: ap-controller
+    - threat: Audit tampering
+      mitigation: append-only hash-chained audit; no UPDATE/DELETE grants; WORM export
+      owner: internal-audit
+api:
+  - id: API-001
+    method: POST
+    path: /invoices/{id}/submit
+    description: Submit a parsed invoice for approval; validates totals and tax,
+      then triggers routing.
+    auth-required: true
+    roles:
+      - ROLE-AP-CLERK
+    request:
+      content-type: application/json
+      schema: "{invoiceId, department, vendorRisk}"
+      validation: gross = sum(lines)+sum(tax) server-side; idempotency key = invoice
+        reference
+    responses:
+      - status: 202
+        condition: accepted for routing
+        schema: "{requestId, state}"
+      - status: 400
+        condition: totals/tax mismatch or invalid department
+        schema: "{errors[]}"
+      - status: 409
+        condition: invoice already submitted (idempotent replay)
+        schema: "{requestId, state}"
+      - status: 429
+        condition: rate limited
+        schema: "{message, retryAfter}"
+    rate-limit: 60/min per user
+    idempotency: duplicate submit for the same invoice reference returns the
+      existing requestId
+    errors:
+      - ERR-VALIDATION
+      - ERR-DUPLICATE
+      - ERR-RATE-LIMITED
+  - id: API-002
+    method: POST
+    path: /approvals/{requestId}/decide
+    description: Record an approve or reject decision; enforces role limit and
+      four-eyes distinctness.
+    auth-required: true
+    roles:
+      - ROLE-APPROVER
+      - ROLE-CFO
+    request:
+      content-type: application/json
+      schema: "{decision, reason}"
+      validation: reason >= 10 chars; decision-time role + limit re-check; maker != checker
+    responses:
+      - status: 200
+        condition: decision recorded (approved, rejected, or awaiting checker)
+        schema: "{state, requiresChecker}"
+      - status: 403
+        condition: segregation-of-duties block (maker==checker) or over-limit
+        schema: "{message}"
+      - status: 409
+        condition: request already decided or superseded by escalation
+        schema: "{state}"
+      - status: 429
+        condition: rate limited
+        schema: "{message, retryAfter}"
+    rate-limit: 60/min per user
+    idempotency: re-submitting an identical decision on a decided request returns
+      the current state (409)
+    errors:
+      - ERR-SOD-BLOCK
+      - ERR-OVER-LIMIT
+      - ERR-CONFLICT
+      - ERR-RATE-LIMITED
+  - id: API-003
+    method: POST
+    path: /approvals/{requestId}/delegate
+    description: Delegate approval authority for an absent approver, time-boxed and
+      capped at the delegator limit.
+    auth-required: true
+    roles:
+      - ROLE-APPROVER
+      - ROLE-CFO
+    request:
+      content-type: application/json
+      schema: "{delegateId, startsAt, endsAt}"
+      validation: endsAt <= startsAt + 90d; delegate != request maker (FOUR-C1 preserved)
+    responses:
+      - status: 201
+        condition: delegation created
+        schema: "{delegationId, effectiveLimit}"
+      - status: 400
+        condition: invalid window or self-delegation-as-maker
+        schema: "{errors[]}"
+      - status: 403
+        condition: delegate would exceed delegator cap
+        schema: "{message}"
+    rate-limit: 10/min per user
+    idempotency: overlapping identical delegation returns the existing delegationId
+    errors:
+      - ERR-VALIDATION
+      - ERR-OVER-LIMIT
+  - id: API-004
+    method: GET
+    path: /approvals/{requestId}
+    description: Read the current approval-request state, chain, SLA, and audit summary.
+    auth-required: true
+    roles:
+      - ROLE-AP-CLERK
+      - ROLE-APPROVER
+      - ROLE-CFO
+      - ROLE-AUDITOR
+    request:
+      content-type: application/json
+      schema: "{} (path param)"
+      validation: caller must be maker, an assigned approver, or an auditor
+    responses:
+      - status: 200
+        condition: request found and visible to caller
+        schema: "{request, chain, slaDueAt, auditSummary}"
+      - status: 403
+        condition: caller not entitled to view this request
+        schema: "{message}"
+      - status: 404
+        condition: request not found
+        schema: "{message}"
+    rate-limit: 120/min per user
+    idempotency: safe/idempotent read
+    errors:
+      - ERR-FORBIDDEN
+      - ERR-NOT-FOUND
+events:
+  - id: EVT-invoice.routed
+    name: invoice.routed
+    producer: approval-service
+    consumers:
+      - analytics-pipeline
+      - ap-dashboard
+    payload:
+      request-id: uuid
+      approver-role: string
+      requires-four-eyes: boolean
+      routed-at: timestamp
+    delivery: at-least-once
+    pii-in-payload: false
+  - id: EVT-invoice.approved
+    name: invoice.approved
+    producer: approval-service
+    consumers:
+      - payments-service
+      - analytics-pipeline
+    payload:
+      request-id: uuid
+      invoice-id: uuid
+      approved-at: timestamp
+    delivery: at-least-once
+    pii-in-payload: false
+  - id: EVT-approval.sla-breached
+    name: approval.sla-breached
+    producer: sla-timer
+    consumers:
+      - monitoring
+      - escalation-engine
+    payload:
+      request-id: uuid
+      stage: string
+      target-minutes: number
+      actual-minutes: number
+    delivery: at-least-once
+    pii-in-payload: false
+  - id: EVT-approval.sod-blocked
+    name: approval.sod-blocked
+    producer: approval-service
+    consumers:
+      - siem
+      - compliance-dashboard
+    payload:
+      request-id: uuid
+      blocked-at: timestamp
+    delivery: at-least-once
+    pii-in-payload: false
+integrations:
+  - id: INT-001
+    system: Corporate IdP (OIDC)
+    purpose: authenticate approvers and expose role + authority claims
+    protocol: OIDC / OAuth2
+    direction: inbound
+    auth: client credentials in secret store, 90-day rotation
+    failure-mode: "fail-closed: no new approvals accepted while IdP is unreachable;
+      read of existing state still allowed"
+    data-shared:
+      - subject-id
+      - roles
+      - authority-limit
+  - id: INT-002
+    system: Payments service
+    purpose: hand approved invoices to disbursement (ASM-003)
+    protocol: HTTPS REST + event (invoice.approved)
+    direction: outbound
+    auth: mTLS + signed request
+    failure-mode: "outbox pattern: approved invoices queued and retried; approval is
+      never rolled back on payments downtime"
+    data-shared:
+      - invoice-id
+      - gross-minor
+      - currency
+      - vendor-id
+  - id: INT-003
+    system: Notification provider
+    purpose: assignment, reminder, escalation, and decision notices
+    protocol: HTTPS REST + webhooks for delivery receipts
+    direction: outbound
+    auth: API key in secret store, 90-day rotation
+    failure-mode: queue with retry + DLQ; approval flow never blocks on notification delivery
+    data-shared:
+      - recipient-id
+      - template-id
+      - request-id
+decision-tables:
+  - id: DEC-001
+    name: Approval Routing
+    hit-policy: FIRST
+    trace:
+      requirement: REQ-001
+      invoked-by: WF-001.S2
+    inputs:
+      - id: input1
+        label: Invoice amount (minor units)
+        expression: gross_minor
+        type: number
+      - id: input2
+        label: Department
+        expression: department
+        type: string
+      - id: input3
+        label: Vendor risk
+        expression: vendor_risk
+        type: string
+    outputs:
+      - id: output1
+        label: Approver role
+        name: approver-role
+        type: string
+      - id: output2
+        label: Requires four-eyes
+        name: requires-four-eyes
+        type: boolean
+    rules:
+      - id: R1
+        when: vendor_risk = 'high' and gross_minor >= 5000000
+        then: approver-role = 'ROLE-CFO', requires-four-eyes = true
+        description: "High-risk vendor at or above 50,000 EUR: CFO plus four-eyes"
+      - id: R2
+        when: gross_minor >= 5000000
+        then: approver-role = 'ROLE-CFO', requires-four-eyes = true
+        description: "Any invoice at or above the 50,000 EUR large-invoice threshold:
+          CFO plus four-eyes (ASM-001)"
+      - id: R3
+        when: vendor_risk = 'high'
+        then: approver-role = 'ROLE-APPROVER', requires-four-eyes = true
+        description: "High-risk vendor below threshold: manager plus four-eyes"
+      - id: R4
+        when: gross_minor >= 1000000
+        then: approver-role = 'ROLE-APPROVER', requires-four-eyes = false
+        description: "10,000 to 50,000 EUR standard-risk: single manager approval"
+      - id: R5
+        when: otherwise
+        then: approver-role = 'ROLE-APPROVER', requires-four-eyes = false
+        description: "Below 10,000 EUR standard-risk: single team-lead approval"
+notifications:
+  - id: NOT-001
+    trigger: invoice assigned to an approver (AUD-001)
+    channel: email
+    recipient: ACT-002
+    template: assignment-v1
+    locale-support: true
+    retry-policy: 3 attempts, exponential backoff, DLQ after 1h
+  - id: NOT-002
+    trigger: stage escalated to next authority (AUD-005)
+    channel: email
+    recipient: ACT-002
+    template: escalation-v1
+    locale-support: true
+    retry-policy: 3 attempts, exponential backoff, DLQ after 1h
+  - id: NOT-003
+    trigger: invoice rejected or SoD-blocked (AUD-003/AUD-004)
+    channel: email
+    recipient: ACT-001
+    template: decision-v1
+    locale-support: true
+    retry-policy: 3 attempts, exponential backoff
+  - id: NOT-004
+    trigger: invoice returned for totals correction (EX-001)
+    channel: email
+    recipient: ACT-001
+    template: decision-v1
+    locale-support: true
+    retry-policy: 3 attempts, exponential backoff
+  - id: NOT-005
+    trigger: invoice parked in exception queue (EX-002/EX-103)
+    channel: in-app
+    recipient: ACT-001
+    template: reminder-v1
+    locale-support: true
+    retry-policy: 1 attempt, best effort
+monitoring:
+  metrics:
+    - name: approval_routing_decisions_total
+      type: counter
+      purpose: routing volume by outcome role
+      labels:
+        - approver-role
+        - requires-four-eyes
+    - name: approval_decisions_total
+      type: counter
+      purpose: approve/reject volume
+      labels:
+        - decision
+        - role
+    - name: approval_sla_breaches_total
+      type: counter
+      purpose: stages that breached SLA
+      labels:
+        - stage
+    - name: approval_stage_duration_seconds
+      type: histogram
+      purpose: time in each approval stage
+      labels:
+        - stage
+    - name: approval_open_requests
+      type: gauge
+      purpose: live approval requests in flight
+      labels:
+        - state
+  alerts:
+    - name: ALT-001
+      condition: SLA-breach rate > 10% over 1h
+      severity: critical
+      channel: ap-oncall-pager
+      runbook: RB-001
+    - name: ALT-002
+      condition: exception-queue depth > 20 over 30m
+      severity: warning
+      channel: ap-team-chat
+      runbook: RB-002
+    - name: ALT-003
+      condition: any approval.sod-blocked event over 5m
+      severity: warning
+      channel: security-chat
+      runbook: RB-003
+  slos:
+    - name: routing-latency-p95
+      target: < 60s
+      window: 30d
+      error-budget: 5% of submissions
+    - name: approval-availability
+      target: 99.9%
+      window: 30d
+      error-budget: 43m/month
+  dashboards:
+    - ap-approval-overview
+    - sla-breach-trends
+    - four-eyes-compliance
+logging:
+  categories:
+    - name: application
+      level: info
+      sink: stdout -> log pipeline
+      retention: 30d
+      pii-policy: vendor names masked; approver ids hashed in application logs
+    - name: audit
+      level: info
+      sink: append-only audit store
+      retention: 365d
+      pii-policy: actor id retained (legitimate interest, SOX evidence); no free-text
+        PII beyond reason
+    - name: access
+      level: info
+      sink: gateway access logs
+      retention: 90d
+      pii-policy: IP truncated to /24 after 7 days
+    - name: performance
+      level: warn
+      sink: APM
+      retention: 14d
+      pii-policy: no user identifiers
+  correlation: W3C traceparent propagated from the gateway through
+    approval-service, SLA timer, and notification provider; request-id echoed in
+    error responses
+  structured: true
+audit:
+  events:
+    - id: AUD-001
+      event: invoice.routed
+      trigger: DEC-001 produces a routing decision
+      captured-fields:
+        - request-id
+        - approver-role
+        - requires-four-eyes
+        - gross-minor
+        - timestamp
+      actor-recorded: false
+    - id: AUD-002
+      event: approval.decided
+      trigger: an approver approves or rejects
+      captured-fields:
+        - request-id
+        - actor-id
+        - decision
+        - reason
+        - timestamp
+      actor-recorded: true
+    - id: AUD-003
+      event: chain.terminated
+      trigger: a rejection ends the chain
+      captured-fields:
+        - request-id
+        - actor-id
+        - reason
+        - timestamp
+      actor-recorded: true
+    - id: AUD-004
+      event: sod.blocked
+      trigger: maker equals checker on a four-eyes gate
+      captured-fields:
+        - request-id
+        - maker-id
+        - checker-id
+        - timestamp
+      actor-recorded: true
+    - id: AUD-005
+      event: stage.escalated
+      trigger: SLA breach escalates a stage
+      captured-fields:
+        - request-id
+        - from-approver
+        - to-approver
+        - hop
+        - elapsed-minutes
+        - timestamp
+      actor-recorded: true
+    - id: AUD-006
+      event: delegation.exercised
+      trigger: an action is taken under delegation
+      captured-fields:
+        - request-id
+        - delegate-id
+        - delegator-id
+        - effective-limit
+        - timestamp
+      actor-recorded: true
+    - id: AUD-007
+      event: invoice.finalized
+      trigger: invoice reaches APPROVED
+      captured-fields:
+        - request-id
+        - invoice-id
+        - checker-id
+        - timestamp
+      actor-recorded: true
+  retention: 7 years (SOX + statutory invoice-retention periods)
+  immutability: append-only table with sha256 hash chaining; no UPDATE/DELETE
+    grants; WORM export monthly
+  access:
+    - ROLE-AUDITOR
+    - ROLE-CFO
+forms:
+  - id: FRM-001
+    name: Invoice Submission Form
+    used-in:
+      - WF-001
+      - PG-001
+    fields:
+      - name: invoiceReference
+        label: Invoice reference
+        type: text
+        required: true
+        validation: matches issued gapless reference; not previously submitted
+        error-message: Enter the exact invoice reference from the issued document.
+        accessibility: autocomplete=off; described-by inline error
+      - name: department
+        label: Department
+        type: select
+        required: true
+        validation: one of master-data:department
+        error-message: Select the department that owns this cost.
+        accessibility: native select; labelled options
+      - name: grossAmount
+        label: Gross amount
+        type: number
+        required: true
+        validation: "> 0; equals sum(lines)+sum(tax) server-side"
+        error-message: Gross amount must be positive and match the invoice line and tax
+          totals.
+        accessibility: inputmode=decimal; currency announced
+      - name: vendorRisk
+        label: Vendor risk
+        type: select
+        required: true
+        validation: one of master-data:vendor-risk
+        error-message: Select the vendor risk band supplied by procurement.
+        accessibility: native select; default from vendor master
+    submit-behavior: POST API-001; disable submit while pending; on 400 show
+      totals-mismatch inline; on 202 show routed-confirmation
+    security:
+      - csrf-token
+      - rate-limited
+      - sso-authenticated
+  - id: FRM-002
+    name: Approval Decision Form
+    used-in:
+      - WF-001
+      - WF-003
+      - PG-002
+    fields:
+      - name: decision
+        label: Decision
+        type: select
+        required: true
+        validation: one of approve|reject
+        error-message: Choose whether to approve or reject this invoice.
+        accessibility: radio-group semantics; announced
+      - name: reason
+        label: Reason
+        type: text
+        required: true
+        validation: min 10 chars; required for both approve and reject (APRV-C1)
+        error-message: Enter a reason of at least 10 characters for this decision.
+        accessibility: aria-describedby character-count
+    submit-behavior: POST API-002; on 403 show segregation-of-duties or over-limit
+      banner; never disclose the maker's identity to a blocked checker
+    security:
+      - csrf-token
+      - rate-limited
+      - sso-authenticated
+      - decision-time-limit-check
+pages:
+  - id: PG-001
+    name: Submit Invoice
+    route: /invoices/submit
+    access:
+      - ROLE-AP-CLERK
+    states:
+      - default
+      - submitting
+      - routed
+      - totals-error
+    components:
+      - FRM-001
+      - invoice-preview
+    navigation:
+      entry-points:
+        - ap-inbox
+      exit-points:
+        - /approvals
+  - id: PG-002
+    name: Approval Inbox
+    route: /approvals
+    access:
+      - ROLE-APPROVER
+      - ROLE-CFO
+    states:
+      - default
+      - loading
+      - empty
+      - error
+    components:
+      - assigned-list
+      - sla-badges
+      - FRM-002
+    navigation:
+      entry-points:
+        - notification-link
+        - dashboard
+      exit-points:
+        - /approvals/{id}
+  - id: PG-003
+    name: Approval Detail
+    route: /approvals/{id}
+    access:
+      - ROLE-AP-CLERK
+      - ROLE-APPROVER
+      - ROLE-CFO
+      - ROLE-AUDITOR
+    states:
+      - pending-approver
+      - pending-checker
+      - escalated
+      - approved
+      - rejected
+    components:
+      - invoice-detail
+      - chain-timeline
+      - four-eyes-indicator
+      - FRM-002
+    navigation:
+      entry-points:
+        - /approvals
+      exit-points:
+        - /approvals
+  - id: PG-004
+    name: Exception Queue
+    route: /approvals/exceptions
+    access:
+      - ROLE-CFO
+    states:
+      - default
+      - loading
+      - empty
+    components:
+      - exception-list
+      - manual-route-action
+    navigation:
+      entry-points:
+        - ALT-002-alert
+        - dashboard
+      exit-points:
+        - /approvals/{id}
+testing:
+  strategy: "Test pyramid: unit (DEC-001 rule matrix, four-eyes distinctness,
+    effective-limit math) > integration (API + datastore + notification stub) >
+    e2e (submit -> route -> approve -> four-eyes -> finalize). Decision-table
+    and four-eyes tests run in CI on every PR; SLA/escalation tested with a
+    simulated clock."
+  coverage-targets:
+    unit: 95% on routing + four-eyes + limit logic
+    integration: all 4 API endpoints x all documented responses
+    e2e: WF-001, WF-002, WF-003 happy + primary failure paths
+  golden-scenarios:
+    - id: GS-001
+      name: Small invoice single approval
+      given: a 4,000 EUR low-risk marketing invoice
+      when: it is submitted and routed via DEC-001
+      then: it goes to a team-lead approver with requires-four-eyes false and
+        finalizes on one approval
+      requirement: REQ-001
+    - id: GS-002
+      name: Large invoice needs four-eyes
+      given: a 60,000 EUR invoice
+      when: it is submitted and routed via DEC-001
+      then: it routes to a CFO approver with requires-four-eyes true and cannot
+        finalize on one approval
+      requirement: REQ-002
+    - id: GS-003
+      name: Maker cannot be checker
+      given: a large invoice approved once by user A
+      when: user A attempts the second checker approval
+      then: the approval is rejected server-side with a SoD error and AUD-004 is
+        recorded
+      requirement: REQ-002
+    - id: GS-004
+      name: SLA breach escalates
+      given: an approval stage with a 24 business-hour SLA
+      when: 24 business hours elapse with no decision
+      then: the stage is flagged breached and escalates to the next authority with
+        NOT-002 and AUD-005
+      requirement: REQ-011
+    - id: GS-005
+      name: Delegation capped at delegator
+      given: a 10,000 EUR delegator delegating authority
+      when: the delegate approves a 20,000 EUR invoice
+      then: the approval is rejected for exceeding the delegator cap and AUD-006
+        records both identities
+      requirement: REQ-013
+    - id: GS-006
+      name: High-risk vendor forces four-eyes
+      given: a 6,000 EUR invoice from a high-risk vendor
+      when: it is routed via DEC-001 rule R3
+      then: requires-four-eyes is true even though the amount is below the
+        large-invoice threshold
+      requirement: REQ-001
+  security-tests:
+    - self-approval-attempt-on-all-endpoints
+    - over-limit-approval-bypass
+    - delegation-cap-bypass
+    - expired-delegation-replay
+    - audit-tamper-detection
+    - csrf-on-decide-and-delegate
+    - idor-on-approval-read
+  performance-tests:
+    - routing-60s-p95-at-50-submissions-per-min
+    - sla-timer-tick-under-5min-at-10k-open-requests
+    - escalation-storm-after-holiday-backlog
+deployment:
+  environments:
+    - dev
+    - staging
+    - production
+  pipeline:
+    - lint
+    - unit-tests
+    - decision-table-tests
+    - integration-tests
+    - security-scan
+    - build
+    - deploy-staging
+    - e2e-on-staging
+    - manual-gate
+    - deploy-production
+  rollout: canary
+  rollback: automatic on ALT-001 firing during canary window; otherwise one-click
+    revert to previous image; DEC-001 changes are versioned and roll back
+    independently of code; DB migrations are expand-contract
+  feature-flags:
+    - four-eyes-strict-mode
+    - sla-escalation-enabled
+    - high-risk-vendor-override
+  configuration:
+    - DATABASE_URL
+    - IDP_ISSUER_URL
+    - IDP_CLIENT_SECRET
+    - NOTIFICATION_API_KEY
+    - PAYMENTS_SERVICE_URL
+    - BUSINESS_CALENDAR_URL
+operations:
+  runbooks:
+    - id: RB-001
+      scenario: SLA-breach rate above SLO (ALT-001)
+      steps:
+        - check sla-breach-trends dashboard for the stalling stage
+        - inspect open-request queue by approver for absentees
+        - trigger delegation or manual escalation for blocked approvers
+        - "if systemic: check SLA timer health and business-calendar config"
+        - "post an incident note in #ap-ops"
+      owner: sre-lead
+    - id: RB-002
+      scenario: Exception queue backing up (ALT-002)
+      steps:
+        - open the exception queue page (PG-004)
+        - triage DEC-001 no-match items — confirm department and vendor-risk
+          inputs
+        - manually route or return each item with a reason
+        - if a routing gap recurs, open a G3 change to DEC-001
+      owner: ap-controller
+    - id: RB-003
+      scenario: Segregation-of-duties block observed (ALT-003)
+      steps:
+        - review approval.sod-blocked events in the compliance dashboard
+        - confirm whether a shared account or self-approval was attempted
+        - notify compliance-officer; preserve audit evidence
+        - "if abuse: suspend the account and file a control-incident"
+      owner: compliance-officer
+  capacity:
+    expected-load: 50 invoice submissions/min steady, 10k open approval requests
+    peak-load: 300 submissions/min at month-end close
+    scaling-strategy: horizontal auto-scale on CPU+queue-depth; SLA timer
+      partitioned by tenant; audit writes buffered
+  maintenance:
+    - weekly-dependency-patching
+    - monthly-secret-rotation-check
+    - quarterly-DEC-001-threshold-review-with-internal-audit
+  on-call: platform on-call rota; approval-service pages route to AP backend
+    on-call with compliance-officer escalation for SoD signals
+support:
+  tiers:
+    - self-service-help-center
+    - tier-1-ap-support
+    - tier-2-approval-team
+    - compliance-escalation
+  escalation: tier-1 -> tier-2 within 4 business hours; suspected control bypass
+    -> compliance-officer immediately
+  common-issues:
+    - issue: Invoice stuck in approval
+      resolution: check the approval detail SLA badge; if breached it will
+        auto-escalate; tier-2 can trigger delegation for an absent approver
+      kb-ref: KB-AP-001
+    - issue: Approval blocked as segregation-of-duties
+      resolution: a different person must approve; the maker of an invoice can never
+        be its checker; tier-2 confirms the second eligible approver
+      kb-ref: KB-AP-002
+    - issue: Invoice returned for totals mismatch
+      resolution: correct the line/tax totals and resubmit; the reference stays the
+        same, a corrected document is issued
+      kb-ref: KB-AP-003
+  user-impact-comms: status page entry + in-app banner for approval-service
+    incidents > 10 min; templated comms owned by ap-controller
+documentation:
+  - type: user-guide
+    audience: AP clerks and approvers
+    owner: ap-controller
+    location: help-center/approvals/
+    update-trigger: any UX or policy change visible to users
+  - type: api-reference
+    audience: client developers
+    owner: approval-service-team
+    location: docs/api/approvals.md
+    update-trigger: any API contract change (CI-enforced)
+  - type: runbook
+    audience: on-call engineers
+    owner: sre-lead
+    location: operations.runbooks
+    update-trigger: every incident post-mortem
+  - type: architecture
+    audience: engineers and auditors
+    owner: architect
+    location: docs/architecture/approvals.md
+    update-trigger: any ADR affecting routing, four-eyes, or DEC-001
+  - type: onboarding
+    audience: new team members
+    owner: approval-service-team
+    location: docs/onboarding/approvals.md
+    update-trigger: quarterly review
+governance:
+  approvals:
+    - gate: G1-requirements
+      approver-role: ap-controller
+      status: pending
+    - gate: G2-architecture
+      approver-role: architect
+      status: pending
+    - gate: G3-data-model
+      approver-role: architect
+      status: pending
+    - gate: G4-security
+      approver-role: compliance-officer
+      status: pending
+  lifecycle: draft
+  version: 1.0.0
+  change-policy: changes to must-priority requirements, DEC-001 routing rules, or
+    the four-eyes threshold reopen the affected gate; all changes via PR with
+    trace update and internal-audit sign-off
+  traceability: every hidden requirement and cross-cutting domain cites
+    discovery/<domain>/<rule-id>; explicit items cite the verbatim story;
+    workflows reference requirement ids; DEC-001 traces to REQ-001 and
+    WF-001.S2; audit/notification/runbook ids cross-link
+compliance:
+  regulations:
+    - name: SOX
+      applicable: true
+      rationale: money-moving approval with segregation-of-duties controls (four-eyes)
+        requires SOX 404 evidence
+      obligations:
+        - segregation-of-duties-enforcement
+        - immutable-audit-trail
+        - change-management-evidence
+        - quarterly-control-testing
+    - name: SOC2
+      applicable: true
+      rationale: B2B customers expected to request SOC2 Type II reports for the
+        approval platform
+      obligations:
+        - logical-access-controls-CC6
+        - audit-trail-retention
+        - incident-response-runbooks
+    - name: GDPR
+      applicable: true
+      rationale: processes personal data (approver identities, sole-trader vendor names)
+      obligations:
+        - lawful-basis-legitimate-interest
+        - data-subject-rights-support
+        - retention-limitation
+    - name: PCI-DSS
+      applicable: false
+      rationale: no cardholder data; disbursement and card handling are out of scope
+        (ASM-003)
+  privacy:
+    pii-inventory:
+      - ENT-Invoice.vendor_name
+      - ENT-ApprovalRequest.maker_id
+      - ENT-ApprovalRequest.checker_id
+      - ENT-AuditEntry.actor_id
+    consent: processing of approver identities relies on
+      legitimate-interest/employment basis, not consent; documented in the
+      privacy notice for staff
+    data-subject-rights:
+      - access
+      - rectification
+      - erasure-where-not-under-legal-hold
+  backup:
+    strategy: automated daily snapshots + continuous WAL archiving; encrypted at
+      rest; cross-region copy; audit store backed up before each WORM export
+    rpo: 5 minutes
+    rto: 1 hour
+  disaster-recovery:
+    plan: warm standby in a secondary region; DNS failover; SLA timers resume from
+      persisted sla_due_at so no breach is lost; in-flight approvals re-validate
+      eligibility on recovery
+    test-frequency: twice yearly game-day, including restore-from-backup and
+      audit-chain-verification drill
+_meta:
+  aggregated_from:
+    - 01-initialized.yaml
+    - 02-in-progress.yaml
+    - 03-generating-app.yaml
+    - 04-root-models.yaml
+    - 05-dependent-models.yaml
+    - 06-forms.yaml
+  produced_by: awp build --aggregate

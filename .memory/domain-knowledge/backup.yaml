@@ -1,12 +1,21 @@
 id: backup
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: BCK-C1, rule: "Automated daily backups; point-in-time recovery enabled for primary DB" }
-  - { id: BCK-C2, rule: "Backups encrypted, access-controlled, and restore-tested quarterly" }
+  - id: BCK-C1
+    rule: Automated daily backups; point-in-time recovery enabled for primary DB
+  - id: BCK-C2
+    rule: Backups encrypted, access-controlled, and restore-tested quarterly
 requirement-seeds:
   - id: discovery/backup/REQ-1
     title: Verified restorability
-    ac: "Given the quarterly restore drill, When executed, Then a full restore completes within RTO and data matches checksums"
-blueprint-sections: [operations, requirements]
+    ac: Given the quarterly restore drill, When executed, Then a full restore completes within RTO and data matches checksums
+blueprint-sections:
+  - operations
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

@@ -10,7 +10,7 @@ canonical prompt; all platform adapters (.claude/commands/, .opencode/, .cursor/
 
 - **Output schema (binding):** `.schemas/workflow-blueprint/schema.yaml` (28 sections, typed attributes)
 - **Schema summary (small models):** `.schemas/workflow-blueprint/schema-summary.yaml`
-- **Validation (binding):** `.schemas/workflow-blueprint/validation-rules.yaml` (17 rules)
+- **Validation (binding):** `.schemas/workflow-blueprint/validation-rules.yaml` (26 rules)
 - **Knowledge base:** `.memory/domain-knowledge/index.yaml` + one file per domain
 - **Discovery skill:** `.skills/hidden-requirement-discovery/skill.yaml`
 - **Maturity levels:** `.commands/workflow-builder/maturity-levels.yaml` (default **L6**)
@@ -59,9 +59,15 @@ Write `01-initialized.yaml` with sections: `project`, `domains` (explicit + tier
 
 ### Stage 2: In Progress → `02-in-progress.yaml`
 
-2. **classify-domains** — Match the story against the `trigger-map` in
-   `.memory/domain-knowledge/index.yaml`. Collect explicit functional domains.
-   Zero matches → treat as a generic feature; proceed with the ANY-USER-FACING baseline only.
+2. **classify-domains** — Prefer the deterministic engine: `awp classify "<story>"`
+   (synonym + stemming + negation matching over all 70 domains in 9 packs, with the
+   implication fixpoint and baseline already applied) and use its
+   `explicit`/`hidden`/`not-applicable` output verbatim. If the CLI is unavailable,
+   match against the `trigger-map` in `.memory/domain-knowledge/index.yaml` yourself.
+   Zero functional matches → the engine flags `matchedZero`; proceed with the
+   ANY-USER-FACING baseline and note the gap. You MAY *propose* extra domains, but
+   only ids that exist in the KB registry, tagged `source: proposed/<model>` —
+   proposals never count toward coverage minimums; deterministic matches do.
 
 3. **expand-hidden** — Run the hidden-requirement-discovery skill: apply the
    `implication-map` to a fixpoint, union the ANY-USER-FACING baseline (at the level's
@@ -95,7 +101,7 @@ Write `02-in-progress.yaml` with sections: `requirements`, `risks`, `assumptions
 5. **populate-schema** (slice 4) — Fill schema sections: `forms`, `pages`, `testing`,
    `deployment`, `operations`, `support`, `documentation`, `governance`, `compliance`.
 
-6. **emit-and-validate** — Check all 17 rules. On pass: print the coverage report.
+6. **emit-and-validate** — Check all 26 rules. On pass: print the coverage report.
    On fail: list the failing rules per file, mark output `status: DRAFT-INVALID`,
    and say so — never emit silently broken output.
 
@@ -122,7 +128,7 @@ Story:      "<story>"
 Maturity:   L<N> (<Name>)
 Domains:    <n> activated (<e> explicit, <h> hidden, <na> not-applicable)
 Hidden reqs: <n> across <d> domains
-Validation: <p>/17 rules passed
+Validation: <p>/26 rules passed
 Assumptions to review: <n>
 ─────────────────────────────────────────────────────────
 blueprints/<slug>/

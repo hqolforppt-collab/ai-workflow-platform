@@ -1,0 +1,28 @@
+id: versioning
+type: functional
+version: 1.0.0
+pack: documents
+triggers:
+  - { term: versioning, synonyms: [version, revision, history, rollback] }
+  - { term: diff, synonyms: [compare, changelog, concurrent-edit] }
+implies: [audit, backup, authorization]
+standards:
+  - { id: ISO-15489, version: "2016", verified: 2026-07-05, url: "https://www.iso.org/standard/62542.html" }
+  - { id: ISO-19005, version: "2020", verified: 2026-07-05, url: "https://www.iso.org/standard/71839.html" }
+constraints:
+  - { id: VER-C1, rule: "Each save produces a new immutable version with a monotonic version number; prior versions are never overwritten or deleted (except by the retention schedule), and every version records author and timestamp" }
+  - { id: VER-C2, rule: "Concurrent edits use optimistic concurrency: writes carry the base version (ETag/If-Match); a stale base is rejected with 409 rather than silently overwriting a newer version (no lost updates)" }
+  - { id: VER-C3, rule: "Any two versions are diffable and any prior version is restorable via rollback; rollback creates a new version referencing the restored source rather than mutating history" }
+  - { id: VER-C4, rule: "Long-term archival copies are stored in a preservation format (PDF/A per ISO 19005) so rendered content stays reproducible independent of the original application" }
+requirement-seeds:
+  - id: discovery/versioning/REQ-1
+    title: No lost updates
+    ac: "Given two users editing version N, When the second save arrives with a stale base version, Then it is rejected with 409 and the first user's change is preserved"
+  - id: discovery/versioning/REQ-2
+    title: Rollback preserves history
+    ac: "Given a document at version N, When a user rolls back to version N-2, Then a new version N+1 is created with N-2's content and the intervening versions remain retrievable"
+blueprint-sections: [data-model, workflows, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

@@ -1,0 +1,31 @@
+id: inventory
+type: functional
+version: 1.0.0
+pack: commerce
+triggers:
+  - inventory
+  - { term: stock, synonyms: [stock level, stock count, on-hand, availability] }
+  - { term: reorder, synonyms: [replenishment, restock, reorder point] }
+  - { term: reservation, synonyms: [stock hold, allocation] }
+implies: [catalog, audit, monitoring, notification, error-management]
+standards:
+  - { id: GS1, version: "2024", verified: 2026-07-05, url: "https://www.gs1.org" }
+  - { id: ISO-28000, version: "2022", verified: 2026-07-05, url: "https://www.iso.org/standard/79612.html" }
+constraints:
+  - { id: INVT-C1, rule: "Stock decrement uses atomic compare-and-set (or SELECT ... FOR UPDATE) to prevent oversell under concurrent orders; a decrement below zero fails the transaction" }
+  - { id: INVT-C2, rule: "Reservations expire after 15 minutes if the order is not paid, returning held units to available stock via a scheduled sweep" }
+  - { id: INVT-C3, rule: "Available = on-hand minus reserved minus damaged; each quantity tracked separately and never conflated" }
+  - { id: INVT-C4, rule: "When available stock falls to or below the per-SKU reorder point, a replenishment notification is emitted exactly once until stock rises above the point again" }
+  - { id: INVT-C5, rule: "Every stock movement (receipt, reserve, release, decrement, adjustment) writes an immutable ledger entry with delta, reason, and actor; running balance is derivable from the ledger" }
+requirement-seeds:
+  - id: discovery/inventory/REQ-1
+    title: Oversell prevention under concurrency
+    ac: "Given 1 unit in stock, When two orders for that unit are submitted concurrently, Then exactly one succeeds and the other is rejected or backordered, and on-hand never goes negative"
+  - id: discovery/inventory/REQ-2
+    title: Reservation expiry
+    ac: "Given a reserved but unpaid order, When 15 minutes elapse, Then the reserved units are released back to available stock"
+blueprint-sections: [workflows, requirements, data-model]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: commerce-wg

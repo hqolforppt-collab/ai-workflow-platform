@@ -1,0 +1,46 @@
+# =============================================================================
+# DOMAIN-KNOWLEDGE INDEX — AUTHORED HEADER
+# The hand-maintained portion of the KB index. `awp kb build-index` combines
+# this with a scan of every domain file to (re)generate index.yaml. Never edit
+# index.yaml directly — edit this file (and the domain files) and rebuild.
+# =============================================================================
+version: 2.0.0
+status: approved
+authority: .ai/constitution.md
+
+# Baseline: ANY user-facing feature always implies these cross-cutting domains.
+# (This is the one implication not derivable from a single domain's `implies`.)
+baseline-any-user-facing:
+  - security
+  - audit
+  - logging
+  - monitoring
+  - error-management
+  - notification
+  - observability
+  - documentation
+  - testing
+  - deployment
+  - operations
+  - analytics
+  - compliance
+  - privacy
+  - backup
+  - disaster-recovery
+
+# Keyword disambiguation: when one keyword legitimately spans > 2 packs, list it
+# here with the intended default so KB-I3 stays quiet and classify.js is
+# deterministic. `prefer` wins unless the story context matches `unless`.
+disambiguation:
+  - keyword: order
+    prefer: commerce
+    unless: [approval, approve, sign-off]   # "order approval" -> approvals pack
+  - keyword: document
+    prefer: documents
+    unless: [upload, attach]                # generic upload -> file-management
+
+guarantees:
+  - additive-only: discovery may add domains/requirements, never remove or alter user intent
+  - auth-coverage: any auth-triggered story must activate >= 25 domains (VAL-013)
+  - traceability: every discovered item cites discovery/<domain>/<rule-id>
+  - closed-graph: every implies/trigger target resolves to a real domain (KB-I1/I2)

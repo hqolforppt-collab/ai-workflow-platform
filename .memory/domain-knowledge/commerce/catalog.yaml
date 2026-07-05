@@ -1,0 +1,32 @@
+id: catalog
+type: functional
+version: 1.0.0
+pack: commerce
+triggers:
+  - catalog
+  - { term: product, synonyms: [product data, item, listing] }
+  - { term: sku, synonyms: [stock keeping unit, variant] }
+  - { term: gtin, synonyms: [barcode, upc, ean] }
+  - { term: category, synonyms: [taxonomy, product category] }
+implies: [inventory, audit, notification, error-management, analytics]
+standards:
+  - { id: GS1, version: "2024", verified: 2026-07-05, url: "https://www.gs1.org" }
+  - { id: ISO-4217, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/iso-4217-currency-codes.html" }
+constraints:
+  - { id: CAT-C1, rule: "Each sellable variant has a unique internal SKU and, where applicable, a GS1 GTIN validated with the GS1 check digit; a malformed GTIN blocks publish" }
+  - { id: CAT-C2, rule: "Prices are stored in minor units (integer) with an ISO-4217 currency code; floats are never used for price, and price is per currency, not a single converted value" }
+  - { id: CAT-C3, rule: "A product moves through a publish lifecycle draft -> review -> published -> archived; only published products are orderable, and archived products remain resolvable for historical orders" }
+  - { id: CAT-C4, rule: "Availability shown to customers is derived from inventory (available > 0) and publish state; it is never stored redundantly on the product record where it can drift" }
+  - { id: CAT-C5, rule: "Every catalog field change is versioned with actor and timestamp so a product's state at any past order time is reconstructable" }
+requirement-seeds:
+  - id: discovery/catalog/REQ-1
+    title: GTIN validation on publish
+    ac: "Given a product with a GTIN failing the GS1 check digit, When publish is attempted, Then publish is blocked and the validation error is surfaced"
+  - id: discovery/catalog/REQ-2
+    title: Only published products orderable
+    ac: "Given a product in draft or archived state, When a customer tries to add it to a cart, Then the action is rejected because only published products are orderable"
+blueprint-sections: [data-model, requirements, workflows]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: commerce-wg

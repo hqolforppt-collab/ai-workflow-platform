@@ -1,0 +1,30 @@
+id: webhooks
+type: functional
+version: 1.0.0
+pack: integration
+triggers:
+  - webhook
+  - { term: webhooks, synonyms: [callback, http-callback, event-notification, outbound-event] }
+  - { term: subscription, synonyms: [event-subscription, push-notification] }
+implies: [idempotency, retry-policy, authentication, observability, error-management, message-queues]
+standards:
+  - { id: CloudEvents, version: "1.0.2", verified: 2026-07-05, url: "https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md" }
+  - { id: IETF-RFC-9110, version: "2022", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc9110" }
+constraints:
+  - { id: WHK-C1, rule: "Every delivery is signed with HMAC-SHA256 over the raw body plus a timestamp; the signature and timestamp travel in headers; receivers reject signatures older than 5 minutes to block replay" }
+  - { id: WHK-C2, rule: "Delivery is at-least-once; each event carries a stable unique event id so receivers dedupe; the same event id delivered twice must be processed once (idempotent consumer)" }
+  - { id: WHK-C3, rule: "Failed deliveries retry with exponential backoff (base 1s, factor 2, full jitter, max 6 attempts over ~24h); only 5xx/timeout/network failures retry; a persistent 4xx (except 429) stops retries" }
+  - { id: WHK-C4, rule: "After the retry budget is exhausted the event moves to a dead-letter store, is marked failed, and is manually replayable; subscribers can request replay of any event within a 7-day window" }
+  - { id: WHK-C5, rule: "Payloads follow CloudEvents 1.0 envelope (id, source, type, specversion, time); receiver endpoints must respond within 10s or the delivery is treated as failed" }
+requirement-seeds:
+  - id: discovery/webhooks/REQ-1
+    title: Signature verification
+    ac: "Given a webhook whose HMAC signature does not match the payload, When the receiver validates it, Then the request is rejected with 401 and not processed"
+  - id: discovery/webhooks/REQ-2
+    title: Dead-letter after exhaustion
+    ac: "Given a webhook that fails all 6 delivery attempts, When the retry budget is exhausted, Then the event lands in the dead-letter store and is available for manual replay"
+blueprint-sections: [api, integrations, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

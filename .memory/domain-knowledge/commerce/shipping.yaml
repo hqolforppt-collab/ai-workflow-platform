@@ -1,0 +1,33 @@
+id: shipping
+type: functional
+version: 1.0.0
+pack: commerce
+triggers:
+  - shipping
+  - { term: carrier, synonyms: [courier, shipping carrier, delivery service] }
+  - { term: tracking, synonyms: [track shipment, tracking number, shipment status] }
+  - { term: address, synonyms: [shipping address, delivery address, address validation] }
+  - incoterms
+implies: [fulfillment, notification, audit, error-management]
+standards:
+  - { id: Incoterms, version: "2020", verified: 2026-07-05, url: "https://iccwbo.org/business-solutions/incoterms-rules/incoterms-2020/" }
+  - { id: GS1, version: "2024", verified: 2026-07-05, url: "https://www.gs1.org" }
+  - { id: ISO-28000, version: "2022", verified: 2026-07-05, url: "https://www.iso.org/standard/79612.html" }
+constraints:
+  - { id: SHIP-C1, rule: "Every shipment records an explicit Incoterms 2020 term (e.g. DAP, DDP) that fixes the point where risk and cost transfer between seller and buyer; the term is shown on the commercial documents" }
+  - { id: SHIP-C2, rule: "Destination addresses are validated/normalized against a postal reference before label purchase; an unvalidated address blocks label creation" }
+  - { id: SHIP-C3, rule: "Carrier API calls use timeout <= 10s, retry with exponential backoff max 3 attempts, and fail over to an alternate carrier or manual queue rather than blocking the order" }
+  - { id: SHIP-C4, rule: "A carrier tracking number is persisted on the shipment and every tracking status webhook is verified and recorded; the customer is notified on dispatch and on delivery" }
+  - { id: SHIP-C5, rule: "Cross-border shipments capture the GS1 GTIN, HS/customs code, declared value, and currency for each line so customs documentation can be generated automatically" }
+requirement-seeds:
+  - id: discovery/shipping/REQ-1
+    title: Incoterms on every shipment
+    ac: "Given an international order, When a shipment is created, Then it carries a valid Incoterms 2020 term defining risk/cost transfer, and shipments without a term are rejected"
+  - id: discovery/shipping/REQ-2
+    title: Address validation before label
+    ac: "Given a destination address that fails postal validation, When a label purchase is attempted, Then label creation is blocked and the customer is prompted to correct the address"
+blueprint-sections: [workflows, requirements, integration, api]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: commerce-wg

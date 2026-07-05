@@ -1,0 +1,30 @@
+id: escalation
+type: functional
+version: 1.0.0
+pack: approvals
+triggers:
+  - escalation
+  - { term: escalate, synonyms: [auto-escalate, bump-up, raise-to-manager, override-route] }
+  - { term: timeout, synonyms: [overdue, stuck-approval, no-response] }
+implies: [audit, notification, sla-management, authorization]
+standards:
+  - { id: ITIL, version: "4-2019", verified: 2026-07-05, url: "https://www.axelos.com/certifications/itil-service-management" }
+  - { id: ISO-9001, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/standard/62085.html" }
+constraints:
+  - { id: ESCL-C1, rule: "An escalation timer starts when a stage is assigned; on breach of the configured threshold (default 24h business hours) the request auto-escalates to the next authority level" }
+  - { id: ESCL-C2, rule: "Escalation preserves the approval requirement: the escalated-to authority must have equal-or-higher limit than the original approver; it never lowers the required authority" }
+  - { id: ESCL-C3, rule: "Escalation is bounded to a maximum of 3 hops; after the final hop the request is parked in an exception queue for manual handling, never auto-approved" }
+  - { id: ESCL-C4, rule: "Each escalation writes an audit entry with trigger cause (timeout | threshold | manual), from-approver, to-approver, and elapsed time; the original approver retains the ability to act until the escalated approver decides" }
+  - { id: ESCL-C5, rule: "Notifications fire to both the breached approver and the escalation target at the moment of escalation; reminder notices are sent at 50% and 90% of the timer" }
+requirement-seeds:
+  - id: discovery/escalation/REQ-1
+    title: Timeout auto-escalation
+    ac: "Given a stage assigned with a 24h SLA, When 24h elapse with no decision, Then the request auto-escalates to the approver's manager and both are notified"
+  - id: discovery/escalation/REQ-2
+    title: Bounded escalation hops
+    ac: "Given a request that has escalated 3 times, When the third timer breaches, Then it is placed in the exception queue for manual handling rather than escalating again"
+blueprint-sections: [workflows, audit, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: governance-wg

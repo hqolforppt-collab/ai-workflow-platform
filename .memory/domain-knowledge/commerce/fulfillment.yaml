@@ -1,0 +1,31 @@
+id: fulfillment
+type: functional
+version: 1.0.0
+pack: commerce
+triggers:
+  - fulfillment
+  - { term: pick, synonyms: [pick and pack, picking, packing] }
+  - { term: warehouse, synonyms: [warehouse allocation, fulfillment center] }
+  - { term: partial shipment, synonyms: [partial fulfillment, split shipment] }
+implies: [inventory, shipping, audit, notification, error-management]
+standards:
+  - { id: GS1, version: "2024", verified: 2026-07-05, url: "https://www.gs1.org" }
+  - { id: ISO-28000, version: "2022", verified: 2026-07-05, url: "https://www.iso.org/standard/79612.html" }
+constraints:
+  - { id: FUL-C1, rule: "Warehouse allocation selects the fulfillment location that can satisfy the most order lines from a single site; ties broken by lowest shipping cost to the destination" }
+  - { id: FUL-C2, rule: "Partial fulfillment is permitted only when the order policy allows split shipments; each shipment references its parent order and the exact line quantities it covers" }
+  - { id: FUL-C3, rule: "Picked units move from 'reserved' to 'in-fulfillment' and are decremented from on-hand only at pack confirmation, so an aborted pick returns units to reserved" }
+  - { id: FUL-C4, rule: "A pick task is confirmed by scanning the GS1 GTIN/barcode of each item; a scan mismatch blocks pack confirmation" }
+  - { id: FUL-C5, rule: "Fulfillment state transitions (allocated -> picking -> packed -> handed-off) each emit an audit event; an order is marked fulfilled only when every line is packed or explicitly backordered" }
+requirement-seeds:
+  - id: discovery/fulfillment/REQ-1
+    title: Partial fulfillment integrity
+    ac: "Given a 3-line order with only 2 lines in stock, When split shipment is allowed, Then a shipment covering the 2 available lines is created and the third remains open, never marked fulfilled prematurely"
+  - id: discovery/fulfillment/REQ-2
+    title: Scan-verified pack
+    ac: "Given a pick task, When an item whose GTIN does not match the order line is scanned, Then pack confirmation is blocked and the discrepancy is logged"
+blueprint-sections: [workflows, requirements, data-model]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: commerce-wg

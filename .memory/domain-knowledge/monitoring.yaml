@@ -1,13 +1,24 @@
 id: monitoring
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: MON-C1, rule: "Golden signals tracked: latency p50/p95/p99, traffic, errors, saturation" }
-  - { id: MON-C2, rule: "Alert thresholds defined with runbook links; no unactionable alerts" }
-  - { id: MON-C3, rule: "Domain KPIs (e.g. login success rate) dashboarded, not just infra" }
+  - id: MON-C1
+    rule: "Golden signals tracked: latency p50/p95/p99, traffic, errors, saturation"
+  - id: MON-C2
+    rule: Alert thresholds defined with runbook links; no unactionable alerts
+  - id: MON-C3
+    rule: Domain KPIs (e.g. login success rate) dashboarded, not just infra
 requirement-seeds:
   - id: discovery/monitoring/REQ-1
     title: Feature health alerting
-    ac: "Given login error rate > 5% over 5 min, When threshold breaches, Then on-call is paged with runbook link"
-blueprint-sections: [monitoring, operations, requirements]
+    ac: Given login error rate > 5% over 5 min, When threshold breaches, Then on-call is paged with runbook link
+blueprint-sections:
+  - monitoring
+  - operations
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

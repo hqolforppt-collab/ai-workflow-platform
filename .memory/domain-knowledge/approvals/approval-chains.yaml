@@ -1,0 +1,30 @@
+id: approval-chains
+type: functional
+version: 1.0.0
+pack: approvals
+triggers:
+  - approval
+  - { term: approve, synonyms: [sign-off, authorize, review-and-approve, endorse] }
+  - { term: approval-workflow, synonyms: [routing, multi-step-approval, approval-routing] }
+implies: [audit, authorization, notification, escalation, four-eyes]
+standards:
+  - { id: ISO-9001, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/standard/62085.html" }
+  - { id: RACI, version: "2020", verified: 2026-07-05, url: "https://www.pmi.org/learning/library/raci-responsibility-assignment-matrix-9825" }
+constraints:
+  - { id: APRV-C1, rule: "Every approval decision persists approver id, ISO-8601 timestamp, decision (approve/reject), and a reason string >= 10 chars; entry is immutable and append-only" }
+  - { id: APRV-C2, rule: "Chain routing is deterministic: sequential stages advance only after all required approvers of the prior stage decide; parallel stages complete when the configured quorum (e.g. 2-of-3) is reached" }
+  - { id: APRV-C3, rule: "Any single reject at any stage terminates the chain and returns the request to the initiator; partial approvals are never treated as final approval" }
+  - { id: APRV-C4, rule: "Approver eligibility is re-evaluated at decision time against current role/authority; a decision by a now-ineligible approver is rejected server-side" }
+  - { id: APRV-C5, rule: "Chain definition is versioned; an in-flight request keeps the chain version it started with even if the template is later edited" }
+requirement-seeds:
+  - id: discovery/approval-chains/REQ-1
+    title: Sequential approval routing
+    ac: "Given a request requiring 2 sequential approvals, When the first approver approves, Then it routes to the second approver before the request can proceed"
+  - id: discovery/approval-chains/REQ-2
+    title: Reject terminates chain
+    ac: "Given a multi-stage chain, When any approver rejects, Then the chain stops immediately and the request is returned to the initiator with the reject reason"
+blueprint-sections: [workflows, audit, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: governance-wg

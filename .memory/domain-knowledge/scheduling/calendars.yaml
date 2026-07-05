@@ -1,0 +1,31 @@
+id: calendars
+type: functional
+version: 1.0.0
+pack: scheduling
+triggers:
+  - calendar
+  - { term: event, synonyms: [appointment, meeting, booking, ical, ics] }
+  - { term: recurrence, synonyms: [rrule, repeating-event, series] }
+implies: [notification, audit, reminders, business-hours]
+standards:
+  - { id: RFC-5545, version: "iCalendar", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc5545" }
+  - { id: IANA-TZDB, version: "2025b", verified: 2026-07-05, url: "https://www.iana.org/time-zones" }
+  - { id: ISO-8601, version: "2019", verified: 2026-07-05, url: "https://www.iso.org/iso-8601-date-and-time-format.html" }
+constraints:
+  - { id: CAL-C1, rule: "Every event timestamp is stored as UTC instant PLUS the originating IANA timezone id (e.g. 'Europe/Berlin'); a fixed numeric offset (e.g. +02:00) is never stored alone because it cannot survive DST transitions" }
+  - { id: CAL-C2, rule: "Recurring events store the RFC-5545 RRULE (FREQ/INTERVAL/BYDAY/UNTIL/COUNT) plus EXDATE overrides, not a materialized list; occurrences are expanded on read against the event timezone" }
+  - { id: CAL-C3, rule: "A wall-clock recurrence (e.g. 09:00 daily) keeps the local time constant across DST, so the UTC instant of an occurrence shifts by the offset delta; a fixed-interval recurrence keeps the UTC instant constant instead — the two are distinct and chosen explicitly" }
+  - { id: CAL-C4, rule: "Occurrences that land in a DST spring-forward gap (nonexistent local time) or fall-back overlap (ambiguous local time) resolve by a documented policy (default: gap shifts forward to first valid instant, overlap picks the earlier offset)" }
+  - { id: CAL-C5, rule: "All-day events are stored as timezone-independent DATE values (no time, no offset) so they do not drift when a viewer changes timezone" }
+requirement-seeds:
+  - id: discovery/calendars/REQ-1
+    title: DST-safe recurring event
+    ac: "Given a daily 09:00 event in Europe/Berlin, When the series crosses the March DST boundary, Then every occurrence still fires at 09:00 local time and the stored UTC instant shifts by one hour"
+  - id: discovery/calendars/REQ-2
+    title: Recurrence with exception
+    ac: "Given a weekly event with one cancelled occurrence via EXDATE, When occurrences are expanded for the month, Then the cancelled date is absent and all other weekly dates are present"
+blueprint-sections: [workflows, data, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

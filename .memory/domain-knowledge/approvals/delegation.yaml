@@ -1,0 +1,30 @@
+id: delegation
+type: functional
+version: 1.0.0
+pack: approvals
+triggers:
+  - delegation
+  - { term: delegate, synonyms: [deputize, assign-authority, proxy-approve, stand-in] }
+  - { term: out-of-office, synonyms: [ooo, vacation-cover, absence, deputy] }
+implies: [audit, authorization, notification]
+standards:
+  - { id: RACI, version: "2020", verified: 2026-07-05, url: "https://www.pmi.org/learning/library/raci-responsibility-assignment-matrix-9825" }
+  - { id: COSO, version: "2013", verified: 2026-07-05, url: "https://www.coso.org/guidance-erm" }
+constraints:
+  - { id: DELG-C1, rule: "A delegation carries a mandatory start and end timestamp; authority auto-revokes at expiry with no grace period and cannot exceed 90 days without renewal" }
+  - { id: DELG-C2, rule: "A delegate cannot approve above the delegator's own authority limit; the effective limit is min(delegate-limit, delegator-limit) evaluated at decision time" }
+  - { id: DELG-C3, rule: "Delegation is non-transitive: a delegate MUST NOT re-delegate the received authority to a third party" }
+  - { id: DELG-C4, rule: "Every action taken under delegation records both the acting delegate id and the original delegator id in the audit entry" }
+  - { id: DELG-C5, rule: "A delegate MUST NOT be the initiator of the request they approve under delegation; four-eyes separation is preserved through the delegation chain" }
+requirement-seeds:
+  - id: discovery/delegation/REQ-1
+    title: Time-bound delegation
+    ac: "Given a delegation with an end date of today 17:00, When a delegate attempts to approve at 17:01, Then the action is denied because authority has auto-revoked"
+  - id: discovery/delegation/REQ-2
+    title: Delegated authority is capped
+    ac: "Given a delegator with a $10k limit delegating to a $50k-limit user, When the delegate approves a $20k request, Then the approval is rejected for exceeding the delegator's $10k cap"
+blueprint-sections: [workflows, audit, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: governance-wg

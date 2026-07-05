@@ -1,0 +1,31 @@
+id: reconciliation
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - reconciliation
+  - { term: settlement, synonyms: [payout, ledger, clearing] }
+  - { term: match, synonyms: [reconcile, tie-out] }
+  - double-entry
+implies: [payments, audit, compliance, logging, monitoring]
+standards:
+  - { id: SOX, version: "2002-s404", verified: 2026-07-05, url: "https://www.congress.gov/bill/107th-congress/house-bill/3763" }
+  - { id: ISO-4217, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/iso-4217-currency-codes.html" }
+constraints:
+  - { id: RECON-C1, rule: "Every money movement is recorded double-entry; sum of debits equals sum of credits for each transaction (must net to zero)" }
+  - { id: RECON-C2, rule: "PSP settlement reports are matched to internal ledger daily; unmatched items become exceptions with an owner and aging" }
+  - { id: RECON-C3, rule: "Ledger entries are append-only and immutable; corrections post reversing entries, never edit or delete (SOX audit trail)" }
+  - { id: RECON-C4, rule: "Processor fees, refunds, and chargebacks are booked to distinct GL accounts so gross and net are separately reportable" }
+  - { id: RECON-C5, rule: "A reconciliation break > USD 0.01 or open > 2 business days is flagged and escalated; break aging is reported monthly" }
+requirement-seeds:
+  - id: discovery/reconciliation/REQ-1
+    title: Zero-sum ledger
+    ac: "Given any recorded transaction, When ledger entries are summed, Then total debits equal total credits (net zero)"
+  - id: discovery/reconciliation/REQ-2
+    title: Settlement matching
+    ac: "Given a daily PSP settlement file, When it is imported, Then each payout line is matched to a ledger entry or raised as an aged exception"
+blueprint-sections: [workflows, requirements, compliance, audit, monitoring]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

@@ -1,0 +1,129 @@
+# Golden tests for /workflow-builder — invoice-approval example
+# Any implementation of the command (on any platform) must reproduce a blueprint
+# for the story below that passes ALL of these assertions.
+#
+# This example proves the platform generalizes beyond auth to a DMN-heavy
+# approval workflow: amount-based routing via a DMN decision table, four-eyes
+# (maker != checker) on large invoices, and SLA-timed escalation.
+#
+# Reference output: the staged 6-file blueprint in this directory
+# (01-initialized.yaml … 06-forms.yaml). `awp build --aggregate` deterministically
+# merges them into blueprint.yaml; `awp validate <dir>` reports 26/26 rules
+# passing; `awp flowable convert <dir>` emits 6 Flowable artifacts into flowable/.
+id: workflow-builder-invoice-approval-golden-tests
+version: 1.0.0
+story: "Invoice approval workflow with amount-based routing and four-eyes for large invoices"
+reference:
+  staged:
+    - examples/workflow-builder/invoice-approval/01-initialized.yaml
+    - examples/workflow-builder/invoice-approval/02-in-progress.yaml
+    - examples/workflow-builder/invoice-approval/03-generating-app.yaml
+    - examples/workflow-builder/invoice-approval/04-root-models.yaml
+    - examples/workflow-builder/invoice-approval/05-dependent-models.yaml
+    - examples/workflow-builder/invoice-approval/06-forms.yaml
+  aggregate: examples/workflow-builder/invoice-approval/blueprint.yaml
+  flowable: examples/workflow-builder/invoice-approval/flowable/
+
+tests:
+  - id: GT-001
+    name: all-28-sections-present
+    asserts: "Output contains all 28 top-level sections of schema.yaml plus the optional decision-tables section; none of the 12 always-populated sections is 'not-applicable'."
+    maps-to: [VAL-001, VAL-002]
+
+  - id: GT-002
+    name: minimum-cross-cutting
+    asserts: "domains.cross-cutting has >= 12 entries (reference: 18), each with discovery-rule and criticality; VAL-013 does NOT apply because the story is not an auth story."
+    maps-to: [VAL-010, VAL-012]
+
+  - id: GT-003
+    name: hidden-requirements-discovered
+    asserts: "requirements.hidden is non-empty (reference: 10 entries) and every entry's source matches discovery/<domain> (sla-management, escalation, delegation, audit, approval-chains, compliance, tax, monitoring, invoicing)."
+    maps-to: [VAL-011, VAL-012]
+
+  - id: GT-004
+    name: acceptance-criteria-everywhere
+    asserts: "Every requirement (explicit and hidden) has >= 1 acceptance criterion containing all of Given, When, and Then."
+    maps-to: [VAL-021, VAL-061]
+
+  - id: GT-005
+    name: no-undefined-failures
+    asserts: "Every step in every workflow (WF-001 root, WF-002 + WF-003 dependent) defines on-failure; every workflow has an exceptions list."
+    maps-to: [VAL-022]
+
+  - id: GT-006
+    name: api-error-coverage
+    asserts: "Every API endpoint defines >= 2 responses including >= 1 non-2xx; API-002 (decide) returns 403 on a segregation-of-duties block."
+    maps-to: [VAL-023]
+
+  - id: GT-007
+    name: form-validation-complete
+    asserts: "Every form field has validation and error-message; forms list security measures (csrf-token at minimum)."
+    maps-to: [VAL-024]
+
+  - id: GT-008
+    name: references-resolve
+    asserts: "All ref values (requirements in workflows, actors in steps, runbooks in alerts, roles in pages, notifications in exceptions) resolve within the blueprint; every must-priority requirement is covered by a workflow, api, or page."
+    maps-to: [VAL-030, VAL-031, VAL-032]
+
+  - id: GT-009
+    name: dmn-decision-present-and-well-formed
+    asserts: >
+      The decision-tables section carries DEC-001 (id matches DEC-<n>) with a
+      FIRST hit-policy, three inputs (gross_minor, department, vendor_risk) and
+      two outputs (approver-role, requires-four-eyes), and it traces to REQ-001
+      and to WF-001.S2 that invokes it.
+    maps-to: [VAL-053]
+
+  - id: GT-010
+    name: dmn-routing-behavior
+    asserts: >
+      DEC-001 routes deterministically: a 4,000 EUR low-risk invoice -> ROLE-APPROVER,
+      requires-four-eyes false (rule R5); a 60,000 EUR invoice -> ROLE-CFO,
+      requires-four-eyes true (rule R2); a 6,000 EUR high-risk invoice ->
+      requires-four-eyes true (rule R3).
+    maps-to: [GS-001, GS-002, GS-006]
+
+  - id: GT-011
+    name: four-eyes-enforced
+    asserts: >
+      For a large invoice, the maker cannot be the checker: WF-001.S5 and
+      WF-003.S2 gate on maker != checker server-side, EX-005/EX-202 block
+      self-approval, and AUD-004 records the SoD block. The invoice stays
+      PENDING_CHECKER until a distinct second identity approves.
+    maps-to: [GS-002, GS-003]
+
+  - id: GT-012
+    name: sla-escalation
+    asserts: >
+      WF-002 escalates a breached stage on a business-hours SLA, is bounded to
+      3 hops (EX-103), never auto-approves on timeout, and emits
+      approval_sla_breaches_total + ALT-001.
+    maps-to: [GS-004]
+
+  - id: GT-013
+    name: staged-aggregation-and-flowable-convert
+    asserts: >
+      The 6 staged files aggregate (awp build --aggregate) into a single
+      blueprint.yaml (29 sections, no id collisions), and awp flowable convert
+      emits 6 artifacts: wf-001 (root BPMN), wf-002 + wf-003 (dependent BPMN),
+      dec-001 (DMN), and frm-001 + frm-002 (form.json), plus a
+      deploy-manifest.json carrying blueprint_id BLU-INVOICE-APPROVAL.
+    maps-to: [E5, E3]
+
+  - id: GT-014
+    name: quality-floors
+    asserts: "monitoring.slos >= 1; testing.golden-scenarios >= 3 (reference: 6); no TBD/TODO placeholder anywhere; no two requirements > 85% duplicate."
+    maps-to: [VAL-041, VAL-042, VAL-060, VAL-063]
+
+  - id: GT-015
+    name: user-intent-preserved
+    asserts: "project.story is the verbatim input; both explicit requirements (amount-based routing, four-eyes on large invoices) exist with priority must; nothing the user asked for is dropped or contradicted."
+    maps-to: [pipeline.invariants.additive-only]
+
+expected-coverage-report:
+  domains-activated: 26        # 8 functional (3 explicit + 5 expansions), 18 cross-cutting
+  hidden-requirements: 10
+  decision-tables: 1           # DEC-001 approval-routing (5 rules, FIRST hit-policy)
+  validation: 26/26            # deterministic; run `awp validate <dir>`
+  assumptions-for-review: 6
+  flowable-artifacts: 6        # 3 BPMN (1 root + 2 dependent) + 1 DMN + 2 forms

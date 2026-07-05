@@ -1,0 +1,125 @@
+# 06-forms.yaml — Stage 6/6 (Forms)
+# Sections: forms, pages, testing, deployment, operations, support, documentation, governance, compliance
+_meta:
+  blueprint_id: BLU-EMPLOYEE-ONBOARDING
+  stage: stage-06
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  # Restated on the last-merged stage so the flowable converter (which flattens
+  # staged _meta) still selects the CMMN root model for this case. Authoritative
+  # declaration is stage-04 (_meta.root_model_type: CMMN).
+  root_model_type: CMMN
+  depends_on: [stage-04, stage-05]
+  trace:
+    upstream: [04-root-models.yaml, 05-dependent-models.yaml]
+
+forms:
+  - id: FRM-001
+    name: Open Onboarding Case Form
+    used-in: [WF-001, PG-001]
+    fields:
+      - { name: employeeName,  label: "Employee full name", type: text,   required: true, validation: "1-200 chars, letters/spaces/hyphens", error-message: "Enter the employee's full legal name.", accessibility: "autocomplete=name; described-by inline error" }
+      - { name: nationalId,    label: "National ID / SSN",  type: text,   required: true, validation: "format per jurisdiction; stored encrypted", error-message: "Enter a valid national identifier for the hire's jurisdiction.", accessibility: "input masked; described-by privacy note" }
+      - { name: startDate,     label: "Confirmed start date", type: date, required: true, validation: "a future date, within 12 months", error-message: "Start date must be in the future and within the next 12 months.", accessibility: "date picker with keyboard entry" }
+      - { name: roleTemplate,  label: "Role / access template", type: select, required: true, validation: "one of master-data:role-template", error-message: "Select the role template that defines the hire's access.", accessibility: "listbox announced via aria-activedescendant" }
+    submit-behavior: "POST API-001; disable submit while pending; show the created case with its task plan on success"
+    security: [csrf-token, rate-limited, rbac-case-worker-only]
+  - id: FRM-002
+    name: Document Upload Form
+    used-in: [WF-002, PG-002]
+    fields:
+      - { name: kind, label: "Document type", type: select, required: true, validation: "one of master-data:document-kind", error-message: "Choose which document you are uploading.", accessibility: "listbox with descriptive options" }
+      - { name: file, label: "Document file", type: file,   required: true, validation: "PDF/JPG/PNG, max 20 MB, malware-scanned", error-message: "Upload a PDF or image under 20 MB.", accessibility: "drag-drop with keyboard fallback; upload progress via aria-live" }
+    submit-behavior: "POST API-002 multipart; show per-document verification status after upload"
+    security: [csrf-token, rate-limited, malware-scan]
+  - id: FRM-003
+    name: Readiness Review Form
+    used-in: [WF-001, PG-003]
+    fields:
+      - { name: verdict, label: "Readiness decision", type: select, required: true, validation: "one of [READY, NOT_READY]", error-message: "Select whether the hire is ready for day one.", accessibility: "radio-group semantics via aria-checked" }
+      - { name: note,    label: "Reviewer note",       type: text,   required: false, validation: "0-500 chars; required when verdict is NOT_READY", error-message: "Add a note explaining why the hire is not ready.", accessibility: "described-by character counter" }
+    submit-behavior: "records the readiness verdict (AUD-006); NOT_READY re-opens the blocking task and returns the case to ACTIVE"
+    security: [csrf-token, rbac-hiring-manager-only]
+
+pages:
+  - { id: PG-001, name: Open Case,        route: /cases/new,            access: [ROLE-CASE-WORKER],   states: [default, submitting, created, error], components: [FRM-001, role-template-help], navigation: { entry-points: [case-list], exit-points: [/cases/:id] } }
+  - { id: PG-002, name: Case Documents,   route: /cases/:id/documents,  access: [ROLE-NEW-HIRE, ROLE-CASE-WORKER], states: [empty, uploading, pending-verification, verified, rejected], components: [FRM-002, document-checklist], navigation: { entry-points: [/cases/:id, email-link], exit-points: [/cases/:id] } }
+  - { id: PG-003, name: Case Board,       route: /cases/:id,            access: [ROLE-CASE-WORKER, ROLE-HIRING-MANAGER], states: [open, active, awaiting-review, closed], components: [task-plan, discretionary-task-activators, milestone-tracker, FRM-003], navigation: { entry-points: [case-list], exit-points: [/cases] } }
+  - { id: PG-004, name: New Hire Portal,  route: /onboarding,           access: [ROLE-NEW-HIRE],      states: [tasks-pending, signing, training, complete], components: [my-tasks, e-sign-launcher, training-links], navigation: { entry-points: [welcome-email], exit-points: [/onboarding/done] } }
+
+testing:
+  strategy: "Test pyramid: unit (retention-class assignment, checklist gate, disposition decision) > integration (API + datastore + e-signature stub + provisioning stub) > e2e (case board flows). Security and RBAC tests run in CI on every PR; a case-aging load test runs before each release."
+  coverage-targets: { unit: "90% on case-service core (gate + retention + milestone logic)", integration: "all 5 API endpoints x all documented responses", e2e: "WF-001 case happy path + discretionary activation + WF-002/WF-003 failure paths" }
+  golden-scenarios:
+    - { id: GS-001, name: Case happy path to close, given: "an approved hire with all required documents and day-one access provisioned", when: "the hiring manager approves readiness and closure is confirmed", then: "the onboarding-complete milestone is marked and the case is CLOSED", requirement: REQ-017 }
+    - { id: GS-002, name: Discretionary task activation, given: "an open case for an on-site role", when: "the case worker activates the discretionary equipment and badge tasks", then: "both move to ACTIVE and are tracked, while a remote hire's case closes without them", requirement: REQ-002 }
+    - { id: GS-003, name: Legal hold blocks deletion, given: "a collected document under an active legal hold past its disposition date", when: "the daily disposition job runs", then: "deletion is blocked and AUD-005 is recorded", requirement: REQ-012 }
+    - { id: GS-004, name: Consent gates signing, given: "a new hire who has not consented to transact electronically", when: "they attempt to e-sign the offer letter", then: "signing is blocked until consent is recorded with a timestamp", requirement: REQ-010 }
+    - { id: GS-005, name: Early access refused, given: "an open case whose confirmed start date has not arrived", when: "provisioning runs", then: "accounts are created disabled and activation is refused until the start date", requirement: REQ-013 }
+    - { id: GS-006, name: Checklist gate blocks close, given: "a case with a required document still unverified", when: "the case worker attempts closure", then: "closure is blocked and the incomplete items are listed", requirement: REQ-017 }
+  security-tests: [rbac-discretionary-activation-by-non-worker, hold-release-by-non-admin, sql-injection-on-document-metadata, path-traversal-on-file-upload, signature-tamper-detection, early-activation-attempt, segregation-of-duties-hold-vs-case-worker]
+  performance-tests: [50-concurrent-open-cases, document-upload-burst-20-per-min, provisioning-storm-on-monday-start-dates]
+
+deployment:
+  environments: [dev, staging, production]
+  pipeline: [lint, unit-tests, integration-tests, security-scan, build, deploy-staging, e2e-on-staging, manual-gate, deploy-production]
+  rollout: canary
+  rollback: "automatic on ALT-002 firing during canary; otherwise one-click revert to previous image; DB migrations are expand-contract (never breaking)"
+  feature-flags: [discretionary-badge-enabled, auto-disposition-enabled, advanced-esign-required]
+  configuration: [DATABASE_URL, OBJECT_STORE_URL, KMS_KEY_ID, ESIGN_API_KEY, PROVISIONING_CLIENT_SECRET, RETENTION_ENGINE_URL]
+
+operations:
+  runbooks:
+    - { id: RB-001, scenario: "Cases trending late to day-one-ready (ALT-001)", steps: ["open onboarding-overview and case-aging dashboards", "identify the blocking task class (documents vs provisioning)", "escalate stuck documents to hiring managers", "if provisioning: check INT-002 provisioning health", "note the trend in #people-ops-ops"], owner: people-ops-lead }
+    - { id: RB-002, scenario: "Day-one provisioning failure (ALT-002)", steps: ["confirm accounts are disabled, not partially enabled", "check INT-002 IdP/MDM status", "resolve the role template or KMS access issue", "re-run provisioning; verify accounts activate on the start date", "record the incident against the case"], owner: it-provisioning-lead }
+    - { id: RB-003, scenario: "Mandatory training overdue (RSK-003)", steps: ["pull the non-compliant case list", "confirm NOT-004 was delivered", "escalate to the hiring manager", "if repeated, raise to security-officer for compliance tracking"], owner: security-officer }
+    - { id: RB-004, scenario: "Retention/disposition service down (ALT-003) or GDPR erasure request", steps: ["verify no documents were auto-purged while INT-003 was unavailable", "for erasure: confirm no overriding legal basis or active hold", "execute defensible deletion across primary store, indexes, and backups", "record the outcome (erased vs retained-with-reason) in the audit trail"], owner: data-protection-officer }
+  capacity: { expected-load: "10 open cases steady, 5 document uploads/min", peak-load: "50 concurrent open cases (seasonal hiring waves)", scaling-strategy: "horizontal auto-scale on CPU + queue depth; object store sized for 10x steady document volume" }
+  maintenance: [weekly-dependency-patching, monthly-secret-rotation-check, quarterly-role-template-and-retention-class-review]
+  on-call: "platform on-call rota; provisioning failures page it-provisioning-oncall with security-officer escalation for access anomalies"
+
+support:
+  tiers: [self-service-help-center, tier-1-people-ops, tier-2-it-provisioning, security-escalation]
+  escalation: "tier-1 -> tier-2 within 4 business hours; suspected access anomaly -> security-officer immediately"
+  common-issues:
+    - { issue: "New hire cannot upload a document", resolution: "check file type/size and malware-scan result; tier-1 can re-issue the upload link", kb-ref: KB-ONB-001 }
+    - { issue: "Discretionary task not visible on the case", resolution: "confirm the task is discretionary and AVAILABLE; only a case worker can activate it", kb-ref: KB-ONB-002 }
+    - { issue: "Accounts not active on the start date", resolution: "verify the start date is correct and provisioning succeeded; escalate to tier-2 if accounts remain disabled", kb-ref: KB-ONB-003 }
+  user-impact-comms: "in-app banner on the case board for provisioning incidents > 30 min; templated comms owned by people-ops-lead"
+
+documentation:
+  - { type: user-guide,     audience: "new hires",             owner: people-ops-lead,     location: help-center/onboarding/,        update-trigger: "any change to the new-hire portal or required documents" }
+  - { type: admin-guide,    audience: "case workers",          owner: people-ops-lead,     location: docs/onboarding/case-worker.md, update-trigger: "any change to the task plan or discretionary tasks" }
+  - { type: api-reference,  audience: "client developers",     owner: case-service-team,   location: docs/api/onboarding.md,         update-trigger: "any API contract change (CI-enforced)" }
+  - { type: runbook,        audience: "on-call engineers",     owner: it-provisioning-lead, location: operations.runbooks,           update-trigger: "every incident post-mortem" }
+  - { type: architecture,   audience: "engineers",             owner: architect,           location: docs/architecture/onboarding.md, update-trigger: "any ADR affecting the case model or root-model type" }
+
+governance:
+  approvals:
+    - { gate: G1-requirements, approver-role: people-ops-lead,        status: pending }
+    - { gate: G2-architecture, approver-role: architect,              status: pending }
+    - { gate: G3-data-model,   approver-role: architect,              status: pending }
+    - { gate: G4-security,     approver-role: security-officer,       status: pending }
+  lifecycle: draft
+  version: 1.0.0
+  change-policy: "changes to must-priority requirements, the security section, or retention classes reopen the affected gate; all changes via PR with trace update"
+  traceability: "every hidden requirement and cross-cutting domain cites discovery/<domain>/<rule-id>; explicit items cite the verbatim story; the root case and sub-workflows reference requirement ids; audit/notification/runbook ids cross-link"
+
+compliance:
+  regulations:
+    - { name: SOC2,    applicable: true,  rationale: "logical-access provisioning and audit evidence are in scope for customer SOC2 Type II reports", obligations: [logical-access-controls-CC6, least-privilege-provisioning, audit-trail-retention, change-management-evidence] }
+    - { name: GDPR,    applicable: true,  rationale: "EU-based hires assumed in scope (ASM-002); PII processed (name, national ID, address, IP)", obligations: [lawful-basis-and-consent-capture, retention-class-per-record, 30-day-erasure-including-backups, data-subject-rights-support] }
+    - { name: eIDAS,   applicable: true,  rationale: "electronic signatures on offer letter and policy acknowledgement", obligations: [signer-consent-capture, tamper-evident-evidence-package, trusted-timestamp-RFC3161, assurance-level-per-document] }
+    - { name: HIPAA,   applicable: false, rationale: "no health data processed by this onboarding case" }
+    - { name: PCI-DSS, applicable: false, rationale: "no cardholder data; payroll banking handled downstream" }
+  privacy:
+    pii-inventory: [ENT-OnboardingCase.employee_name, ENT-OnboardingCase.national_id, ENT-SignatureEvidence.signer_ip]
+    consent: "explicit consent to transact electronically captured before signing (ESIGN/UETA); privacy-notice consent captured at case open with version + timestamp"
+    data-subject-rights: [access, rectification, erasure, portability]
+  backup:
+    strategy: "automated daily snapshots + continuous WAL archiving; encrypted at rest; cross-region copy; object store versioned"
+    rpo: "15 minutes"
+    rto: "2 hours"
+  disaster-recovery:
+    plan: "warm standby in a secondary region; DNS failover; case state and documents restored from durable storage; in-flight signatures resume from the e-signature provider"
+    test-frequency: "twice yearly game-day, including restore-from-backup drill"

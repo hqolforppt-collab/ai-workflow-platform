@@ -1,0 +1,31 @@
+id: onboarding
+type: functional
+version: 1.0.0
+pack: hr
+triggers:
+  - onboarding
+  - { term: onboard, synonyms: [new hire, joiner, provisioning employee, day-one] }
+  - { term: new-employee-setup, synonyms: [employee provisioning, hire setup] }
+implies: [identity-management, authorization, audit, notification]
+standards:
+  - { id: SOC2, version: "2017 TSC", verified: 2026-07-05, url: "https://www.aicpa.org/resources/landing/system-and-organization-controls-soc-suite-of-services" }
+  - { id: ISO-27001-A.7, version: "2022", verified: 2026-07-05, url: "https://www.iso.org/standard/27001" }
+  - { id: NIST-800-53-AC-2, version: "Rev.5", verified: 2026-07-05, url: "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final" }
+constraints:
+  - { id: ONB-C1, rule: "Access provisioned from role templates keyed to job title; least-privilege by default; no standing admin/superuser rights granted at hire without a separate approval record" }
+  - { id: ONB-C2, rule: "Accounts activate on the confirmed start date, not before; pre-start accounts stay disabled to avoid an open window of unused credentials" }
+  - { id: ONB-C3, rule: "Every provisioning action (account create, group add, asset assign) writes an immutable audit entry with actor id, target employee id, ISO-8601 timestamp, and source ticket/approval reference" }
+  - { id: ONB-C4, rule: "Mandatory security and compliance training assigned on day one with a completion deadline <= 30 days; incomplete training after deadline triggers a manager notification" }
+  - { id: ONB-C5, rule: "Onboarding checklist must reach 100% (access, equipment, payroll enrollment, training) before the record is marked complete; partial completion cannot close the task" }
+requirement-seeds:
+  - id: discovery/onboarding/REQ-1
+    title: Day-one access
+    ac: "Given an approved new hire, When their start date arrives, Then role-based accounts are provisioned within 1 business day and a welcome notification is sent"
+  - id: discovery/onboarding/REQ-2
+    title: Least-privilege provisioning
+    ac: "Given a role template, When accounts are created, Then only the template's permissions are granted and any admin right requires a separate logged approval"
+blueprint-sections: [workflows, security, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: people-ops-wg

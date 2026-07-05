@@ -1,13 +1,24 @@
 id: observability
 type: cross-cutting
 version: 1.0.0
-triggers: [ANY-USER-FACING]
+triggers:
+  - ANY-USER-FACING
 constraints:
-  - { id: OBS-C1, rule: "Distributed tracing (OpenTelemetry) across all services" }
-  - { id: OBS-C2, rule: "Metrics, logs, traces correlated by trace-id" }
-  - { id: OBS-C3, rule: "SLOs defined per critical user journey (e.g. login p95 < 2s)" }
+  - id: OBS-C1
+    rule: Distributed tracing (OpenTelemetry) across all services
+  - id: OBS-C2
+    rule: Metrics, logs, traces correlated by trace-id
+  - id: OBS-C3
+    rule: SLOs defined per critical user journey (e.g. login p95 < 2s)
 requirement-seeds:
   - id: discovery/observability/REQ-1
     title: End-to-end trace coverage
-    ac: "Given a login request, When it completes, Then a single trace spans gateway, auth service, and database"
-blueprint-sections: [monitoring, operations, requirements]
+    ac: Given a login request, When it completes, Then a single trace spans gateway, auth service, and database
+blueprint-sections:
+  - monitoring
+  - operations
+  - requirements
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

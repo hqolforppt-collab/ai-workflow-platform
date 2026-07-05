@@ -1,0 +1,31 @@
+id: business-hours
+type: functional
+version: 1.0.0
+pack: scheduling
+triggers:
+  - { term: business-hours, synonyms: [working-hours, office-hours, opening-hours] }
+  - { term: holiday, synonyms: [holidays, non-working-day, bank-holiday, closure] }
+  - { term: working-calendar, synonyms: [work-schedule, shift-calendar] }
+implies: [audit, monitoring, calendars]
+standards:
+  - { id: IANA-TZDB, version: "2025b", verified: 2026-07-05, url: "https://www.iana.org/time-zones" }
+  - { id: ISO-8601, version: "2019", verified: 2026-07-05, url: "https://www.iso.org/iso-8601-date-and-time-format.html" }
+  - { id: RFC-5545, version: "iCalendar", verified: 2026-07-05, url: "https://www.rfc-editor.org/rfc/rfc5545" }
+constraints:
+  - { id: BIZ-C1, rule: "The working calendar (daily open/close windows, weekend days, holiday dates) is stored as data per entity/region, never hardcoded; changing hours or adding a holiday is a config edit, not a code change" }
+  - { id: BIZ-C2, rule: "Working hours are evaluated in the entity's own IANA timezone; a request routed across regions uses the assigned entity's timezone, and DST transitions shift the open/close instants automatically because hours are local wall-clock, not fixed offsets" }
+  - { id: BIZ-C3, rule: "SLA and elapsed-time clocks count only configured working time — they pause outside working hours, on weekends, and on holidays per the entity's timezone, and resume at the next open instant; pause/resume intervals are logged" }
+  - { id: BIZ-C4, rule: "Holiday calendars are versioned and dated; a holiday added retroactively does not alter already-closed SLA measurements (historical business-time is immutable once a period closes)" }
+  - { id: BIZ-C5, rule: "'Next business time' arithmetic (e.g. due = now + 8 business hours) rolls forward over closed windows deterministically and is covered by tests spanning a weekend, a holiday, and a DST boundary" }
+requirement-seeds:
+  - id: discovery/business-hours/REQ-1
+    title: SLA clock pauses off-hours
+    ac: "Given a 4 business-hour SLA starting Friday 16:00 in America/New_York with an 09:00-17:00 calendar, When the weekend passes, Then the SLA is due Monday 12:00 local, not Friday 20:00"
+  - id: discovery/business-hours/REQ-2
+    title: Holiday excluded from working time
+    ac: "Given a due date computed as now + 8 business hours spanning a configured public holiday, When the deadline is calculated, Then the holiday contributes zero working time and the due instant rolls forward accordingly"
+blueprint-sections: [workflows, monitoring, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: platform-wg

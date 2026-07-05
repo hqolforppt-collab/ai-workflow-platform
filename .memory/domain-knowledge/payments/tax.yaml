@@ -1,0 +1,31 @@
+id: tax
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - tax
+  - { term: vat, synonyms: [gst, sales-tax, value-added-tax] }
+  - { term: withholding, synonyms: [tax-rate, levy] }
+  - nexus
+implies: [invoicing, compliance, audit, payments, documentation]
+standards:
+  - { id: EU-VAT-Directive, version: "2006/112/EC", verified: 2026-07-05, url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32006L0112" }
+  - { id: US-Sales-Tax-Wayfair, version: "2018", verified: 2026-07-05, url: "https://www.supremecourt.gov/opinions/17pdf/17-494_j4el.pdf" }
+constraints:
+  - { id: TAX-C1, rule: "Tax rate resolved from ship-to/place-of-supply jurisdiction, product tax category, and buyer status (B2B vs B2C), not a hardcoded rate" }
+  - { id: TAX-C2, rule: "EU B2B cross-border uses reverse-charge (0% + note) only when the buyer VAT ID is validated via VIES" }
+  - { id: TAX-C3, rule: "US sales tax collected only in states where economic nexus is met (e.g. >= USD 100k or 200 transactions per Wayfair)" }
+  - { id: TAX-C4, rule: "Tax computed per line in integer minor units, rounded half-up, then summed; never derive tax by rounding the order total" }
+  - { id: TAX-C5, rule: "Applied rate, jurisdiction, and rate-effective date are snapshotted on the invoice and retained >= 7 years for audit" }
+requirement-seeds:
+  - id: discovery/tax/REQ-1
+    title: Jurisdiction-based rate
+    ac: "Given a buyer ship-to address and product category, When an order is priced, Then the correct destination tax rate is applied and recorded"
+  - id: discovery/tax/REQ-2
+    title: Reverse-charge validation
+    ac: "Given an EU B2B order, When the buyer VAT ID fails VIES validation, Then reverse-charge is not applied and standard VAT is charged"
+blueprint-sections: [api, workflows, requirements, compliance, documentation]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

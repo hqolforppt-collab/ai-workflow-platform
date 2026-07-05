@@ -1,0 +1,34 @@
+{
+  "key": "FRM-001",
+  "name": "Open Onboarding Case Form",
+  "fields": [
+    {
+      "id": "employeeName",
+      "name": "Employee full name",
+      "type": "text",
+      "required": true,
+      "placeholder": "Employee full name"
+    },
+    {
+      "id": "nationalId",
+      "name": "National ID / SSN",
+      "type": "text",
+      "required": true,
+      "placeholder": "National ID / SSN"
+    },
+    {
+      "id": "startDate",
+      "name": "Confirmed start date",
+      "type": "date",
+      "required": true,
+      "placeholder": "Confirmed start date"
+    },
+    {
+      "id": "roleTemplate",
+      "name": "Role / access template",
+      "type": "select",
+      "required": true,
+      "placeholder": "Role / access template"
+    }
+  ]
+}

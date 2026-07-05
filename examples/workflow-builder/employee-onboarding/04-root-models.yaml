@@ -1,0 +1,168 @@
+# 04-root-models.yaml — Stage 4/6 (Root Models)
+# Sections: workflows (root scope — a CMMN CASE), security, api, events, integrations
+_meta:
+  blueprint_id: BLU-EMPLOYEE-ONBOARDING
+  stage: stage-04
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  # Case management with discretionary tasks + milestones -> CMMN root model.
+  # The converter emits <root-key>.cmmn.xml when root_model_type matches /cmmn|case/i.
+  root_model_type: CMMN
+  depends_on: [stage-03]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml, 03-generating-app.yaml]
+
+workflows:
+  # The ROOT is a CASE, not a rigid process. Required tasks (S1-S3, S8) must
+  # complete for the checklist gate; discretionary tasks (S4-S6) are activated
+  # by the case worker on judgement; milestones (S7, S9) mark case state.
+  root:
+    id: WF-001
+    name: Employee Onboarding Case
+    model-type: cmmn
+    trigger: "Case worker opens an onboarding case for an approved new hire (FRM-001)"
+    actors: [ACT-001, ACT-002, ACT-003, ACT-004, ACT-005]
+    requirements: [REQ-001, REQ-010, REQ-011, REQ-013, REQ-015, REQ-016, REQ-017, REQ-014, REQ-018]
+    steps:
+      - { id: S1, name: Open case + build task plan,   type: system-action, actor: ACT-002, task-nature: required,      inputs: [new-hire, role-template], outputs: [case-id, task-plan], on-success: S2, on-failure: "EX-001 (invalid hire data — case not opened; return to ATS)", audit-event: AUD-001 }
+      - { id: S2, name: Collect required documents,     type: user-action,   actor: ACT-001, task-nature: required,      inputs: [id-proof, tax-form], outputs: [uploaded-docs], on-success: S3, on-failure: "EX-002 (missing docs 3-days-out -> NOT-001 reminder; case waits)" }
+      - { id: S3, name: E-sign offer + policy ack,      type: user-action,   actor: ACT-001, task-nature: required,      inputs: [offer-letter, policy-doc, consent], outputs: [signature-evidence], on-success: S7, on-failure: "EX-003 (consent not given -> signing blocked until recorded)", audit-event: AUD-004 }
+      - { id: S4, name: Provision equipment,            type: user-action,   actor: ACT-002, task-nature: discretionary, inputs: [role-template], outputs: [equipment-order], on-success: S9, on-failure: "EX-004 (order failed -> retry; task stays active, never blocks close)" }
+      - { id: S5, name: Issue badge,                    type: user-action,   actor: ACT-002, task-nature: discretionary, inputs: [site-access-profile], outputs: [badge-id], on-success: S9, on-failure: "EX-005 (badge system down -> retry queue; discretionary, non-blocking)" }
+      - { id: S6, name: Enroll in role training,        type: user-action,   actor: ACT-002, task-nature: discretionary, inputs: [role-curriculum], outputs: [enrollment], on-success: S9, on-failure: "EX-006 (LMS enroll failed -> retry; discretionary, non-blocking)" }
+      - { id: S7, name: Provision day-one access,       type: system-action, actor: ACT-004, task-nature: required,      inputs: [role-template, start-date], outputs: [accounts-active], on-success: S8, on-failure: "EX-007 (provisioning failure -> accounts stay disabled; page IT; ALT-002)", audit-event: AUD-002 }
+      - { id: S8, name: Readiness review decision,      type: decision,      actor: ACT-003, task-nature: required,      inputs: [checklist-state], outputs: [ready-verdict], on-success: S9, on-failure: "EX-008 (not ready -> re-open blocking task; case returns to ACTIVE)", audit-event: AUD-006 }
+      - { id: S9, name: Close case at 100% checklist,   type: system-action, actor: ACT-002, task-nature: required,      inputs: [checklist-state], outputs: [case-closed], on-success: END, on-failure: "EX-009 (checklist < 100% -> closure blocked; incomplete items listed)", audit-event: AUD-007 }
+    exceptions:
+      - { id: EX-001, condition: "invalid or incomplete hire data at case open", handling: "case not created; discrepancy returned to the ATS hand-off; nothing provisioned", notification: null }
+      - { id: EX-002, condition: "required document missing near start date",    handling: "case waits in ACTIVE; NOT-001 reminder to hire, manager copied; surfaced in readiness review", notification: NOT-001 }
+      - { id: EX-003, condition: "signer has not consented to transact electronically", handling: "signing blocked until consent recorded with timestamp (ESIGN/UETA); no evidence package produced", notification: null }
+      - { id: EX-004, condition: "equipment order rejected or undeliverable",    handling: "discretionary task retried; stays ACTIVE; never blocks onboarding-complete", notification: NOT-002 }
+      - { id: EX-005, condition: "badge system unavailable",                     handling: "badge request queued and retried; discretionary, non-blocking", notification: null }
+      - { id: EX-006, condition: "training LMS enrollment failure",              handling: "retry with backoff; discretionary role training never blocks close", notification: null }
+      - { id: EX-007, condition: "day-one access provisioning failure",          handling: "accounts remain disabled (no open credential window); IT paged via ALT-002; retried", notification: NOT-003 }
+      - { id: EX-008, condition: "hiring manager marks hire not ready",          handling: "case returns to ACTIVE; blocking task re-opened; readiness review re-presented later", notification: NOT-002 }
+      - { id: EX-009, condition: "closure attempted below 100% required checklist", handling: "closure blocked; incomplete required items listed to the case worker", notification: null }
+    sla: "case open -> day-one-ready milestone: by the confirmed start date (100% of hires)"
+
+security:
+  authentication:
+    methods: [sso-oidc]
+    password-policy:
+      min-length: 12
+      complexity: "delegated to corporate IdP (SSO); local passwords not stored by this system"
+      history: 0
+      max-age-days: 0   # rotation governed by the IdP, not this system
+    mfa:
+      required: true
+      methods: [totp, webauthn]
+      enrollment: "enforced by the corporate IdP at first sign-in; case workers and hold admins require WebAuthn"
+    session:
+      storage: "OIDC access token (memory) + refresh token in HttpOnly Secure SameSite=Lax cookie"
+      ttl-minutes: 15
+      idle-timeout-minutes: 60
+      refresh-strategy: "rotate-on-use; replay revokes the session"
+      revocation: "server-side session table; sign-out-everywhere supported"
+    account-lockout:
+      threshold: 5
+      window-minutes: 15
+      lockout-minutes: 30
+      notification: NOT-003
+    rate-limiting:
+      scope: "per-user and per-IP on case-mutation and document-upload endpoints"
+      limit: 60
+      window: 1m
+      response: "429 + Retry-After header"
+  authorization:
+    model: rbac
+    enforcement-points: [api-gateway, case-service-middleware]
+  data-protection:
+    encryption-at-rest: "AES-256 (managed Postgres + object store); national_id column-encrypted with a KMS key"
+    encryption-in-transit: "TLS 1.3 only; HSTS max-age=63072000"
+    secrets-management: "platform secret store; e-signature and provisioning API keys rotated every 90 days"
+  threat-controls:
+    - { threat: "Privilege creep at hire", mitigation: "least-privilege role templates; elevated access needs a separate logged approval (REQ-013)", owner: security-officer }
+    - { threat: "Early access window",     mitigation: "accounts created disabled; activation gated on confirmed start date", owner: security-officer }
+    - { threat: "Tampered signed document", mitigation: "SHA-256 content binding + tamper-evident evidence package (REQ-010)", owner: data-protection-officer }
+    - { threat: "Unauthorized legal-hold release", mitigation: "hold place/release restricted to ROLE-HOLD-ADMIN with separation-of-duties + audit (REQ-012)", owner: data-protection-officer }
+
+api:
+  - id: API-001
+    method: POST
+    path: /cases
+    description: Open an onboarding case for an approved new hire and build the required/discretionary task plan.
+    auth-required: true
+    roles: [ROLE-CASE-WORKER]
+    request: { content-type: application/json, schema: "{employeeName, nationalId, startDate, roleTemplate}", validation: "FRM-001 rules server-side; startDate not in the past; roleTemplate known" }
+    responses:
+      - { status: 201, condition: "case opened with task plan", schema: "{caseId, tasks[]}" }
+      - { status: 400, condition: "invalid hire data or unknown role template", schema: "{errors[]}" }
+      - { status: 409, condition: "an open case already exists for this hire", schema: "{message, caseId}" }
+    rate-limit: "30/min per case worker"
+    idempotency: "idempotency key = ATS hire id; duplicate opens return the existing case (409)"
+    errors: [ERR-VALIDATION, ERR-DUPLICATE-CASE]
+  - id: API-002
+    method: POST
+    path: /cases/{id}/documents
+    description: Upload an onboarding document; stored with a retention class and pending verification.
+    auth-required: true
+    roles: [ROLE-NEW-HIRE, ROLE-CASE-WORKER]
+    request: { content-type: multipart/form-data, schema: "{kind, file}", validation: "kind in document-kind; file scanned; content_hash computed; retention_class assigned" }
+    responses:
+      - { status: 202, condition: "document accepted and queued for verification", schema: "{documentId, retentionClass, dispositionDate}" }
+      - { status: 400, condition: "unknown kind, oversized, or failed malware scan", schema: "{errors[]}" }
+      - { status: 429, condition: "rate limited", schema: "{message, retryAfter}" }
+    rate-limit: "60/min per user"
+    idempotency: "re-upload of identical content_hash for the same kind returns the existing document"
+    errors: [ERR-VALIDATION, ERR-RATE-LIMITED]
+  - id: API-003
+    method: POST
+    path: /cases/{id}/tasks/{taskId}/activate
+    description: Activate a discretionary task (equipment, badge, or role training) on the case.
+    auth-required: true
+    roles: [ROLE-CASE-WORKER]
+    request: { content-type: application/json, schema: "{}", validation: "task must be discretionary and in AVAILABLE state" }
+    responses:
+      - { status: 200, condition: "discretionary task moved to ACTIVE", schema: "{taskId, state}" }
+      - { status: 403, condition: "task is required (not activatable) or caller lacks permission", schema: "{message}" }
+      - { status: 409, condition: "task already active or completed", schema: "{message, state}" }
+    rate-limit: "60/min per case worker"
+    idempotency: "activating an already-ACTIVE task returns 409 (no double activation)"
+    errors: [ERR-FORBIDDEN, ERR-CONFLICT]
+  - id: API-004
+    method: POST
+    path: /cases/{id}/close
+    description: Request case closure; succeeds only when the required checklist is 100% complete and readiness is approved.
+    auth-required: true
+    roles: [ROLE-CASE-WORKER, ROLE-HIRING-MANAGER]
+    request: { content-type: application/json, schema: "{confirm: true}", validation: "checklist gate evaluated server-side; readiness decision must be APPROVED" }
+    responses:
+      - { status: 200, condition: "case closed; onboarding-complete milestone marked", schema: "{caseId, state, milestone}" }
+      - { status: 409, condition: "required checklist below 100% or readiness not approved", schema: "{incompleteItems[]}" }
+    rate-limit: "30/min per user"
+    idempotency: "closing an already-CLOSED case returns 200 with the existing closure record"
+    errors: [ERR-CHECKLIST-INCOMPLETE]
+  - id: API-005
+    method: POST
+    path: /documents/{id}/hold
+    description: Place or release a legal hold on a document; blocks deletion while active.
+    auth-required: true
+    roles: [ROLE-HOLD-ADMIN]
+    request: { content-type: application/json, schema: "{action: place|release, reason}", validation: "caller must hold hold-admin permission; reason required" }
+    responses:
+      - { status: 200, condition: "hold placed or released; audit recorded", schema: "{documentId, legalHold}" }
+      - { status: 403, condition: "caller lacks the hold-admin permission", schema: "{message}" }
+    rate-limit: "20/min per admin"
+    idempotency: "placing an existing hold or releasing an absent hold is a no-op returning 200"
+    errors: [ERR-FORBIDDEN]
+
+events:
+  - { id: EVT-onboarding.case.opened,     name: onboarding.case.opened,     producer: case-service, consumers: [analytics-pipeline, it-provisioning], payload: { case-id: uuid, role-template: string, start-date: date }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-onboarding.milestone.reached, name: onboarding.milestone.reached, producer: case-service, consumers: [analytics-pipeline, people-ops-dashboard], payload: { case-id: uuid, milestone: string, reached-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-onboarding.document.signed, name: onboarding.document.signed, producer: case-service, consumers: [records-archive, siem], payload: { case-id: uuid, document-id: uuid, method: string, signed-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-onboarding.access.provisioned, name: onboarding.access.provisioned, producer: it-provisioning, consumers: [siem, people-ops-dashboard], payload: { case-id: uuid, role-template: string, provisioned-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+
+integrations:
+  - { id: INT-001, system: "E-signature provider (eIDAS/ESIGN)", purpose: "capture legally valid signatures on offer letter and policy acknowledgement (REQ-010)", protocol: "HTTPS REST + webhooks for completion + evidence-package download", direction: outbound, auth: "API key in secret store, 90-day rotation", failure-mode: "signing task stays ACTIVE; retried; case never closes without required signatures", data-shared: [signer-email, document-hash, consent-record, callback-url] }
+  - { id: INT-002, system: "IT provisioning (IdP + MDM + LMS)", purpose: "create role-template accounts, order equipment, enroll training", protocol: "HTTPS REST + SCIM for identity", direction: bidirectional, auth: "OAuth2 client credentials in secret store", failure-mode: "provisioning failure keeps accounts disabled and pages IT (ALT-002); no partial elevated access", data-shared: [employee-id, role-template, equipment-sku, curriculum-id] }
+  - { id: INT-003, system: "Records archive + retention engine", purpose: "apply retention classes, run disposition, enforce legal hold (REQ-011, REQ-012)", protocol: "HTTPS REST", direction: outbound, auth: "API key in secret store", failure-mode: "documents retained (fail-safe) if disposition service is down; nothing auto-purged; ALT-003", data-shared: [document-id, retention-class, disposition-date, hold-state] }

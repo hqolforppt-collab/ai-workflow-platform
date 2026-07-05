@@ -3,18 +3,23 @@ import { validate } from "./commands/validate.js"
 import { build } from "./commands/build.js"
 import { init } from "./commands/init.js"
 import { flowableConvert, flowableDeploy, flowableValidate } from "./commands/flowable.js"
+import { kb } from "./commands/kb.js"
+import { classifyCmd } from "./commands/classify.js"
 
-const VERSION = "0.2.0"
+const VERSION = "0.3.0"
 
 const HELP = `awp ${VERSION} — AI Workflow Platform CLI
 
 Usage:
   awp discover [--model=<type>] [--skills-only] [--depth=quick|full] [--output=text|json|yaml]
-  awp validate [--only=spec,gates,adapters,memory,trace,secrets]
+  awp validate [--only=spec,gates,adapters,memory,trace,secrets] [--kb]
   awp validate <blueprint-dir|blueprint.yaml> [--story=<text>] [--level=L1..L6]
   awp build <story> [--level=L1..L6] [--out=<path>] [--execute] [--staged]
                     [--model-tier=small|medium|large] [--resume-from=stage-0N]
                     [--no-validate] [--check] [--aggregate]
+  awp classify <story> [--json]
+  awp review <blueprint-dir> [--out=<path>]
+  awp kb validate | build-index [--check] | stats
   awp flowable convert <blueprint-dir> [--out=<path>]
   awp flowable deploy   <blueprint-dir>
   awp flowable validate <blueprint-dir>
@@ -51,6 +56,18 @@ export async function main(argv) {
     return 0
   }
 
+  // Handle subcommands: kb <subcommand> ...
+  if (cmd === "kb") {
+    const [sub, ...subRest] = rest
+    return kb(sub, parseFlags(subRest))
+  }
+
+  // Handle subcommands: schema <subcommand> ...
+  if (cmd === "schema") {
+    const [sub, ...subRest] = rest
+    return (await import("./commands/schema.js")).schema(sub, parseFlags(subRest))
+  }
+
   // Handle subcommands: flowable <subcommand> ...
   if (cmd === "flowable") {
     const [sub, ...subRest] = rest
@@ -77,6 +94,10 @@ export async function main(argv) {
       return validate(flags)
     case "build":
       return build(flags)
+    case "classify":
+      return classifyCmd(flags)
+    case "review":
+      return (await import("./commands/review.js")).review(flags)
     case "init":
       return init(flags)
     default:

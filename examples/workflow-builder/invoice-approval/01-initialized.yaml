@@ -1,0 +1,70 @@
+# 01-initialized.yaml — Stage 1/6 (Initialized)
+# Sections: project, domains
+_meta:
+  blueprint_id: BLU-INVOICE-APPROVAL
+  stage: stage-01
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: []
+  trace:
+    story: "Invoice approval workflow with amount-based routing and four-eyes for large invoices"
+
+project:
+  name: Invoice Approval Workflow
+  id: BLU-INVOICE-APPROVAL
+  blueprint-schema-version: 2.0.0
+  maturity-level: L6
+  story: "Invoice approval workflow with amount-based routing and four-eyes for large invoices"
+  summary: >
+    Accounts-payable invoice approval with amount-based routing driven by a DMN
+    decision table and mandatory four-eyes (maker != checker) on large invoices.
+    The user asked for 2 things (amount-based routing, four-eyes for large
+    invoices). Discovery expanded these into 24 domains: the approval mechanics
+    (approval-chains, four-eyes, escalation, delegation, sla-management), the
+    financial substance the invoices carry (invoicing, tax, payments), and the
+    obligations any money-moving enterprise process incurs (SOX/segregation-of-
+    duties audit, security, observability, resilience, and operations).
+  scope:
+    in-scope:
+      - Amount-based approval routing via DMN decision DEC-001 (amount, department, vendor-risk -> approver-role, requires-four-eyes)
+      - Mandatory four-eyes (distinct maker and checker) for invoices at or above the large-invoice threshold
+      - SLA-timed approval stages with automatic escalation to the next authority on timeout
+      - Delegation of approval authority (time-boxed, capped, four-eyes-preserving) for approver absence
+      - Immutable audit trail, structured logging, metrics, and SLOs for every routing and approval decision
+    out-of-scope:
+      - Invoice capture / OCR ingestion (invoices arrive already parsed from the AP inbox; see ASM-002)
+      - Actual payment disbursement and bank-file generation (handed to the payments service post-approval; see ASM-003)
+      - Purchase-order matching and goods-receipt (3-way match handled upstream in procurement; see ASM-004)
+      - Vendor master-data onboarding and vendor-risk scoring (consumed as an input, not owned here)
+  stakeholders: [ap-controller, cfo, procurement-lead, compliance-officer, sre-lead, internal-audit]
+  created: 2026-07-05
+
+domains:
+  functional:
+    - { id: invoice-approval,   name: Invoice Approval,     source: user }
+    - { id: approval-chains,    name: Approval Routing,     source: user }
+    - { id: four-eyes,          name: Four-Eyes Control,    source: user }
+    - { id: invoicing,          name: Invoicing,            source: discovery, rationale: "implication-map: invoice-approval -> invoicing (the artifact being approved is an invoice)" }
+    - { id: payments,           name: Payments,             source: discovery, rationale: "implication-map: invoice-approval -> payments (approval authorizes disbursement)" }
+    - { id: escalation,         name: Escalation,           source: discovery, rationale: "implication-map: approval-chains -> escalation (stuck approvals must move)" }
+    - { id: delegation,         name: Delegation,           source: discovery, rationale: "implication-map: approval-chains -> delegation (approver absence coverage)" }
+    - { id: authorization,      name: Authorization,        source: discovery, rationale: "implication-map: four-eyes -> authorization (limits and eligibility)" }
+  cross-cutting:   # 16 entries — VAL-010 requires >= 12
+    - { id: audit,              name: Audit Trail,              source: discovery, discovery-rule: discovery/four-eyes/FOUR-C5, criticality: mandatory }
+    - { id: security,           name: Security,                 source: discovery, discovery-rule: discovery/four-eyes/FOUR-C1, criticality: mandatory }
+    - { id: sla-management,     name: SLA Management,           source: discovery, discovery-rule: discovery/approval-chains/APRV-C2, criticality: mandatory }
+    - { id: tax,                name: Tax,                      source: discovery, discovery-rule: discovery/invoicing/INV-C5, criticality: mandatory }
+    - { id: compliance,         name: Compliance (SOX),         source: discovery, discovery-rule: discovery/four-eyes/SOX, criticality: mandatory }
+    - { id: notification,       name: Notifications,            source: discovery, discovery-rule: discovery/escalation/ESCL-C5, criticality: mandatory }
+    - { id: monitoring,         name: Monitoring,               source: discovery, discovery-rule: discovery/sla-management/SLA-C3, criticality: mandatory }
+    - { id: logging,            name: Logging,                  source: discovery, discovery-rule: discovery/baseline/ANY-UF-01, criticality: mandatory }
+    - { id: observability,      name: Observability,            source: discovery, discovery-rule: discovery/baseline/ANY-UF-04, criticality: mandatory }
+    - { id: error-management,   name: Error Management,         source: discovery, discovery-rule: discovery/baseline/ANY-UF-03, criticality: mandatory }
+    - { id: documentation,      name: Documentation,            source: discovery, discovery-rule: discovery/baseline/ANY-UF-06, criticality: mandatory }
+    - { id: testing,            name: Testing,                  source: discovery, discovery-rule: discovery/baseline/ANY-UF-07, criticality: mandatory }
+    - { id: deployment,         name: Deployment,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-08, criticality: mandatory }
+    - { id: operations,         name: Operations,               source: discovery, discovery-rule: discovery/baseline/ANY-UF-09, criticality: mandatory }
+    - { id: backup,             name: Backup,                   source: discovery, discovery-rule: discovery/baseline/ANY-UF-10, criticality: mandatory }
+    - { id: disaster-recovery,  name: Disaster Recovery,        source: discovery, discovery-rule: discovery/baseline/ANY-UF-11, criticality: mandatory }
+    - { id: privacy,            name: Privacy (GDPR),           source: discovery, discovery-rule: discovery/baseline/ANY-UF-12, criticality: recommended }
+    - { id: analytics,          name: Analytics,                source: discovery, discovery-rule: discovery/baseline/ANY-UF-05, criticality: recommended }

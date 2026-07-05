@@ -1,0 +1,32 @@
+id: subscription-billing
+type: functional
+version: 1.0.0
+pack: payments
+triggers:
+  - subscription
+  - { term: recurring, synonyms: [recurring-billing, autopay] }
+  - { term: plan, synonyms: [tier, seat, metered] }
+  - { term: dunning, synonyms: [renewal, mrr] }
+implies: [payments, invoicing, tax, refunds, notification, audit, compliance]
+standards:
+  - { id: ASC-606, version: "2014", verified: 2026-07-05, url: "https://asc.fasb.org/606" }
+  - { id: IFRS-15, version: "2014", verified: 2026-07-05, url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-15-revenue-from-contracts-with-customers/" }
+  - { id: PCI-DSS, version: "4.0", verified: 2026-07-05, url: "https://www.pcisecuritystandards.org" }
+constraints:
+  - { id: SUB-C1, rule: "Recurring charges use a stored PSP token (card-on-file / MIT flag), not raw card data; SCA is set up at first charge for later MIT exemption" }
+  - { id: SUB-C2, rule: "Proration on mid-cycle plan change is computed by the second/day; credit for unused time and charge for new plan sum to the cycle delta" }
+  - { id: SUB-C3, rule: "Revenue is recognized ratably over the service period per ASC 606 / IFRS 15; upfront cash is booked as deferred revenue, not revenue" }
+  - { id: SUB-C4, rule: "Failed renewals enter dunning: retry with backoff at defined intervals (e.g. day 1, 3, 5, 7) then suspend; each attempt notifies the customer" }
+  - { id: SUB-C5, rule: "Cancellation honors the paid-through date; no new charge after cancel; refunds for the unused period follow the refunds policy" }
+requirement-seeds:
+  - id: discovery/subscription-billing/REQ-1
+    title: Proration on upgrade
+    ac: "Given a mid-cycle upgrade, When the change is applied, Then the customer is charged the prorated delta for the remaining cycle"
+  - id: discovery/subscription-billing/REQ-2
+    title: Dunning on failed renewal
+    ac: "Given a renewal charge fails, When the dunning schedule runs, Then retries occur at defined intervals and the subscription suspends only after the final attempt"
+blueprint-sections: [security, api, workflows, requirements, compliance]
+review:
+  cadence: P6M
+  last-reviewed: 2026-07-05
+  owner: payments-wg

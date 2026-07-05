@@ -1,0 +1,159 @@
+# 03-generating-app.yaml — Stage 3/6 (Generating App)
+# Sections: actors, roles, data-model, master-data, knowledge
+_meta:
+  blueprint_id: BLU-EMPLOYEE-ONBOARDING
+  stage: stage-03
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  depends_on: [stage-02]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml]
+
+actors:
+  - id: ACT-001
+    name: New Hire
+    type: human
+    description: The incoming employee who submits documents, signs the offer letter and policies, and completes training.
+    goals: [complete onboarding before the start date, sign required documents, be productive on day one]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-002
+    name: Onboarding Case Worker
+    type: human
+    description: People-ops owner of the case who activates discretionary tasks and drives the case to closure.
+    goals: [open and steer the case, activate the right optional tasks per hire, close only when complete]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-003
+    name: Hiring Manager
+    type: human
+    description: The new hire's manager who makes the readiness-review decision and confirms case closure.
+    goals: [confirm the hire is day-one ready, approve any elevated access, sign off closure]
+    interactions: [WF-002, WF-003]
+  - id: ACT-004
+    name: IT Provisioning Service
+    type: service
+    description: Backend service that creates accounts from role templates, orders equipment, and issues badges.
+    goals: [provision least-privilege access on the start date, fulfil equipment and badge tasks]
+    interactions: [WF-001, WF-002, WF-003]
+  - id: ACT-005
+    name: E-Signature Provider
+    type: system
+    description: External e-signature service capturing signer intent, consent, and a tamper-evident evidence package.
+    goals: [collect legally valid signatures, return a verifiable evidence package]
+    interactions: [WF-001]
+  - id: ACT-006
+    name: Records Janitor
+    type: scheduler
+    description: Scheduled job that sweeps cases for reminders and flags documents past their disposition date for approval-gated destruction.
+    goals: [drive reminders and deadlines, enforce retention without silent auto-purge]
+    interactions: [WF-002, WF-003]
+
+roles:
+  - id: ROLE-NEW-HIRE
+    name: New Hire
+    permissions: ["case:read-own", "document:upload-own", "document:sign-own", "training:complete-own"]
+    assigned-actors: [ACT-001]
+  - id: ROLE-CASE-WORKER
+    name: Onboarding Case Worker
+    permissions: ["case:create", "case:read", "task:activate-discretionary", "document:verify", "case:close-request"]
+    assigned-actors: [ACT-002]
+  - id: ROLE-HIRING-MANAGER
+    name: Hiring Manager
+    permissions: ["case:read", "readiness:decide", "access:approve-elevated", "case:close-confirm"]
+    assigned-actors: [ACT-003]
+  - id: ROLE-HOLD-ADMIN
+    name: Legal Hold Administrator
+    permissions: ["hold:place", "hold:release", "audit:read"]
+    assigned-actors: []
+    separation-of-duties: [ROLE-CASE-WORKER]   # a case worker may not also place/release legal holds on their own cases
+
+data-model:
+  entities:
+    - id: ENT-OnboardingCase
+      name: OnboardingCase
+      description: The case record tracking one new hire's onboarding state, milestones, and task plan.
+      attributes:
+        - { name: id,            type: uuid,        required: true,  pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: employee_name, type: text,        required: true,  pii: true,  unique: false, default: null, validation: "max 200 chars" }
+        - { name: national_id,   type: text,        required: true,  pii: true,  unique: false, default: null, validation: "encrypted at rest; format per jurisdiction" }
+        - { name: start_date,    type: date,        required: true,  pii: false, unique: false, default: null, validation: "not in the past at case creation" }
+        - { name: state,         type: enum,        required: true,  pii: false, unique: false, default: OPEN, validation: "one of master-data:case-state" }
+        - { name: role_template, type: text,        required: true,  pii: false, unique: false, default: null, validation: "one of master-data:role-template" }
+        - { name: created_at,    type: timestamptz, required: true,  pii: false, unique: false, default: now(), validation: "not in future" }
+      relationships:
+        - { target: ENT-Document,     cardinality: 1-n, on-delete: restrict }
+        - { target: ENT-CaseTask,     cardinality: 1-n, on-delete: cascade }
+        - { target: ENT-Milestone,    cardinality: 1-n, on-delete: cascade }
+      retention: "6 years after termination (HR records class); erased earlier only for withdrawn candidates with no legal basis"
+      classification: restricted
+    - id: ENT-Document
+      name: Document
+      description: A collected onboarding document with retention class, verification state, and optional signature evidence.
+      attributes:
+        - { name: id,             type: uuid,        required: true,  pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: case_id,        type: uuid,        required: true,  pii: false, unique: false, default: null, validation: "fk ENT-OnboardingCase" }
+        - { name: kind,           type: enum,        required: true,  pii: false, unique: false, default: null, validation: "one of master-data:document-kind" }
+        - { name: content_hash,   type: text,        required: true,  pii: false, unique: false, default: null, validation: "sha256 of exact document bytes" }
+        - { name: retention_class, type: enum,       required: true,  pii: false, unique: false, default: null, validation: "one of master-data:retention-class" }
+        - { name: disposition_date, type: date,      required: true,  pii: false, unique: false, default: null, validation: "computed from retention class; never blank" }
+        - { name: legal_hold,     type: bool,        required: true,  pii: false, unique: false, default: false, validation: "true blocks deletion (REQ-012)" }
+        - { name: verified_at,    type: timestamptz, required: false, pii: false, unique: false, default: null, validation: "set when a verifier accepts" }
+      relationships:
+        - { target: ENT-SignatureEvidence, cardinality: 1-1, on-delete: cascade }
+      retention: "per retention_class; deletion blocked while legal_hold = true"
+      classification: restricted
+    - id: ENT-CaseTask
+      name: CaseTask
+      description: A required or discretionary task within the case (document collection, provisioning, equipment, badge, training).
+      attributes:
+        - { name: id,          type: uuid,   required: true, pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: case_id,     type: uuid,   required: true, pii: false, unique: false, default: null, validation: "fk ENT-OnboardingCase" }
+        - { name: kind,        type: enum,   required: true, pii: false, unique: false, default: null, validation: "one of master-data:task-kind" }
+        - { name: required,    type: bool,   required: true, pii: false, unique: false, default: true, validation: "false = discretionary (case-worker activated)" }
+        - { name: state,       type: enum,   required: true, pii: false, unique: false, default: AVAILABLE, validation: "one of master-data:task-state" }
+        - { name: activated_by, type: uuid,  required: false, pii: false, unique: false, default: null, validation: "actor who activated a discretionary task" }
+      relationships: []
+      retention: "with parent case (6 years after termination)"
+      classification: confidential
+    - id: ENT-SignatureEvidence
+      name: SignatureEvidence
+      description: Tamper-evident evidence package for an e-signed document (signer, consent, timestamp, method).
+      attributes:
+        - { name: id,           type: uuid,        required: true, pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: document_id,  type: uuid,        required: true, pii: false, unique: true,  default: null, validation: "fk ENT-Document" }
+        - { name: signer_ip,    type: inet,        required: true, pii: true,  unique: false, default: null, validation: "valid IPv4/IPv6" }
+        - { name: consent_at,   type: timestamptz, required: true, pii: false, unique: false, default: null, validation: "consent recorded before signing (ESIGN/UETA)" }
+        - { name: signed_at,    type: timestamptz, required: true, pii: false, unique: false, default: null, validation: "RFC 3161 trusted timestamp" }
+        - { name: method,       type: enum,        required: true, pii: false, unique: false, default: null, validation: "one of master-data:signature-method" }
+      relationships: []
+      retention: "with the signed document; independently verifiable offline"
+      classification: restricted
+    - id: ENT-Milestone
+      name: Milestone
+      description: A named case milestone reached during onboarding.
+      attributes:
+        - { name: id,        type: uuid,        required: true, pii: false, unique: true,  default: gen_random_uuid(), validation: "uuidv4" }
+        - { name: case_id,   type: uuid,        required: true, pii: false, unique: false, default: null, validation: "fk ENT-OnboardingCase" }
+        - { name: name,      type: enum,        required: true, pii: false, unique: false, default: null, validation: "one of master-data:milestone" }
+        - { name: reached_at, type: timestamptz, required: false, pii: false, unique: false, default: null, validation: "set when the milestone condition is met" }
+      relationships: []
+      retention: "with parent case"
+      classification: confidential
+
+master-data:
+  - { name: case-state,        values: [OPEN, ACTIVE, AWAITING_REVIEW, CLOSED, CANCELLED], owner: people-ops-wg, change-process: "ADR + migration + G3 review" }
+  - { name: task-kind,         values: [DOCUMENT_COLLECTION, POLICY_ESIGN, ACCESS_PROVISIONING, EQUIPMENT_PROVISIONING, BADGE_ISSUANCE, TRAINING_ENROLLMENT], owner: people-ops-wg, change-process: "ADR + migration + G3 review" }
+  - { name: task-state,        values: [AVAILABLE, ACTIVE, COMPLETED, SKIPPED], owner: people-ops-wg, change-process: "ADR + migration + G3 review" }
+  - { name: document-kind,     values: [ID_PROOF, TAX_FORM, OFFER_LETTER, POLICY_ACK], owner: people-ops-wg, change-process: "ADR + migration + G3 review" }
+  - { name: retention-class,   values: [HR_RECORD_6Y, SIGNED_CONTRACT_10Y, TRANSIENT_1Y], owner: records-management-wg, change-process: "records-schedule PR + legal review" }
+  - { name: signature-method,  values: [SIMPLE_ESIGN, ADVANCED_ESIGN, QUALIFIED_ESIGN], owner: platform-wg, change-process: "ADR + legal review (eIDAS assurance level)" }
+  - { name: milestone,         values: [RECORD_OPENED, DOCUMENTS_COMPLETE, DAY_ONE_READY, ONBOARDING_COMPLETE], owner: people-ops-wg, change-process: "ADR + G3 review" }
+
+knowledge:
+  glossary:
+    - { term: discretionary task, definition: "An optional case task a case worker may activate on judgement (equipment, badge, role training); its absence never blocks case completion." }
+    - { term: required task, definition: "A case task that must reach completion for the checklist gate to pass (document collection, policy e-sign, day-one access provisioning)." }
+    - { term: milestone, definition: "A named case state reached when its condition is met; onboarding tracks record-opened, documents-complete, day-one-ready, and onboarding-complete." }
+    - { term: legal hold, definition: "An override that blocks deletion of a record while active, regardless of its retention disposition date." }
+    - { term: evidence package, definition: "A tamper-evident bundle proving who signed a document, when, from where, and how — independently verifiable offline." }
+  domain-concepts: [case-management (CMMN), least-privilege provisioning, defensible deletion, non-repudiation, segregation of duties]
+  references: ["OMG CMMN 1.1 (case management model)", "SOC2 CC6 (logical access)", "ISO 27001 A.7 (human resource security)", "eIDAS 910/2014 + ESIGN Act (e-signature)", "GDPR Art. 5/17 (retention & erasure)", "ISO 15489 (records management)"]

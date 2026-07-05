@@ -1,0 +1,155 @@
+# =============================================================================
+# DOMAIN-KNOWLEDGE FILE SCHEMA v1.0
+# The machine-checkable contract every .memory/domain-knowledge/**/<domain>.yaml
+# file must satisfy. Enforced by `awp validate --kb` (packages/awp-cli/src/kb.js).
+#
+# This file is STRICT YAML — it parses with YAML.parse and is consumed as data,
+# not just read by humans. Field `type` values are real: string | list | map |
+# bool | enum. `items` names the element type of a list.
+# =============================================================================
+version: 1.0.0
+status: approved
+authority: .ai/constitution.md
+
+# ID conventions enforced by the validator.
+id-conventions:
+  domain-id: "^[a-z][a-z0-9-]*$"          # kebab-case, e.g. payments, four-eyes
+  constraint-id: "^[A-Z]{2,5}-C[0-9]+$"   # <DOM>-C<n>, e.g. PAY-C1, AUTH-C3
+  seed-id: "^discovery/[a-z0-9-]+/REQ-[0-9]+$"  # discovery/<domain>/REQ-<n>
+
+# Field definitions for a single domain file.
+fields:
+  - name: id
+    type: string
+    required: true
+    match: domain-id
+    note: Must equal the registry id and be unique across the whole KB.
+
+  - name: type
+    type: enum
+    required: true
+    values: [functional, cross-cutting]
+    note: >
+      functional = a capability a story explicitly asks for (payments, login).
+      cross-cutting = a concern implied by any feature (security, audit).
+
+  - name: version
+    type: string
+    required: true
+    match: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+
+  - name: pack
+    type: string
+    required: false
+    match: "^[a-z][a-z0-9-]*$"
+    note: >
+      Optional pack this domain belongs to (payments, approvals, ...). Omitted
+      for the original identity/cross-cutting core. Must match a pack declared in
+      index.yaml `packs:` when present.
+
+  - name: triggers
+    type: list
+    items: trigger
+    required: true
+    note: >
+      Keywords/phrases in a user story that activate this domain. An entry is
+      either a bare string ("login") or a map {term, synonyms:[...]}. The special
+      token ANY-USER-FACING marks a baseline cross-cutting domain (no keyword
+      needed). At least one entry required.
+
+  - name: implies
+    type: list
+    items: string
+    required: false
+    note: >
+      Domain ids this domain always pulls in (transitive closure computed to a
+      fixpoint by the discovery skill). Every target MUST exist in the registry —
+      dangling implies is a hard KB error.
+
+  - name: standards
+    type: list
+    items: standard
+    required: false
+    note: >
+      Best-practice standards this domain encodes. Each entry is a map
+      {id, version, verified, url} (provenance). A bare string is accepted for
+      back-compat but warns (missing provenance).
+
+  - name: constraints
+    type: list
+    items: constraint
+    required: true
+    note: 2-6 entries. Each {id, rule} with a concrete, actionable rule.
+
+  - name: requirement-seeds
+    type: list
+    items: seed
+    required: false
+    note: Each {id, title, ac} — ac is a Given/When/Then acceptance criterion.
+
+  - name: blueprint-sections
+    type: list
+    items: string
+    required: true
+    note: Which blueprint sections this domain contributes to.
+
+  - name: review
+    type: map
+    required: false
+    note: >
+      Freshness provenance {cadence, last-reviewed, owner}. cadence is an
+      ISO-8601 period (P12M). `awp validate --kb` warns when
+      last-reviewed + cadence < today.
+
+# Sub-schemas referenced by `items:` above.
+sub-schemas:
+  trigger:
+    one-of:
+      - type: string
+      - type: map
+        fields:
+          - { name: term, type: string, required: true }
+          - { name: synonyms, type: list, items: string, required: false }
+
+  standard:
+    one-of:
+      - type: string   # back-compat, warns
+      - type: map
+        fields:
+          - { name: id, type: string, required: true }
+          - { name: version, type: string, required: false }
+          - { name: verified, type: string, required: false, match: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+          - { name: url, type: string, required: false }
+
+  constraint:
+    type: map
+    fields:
+      - { name: id, type: string, required: true, match: constraint-id }
+      - { name: rule, type: string, required: true }
+
+  seed:
+    type: map
+    fields:
+      - { name: id, type: string, required: true, match: seed-id }
+      - { name: title, type: string, required: true }
+      - { name: ac, type: string, required: true }
+
+  review:
+    type: map
+    fields:
+      - { name: cadence, type: string, required: true, match: "^P[0-9]+[YMD]$" }
+      - { name: last-reviewed, type: string, required: true, match: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+      - { name: owner, type: string, required: true }
+
+# Graph-level invariants checked across the whole KB (not a single file).
+invariants:
+  - id: KB-I1
+    rule: Every `implies` target resolves to a registered domain id.
+  - id: KB-I2
+    rule: Every trigger-map domain in index.yaml resolves to a registered domain file.
+  - id: KB-I3
+    rule: No keyword maps to domains in more than 2 packs without a disambiguation entry.
+  - id: KB-I4
+    rule: Every domain id is unique across all pack subdirectories.
+  - id: KB-I5
+    rule: Every domain listed in the registry has a materialized file, and vice versa.

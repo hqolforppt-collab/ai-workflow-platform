@@ -1,0 +1,30 @@
+id: leave-management
+type: functional
+version: 1.0.0
+pack: hr
+triggers:
+  - leave-management
+  - { term: leave, synonyms: [time off, pto, vacation, holiday request, absence] }
+  - { term: leave-request, synonyms: [book leave, request time off, sick leave, apply for leave] }
+implies: [authorization, audit, notification, privacy]
+standards:
+  - { id: ISO-27001-A.7, version: "2022", verified: 2026-07-05, url: "https://www.iso.org/standard/27001" }
+  - { id: GDPR, version: "2016/679", verified: 2026-07-05, url: "https://eur-lex.europa.eu/eli/reg/2016/679/oj" }
+constraints:
+  - { id: LEAVE-C1, rule: "Balances are computed from accrual rules (accrued, taken, pending, carry-over cap) and can never go negative unless an explicit negative-balance policy is enabled per leave type" }
+  - { id: LEAVE-C2, rule: "A request is validated against the current available balance at submission and re-checked at approval; approving a request that exceeds balance is blocked server-side" }
+  - { id: LEAVE-C3, rule: "Approval routes to the employee's current line manager; if the manager is themselves on leave, the request auto-escalates to the configured delegate or next-level approver" }
+  - { id: LEAVE-C4, rule: "Overlapping-coverage rule enforces a configurable minimum staffing per team/date; requests breaching the threshold are flagged to the approver before decision" }
+  - { id: LEAVE-C5, rule: "Approved and pending leave is visible only to the employee, their approval chain, and HR; health-related sick-leave detail is restricted to HR (least-disclosure of PII)" }
+requirement-seeds:
+  - id: discovery/leave-management/REQ-1
+    title: Balance-checked request
+    ac: "Given an employee with 5 days available, When they request 7 days, Then submission is rejected with an insufficient-balance message before it reaches an approver"
+  - id: discovery/leave-management/REQ-2
+    title: Manager approval routing
+    ac: "Given a submitted leave request, When it is created, Then it is routed to the employee's current manager and both parties are notified of the outcome"
+blueprint-sections: [workflows, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: people-ops-wg

@@ -1,0 +1,30 @@
+id: sla-management
+type: functional
+version: 1.0.0
+pack: approvals
+triggers:
+  - sla
+  - { term: sla-management, synonyms: [service-level, turnaround-time, response-time, deadline] }
+  - { term: breach, synonyms: [sla-breach, overdue, time-limit, due-date] }
+implies: [audit, notification, monitoring, escalation]
+standards:
+  - { id: ITIL, version: "4-2019", verified: 2026-07-05, url: "https://www.axelos.com/certifications/itil-service-management" }
+  - { id: ISO-9001, version: "2015", verified: 2026-07-05, url: "https://www.iso.org/standard/62085.html" }
+constraints:
+  - { id: SLA-C1, rule: "Each approval stage carries an explicit SLA duration; the clock counts configured business hours/calendar (e.g. 8h/day, excluding weekends and holidays), not naive wall-clock, and the calendar is recorded with the stage" }
+  - { id: SLA-C2, rule: "Breach detection runs on a tick no coarser than every 5 minutes; a stage crossing its SLA is flagged breached within one tick and the breach timestamp is persisted" }
+  - { id: SLA-C3, rule: "SLA breach automatically fires the configured escalation and emits a monitoring metric (stage id, target vs. actual duration) for dashboards and alerting" }
+  - { id: SLA-C4, rule: "Warning notifications are sent at 75% of the SLA window; the SLA clock pauses while a request is legitimately blocked (e.g. awaiting requester info) and resumes on unblock, with pause intervals logged" }
+  - { id: SLA-C5, rule: "SLA targets and breach rates are retained for >= 12 months to support trend analytics; historical SLA values are immutable once a stage closes" }
+requirement-seeds:
+  - id: discovery/sla-management/REQ-1
+    title: Breach triggers escalation
+    ac: "Given a stage with a 24 business-hour SLA, When the elapsed business time exceeds 24h with no decision, Then the stage is flagged breached and escalation is triggered within 5 minutes"
+  - id: discovery/sla-management/REQ-2
+    title: Pre-breach warning
+    ac: "Given a stage at 75% of its SLA window, When the 75% threshold is crossed, Then a warning notification is sent to the current approver"
+blueprint-sections: [workflows, monitoring, requirements]
+review:
+  cadence: P12M
+  last-reviewed: 2026-07-05
+  owner: governance-wg

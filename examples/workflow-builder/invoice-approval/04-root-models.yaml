@@ -1,0 +1,146 @@
+# 04-root-models.yaml — Stage 4/6 (Root Models)
+# Sections: workflows (root scope), security, api, events, integrations
+_meta:
+  blueprint_id: BLU-INVOICE-APPROVAL
+  stage: stage-04
+  produced_by: workflow-builder@2.1.0
+  maturity_level: L6
+  root_model_type: BPMN
+  depends_on: [stage-03]
+  trace:
+    upstream: [01-initialized.yaml, 02-in-progress.yaml, 03-generating-app.yaml]
+
+workflows:
+  root:
+    id: WF-001
+    name: Invoice Approval with Amount-Based Routing
+    trigger: "AP Clerk submits a parsed invoice for approval (FRM-001)"
+    actors: [ACT-001, ACT-002, ACT-003, ACT-004]
+    requirements: [REQ-001, REQ-002, REQ-014, REQ-015, REQ-016, REQ-017]
+    steps:
+      - { id: S1, name: Validate totals and tax,   type: system-action, actor: ACT-003, inputs: [invoice], outputs: [validated-invoice], on-success: S2, on-failure: "EX-001 (totals/tax mismatch returned to clerk; no routing)" }
+      - { id: S2, name: Route via DEC-001,          type: decision,      actor: ACT-003, inputs: [gross_minor, department, vendor_risk], outputs: [approver-role, requires-four-eyes], on-success: S3, on-failure: "EX-002 (no rule matched -> park in exception queue for AP controller)", audit-event: AUD-001 }
+      - { id: S3, name: Assign approver + start SLA, type: system-action, actor: ACT-003, inputs: [approver-role], outputs: [assignment, sla-due-at], on-success: S4, on-failure: "EX-003 (no eligible approver -> escalate to next authority via WF-002)" }
+      - { id: S4, name: Approver decision,          type: user-action,   actor: ACT-002, inputs: [invoice, assignment], outputs: [decision, reason], on-success: S5, on-failure: "EX-004 (reject terminates chain; invoice RETURNED with reason)", audit-event: AUD-002 }
+      - { id: S5, name: Four-eyes gate,             type: decision,      actor: ACT-003, inputs: [requires-four-eyes, maker_id, checker_id], outputs: [needs-checker], on-success: S6, on-failure: "EX-005 (maker==checker -> SoD block, security event, stays PENDING_CHECKER)", audit-event: AUD-004 }
+      - { id: S6, name: Finalize and notify,        type: notification,  actor: ACT-004, inputs: [decision], outputs: [notice-sent, invoice-APPROVED], on-success: END, on-failure: "EX-006 (notice failure logged; approval stands, never blocks on notify)", audit-event: AUD-007 }
+    exceptions:
+      - { id: EX-001, condition: "invoice totals or tax inconsistent",  handling: "400 totals-mismatch; invoice RETURNED to clerk for a corrected resubmission (REQ-017)", notification: NOT-004 }
+      - { id: EX-002, condition: "DEC-001 matched no routing rule",      handling: "invoice parked in EXCEPTION_QUEUE; AP controller notified for manual routing", notification: NOT-005 }
+      - { id: EX-003, condition: "no eligible approver for the role",    handling: "hand to escalation sub-workflow WF-002 to find the next authority", notification: NOT-002 }
+      - { id: EX-004, condition: "approver rejects",                     handling: "chain terminates; invoice RETURNED to initiator with reject reason and AUD-003", notification: NOT-003 }
+      - { id: EX-005, condition: "maker equals proposed checker",        handling: "segregation-of-duties block; second distinct approver required; security event raised (AUD-004)", notification: NOT-003 }
+      - { id: EX-006, condition: "decision notification failed",         handling: "queued retry per NOT-003 policy; approval outcome is not blocked by notification delivery", notification: null }
+    sla: "invoice submitted -> routed and assigned: 60 seconds (p95); approver decision SLA governed by WF-002"
+
+security:
+  authentication:
+    methods: [sso-oidc]
+    password-policy:
+      min-length: 12
+      complexity: "delegated to corporate IdP; zxcvbn score >= 3 enforced at the IdP, not in this service"
+      history: 5
+      max-age-days: 90
+    mfa:
+      required: true
+      methods: [totp, webauthn]
+      enrollment: "mandatory for any ROLE-APPROVER and ROLE-CFO before their first approval; enforced at the IdP"
+    session:
+      storage: "OIDC access token (memory) + refresh handled by the IdP session"
+      ttl-minutes: 15
+      idle-timeout-minutes: 30
+      refresh-strategy: "rotate-on-use via IdP; approval actions re-check role + limit at decision time"
+      revocation: "IdP session revocation propagates; in-flight approvals re-validate eligibility (APRV-C4)"
+    account-lockout:
+      threshold: 5
+      window-minutes: 15
+      lockout-minutes: 30
+      notification: NOT-002
+    rate-limiting:
+      scope: "per-user and per-IP on all /approvals/* and /invoices/* endpoints"
+      limit: 60
+      window: 1m
+      response: "429 + Retry-After header"
+  authorization:
+    model: rbac
+    enforcement-points: [api-gateway, approval-service-middleware, decision-time-limit-check]
+  data-protection:
+    encryption-at-rest: "AES-256 (managed Postgres); audit table WORM-exported monthly"
+    encryption-in-transit: "TLS 1.3 only; HSTS max-age=63072000"
+    secrets-management: "platform secret store; IdP client secret and notification API key rotated every 90 days"
+  threat-controls:
+    - { threat: "Self-approval / four-eyes bypass", mitigation: "server-side maker!=checker enforcement (REQ-002); shared/service accounts excluded as a second identity (FOUR-C2)", owner: compliance-officer }
+    - { threat: "Privilege escalation past limit",  mitigation: "decision-time re-check of role and effective limit; delegation capped at min(delegate, delegator)", owner: compliance-officer }
+    - { threat: "Routing tampering",                mitigation: "DEC-001 is versioned and gated at G3; routing decisions audited (AUD-001)", owner: ap-controller }
+    - { threat: "Audit tampering",                  mitigation: "append-only hash-chained audit; no UPDATE/DELETE grants; WORM export", owner: internal-audit }
+
+api:
+  - id: API-001
+    method: POST
+    path: /invoices/{id}/submit
+    description: Submit a parsed invoice for approval; validates totals and tax, then triggers routing.
+    auth-required: true
+    roles: [ROLE-AP-CLERK]
+    request: { content-type: application/json, schema: "{invoiceId, department, vendorRisk}", validation: "gross = sum(lines)+sum(tax) server-side; idempotency key = invoice reference" }
+    responses:
+      - { status: 202, condition: "accepted for routing", schema: "{requestId, state}" }
+      - { status: 400, condition: "totals/tax mismatch or invalid department", schema: "{errors[]}" }
+      - { status: 409, condition: "invoice already submitted (idempotent replay)", schema: "{requestId, state}" }
+      - { status: 429, condition: "rate limited", schema: "{message, retryAfter}" }
+    rate-limit: "60/min per user"
+    idempotency: "duplicate submit for the same invoice reference returns the existing requestId"
+    errors: [ERR-VALIDATION, ERR-DUPLICATE, ERR-RATE-LIMITED]
+  - id: API-002
+    method: POST
+    path: /approvals/{requestId}/decide
+    description: Record an approve or reject decision; enforces role limit and four-eyes distinctness.
+    auth-required: true
+    roles: [ROLE-APPROVER, ROLE-CFO]
+    request: { content-type: application/json, schema: "{decision, reason}", validation: "reason >= 10 chars; decision-time role + limit re-check; maker != checker" }
+    responses:
+      - { status: 200, condition: "decision recorded (approved, rejected, or awaiting checker)", schema: "{state, requiresChecker}" }
+      - { status: 403, condition: "segregation-of-duties block (maker==checker) or over-limit", schema: "{message}" }
+      - { status: 409, condition: "request already decided or superseded by escalation", schema: "{state}" }
+      - { status: 429, condition: "rate limited", schema: "{message, retryAfter}" }
+    rate-limit: "60/min per user"
+    idempotency: "re-submitting an identical decision on a decided request returns the current state (409)"
+    errors: [ERR-SOD-BLOCK, ERR-OVER-LIMIT, ERR-CONFLICT, ERR-RATE-LIMITED]
+  - id: API-003
+    method: POST
+    path: /approvals/{requestId}/delegate
+    description: Delegate approval authority for an absent approver, time-boxed and capped at the delegator limit.
+    auth-required: true
+    roles: [ROLE-APPROVER, ROLE-CFO]
+    request: { content-type: application/json, schema: "{delegateId, startsAt, endsAt}", validation: "endsAt <= startsAt + 90d; delegate != request maker (FOUR-C1 preserved)" }
+    responses:
+      - { status: 201, condition: "delegation created", schema: "{delegationId, effectiveLimit}" }
+      - { status: 400, condition: "invalid window or self-delegation-as-maker", schema: "{errors[]}" }
+      - { status: 403, condition: "delegate would exceed delegator cap", schema: "{message}" }
+    rate-limit: "10/min per user"
+    idempotency: "overlapping identical delegation returns the existing delegationId"
+    errors: [ERR-VALIDATION, ERR-OVER-LIMIT]
+  - id: API-004
+    method: GET
+    path: /approvals/{requestId}
+    description: Read the current approval-request state, chain, SLA, and audit summary.
+    auth-required: true
+    roles: [ROLE-AP-CLERK, ROLE-APPROVER, ROLE-CFO, ROLE-AUDITOR]
+    request: { content-type: application/json, schema: "{} (path param)", validation: "caller must be maker, an assigned approver, or an auditor" }
+    responses:
+      - { status: 200, condition: "request found and visible to caller", schema: "{request, chain, slaDueAt, auditSummary}" }
+      - { status: 403, condition: "caller not entitled to view this request", schema: "{message}" }
+      - { status: 404, condition: "request not found", schema: "{message}" }
+    rate-limit: "120/min per user"
+    idempotency: "safe/idempotent read"
+    errors: [ERR-FORBIDDEN, ERR-NOT-FOUND]
+
+events:
+  - { id: EVT-invoice.routed,          name: invoice.routed,          producer: approval-service, consumers: [analytics-pipeline, ap-dashboard],   payload: { request-id: uuid, approver-role: string, requires-four-eyes: boolean, routed-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-invoice.approved,        name: invoice.approved,        producer: approval-service, consumers: [payments-service, analytics-pipeline], payload: { request-id: uuid, invoice-id: uuid, approved-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-approval.sla-breached,   name: approval.sla-breached,   producer: sla-timer,        consumers: [monitoring, escalation-engine],      payload: { request-id: uuid, stage: string, target-minutes: number, actual-minutes: number }, delivery: at-least-once, pii-in-payload: false }
+  - { id: EVT-approval.sod-blocked,    name: approval.sod-blocked,    producer: approval-service, consumers: [siem, compliance-dashboard],          payload: { request-id: uuid, blocked-at: timestamp }, delivery: at-least-once, pii-in-payload: false }
+
+integrations:
+  - { id: INT-001, system: "Corporate IdP (OIDC)",           purpose: "authenticate approvers and expose role + authority claims", protocol: "OIDC / OAuth2", direction: inbound,  auth: "client credentials in secret store, 90-day rotation", failure-mode: "fail-closed: no new approvals accepted while IdP is unreachable; read of existing state still allowed", data-shared: [subject-id, roles, authority-limit] }
+  - { id: INT-002, system: "Payments service",               purpose: "hand approved invoices to disbursement (ASM-003)",           protocol: "HTTPS REST + event (invoice.approved)", direction: outbound, auth: "mTLS + signed request", failure-mode: "outbox pattern: approved invoices queued and retried; approval is never rolled back on payments downtime", data-shared: [invoice-id, gross-minor, currency, vendor-id] }
+  - { id: INT-003, system: "Notification provider",          purpose: "assignment, reminder, escalation, and decision notices",      protocol: "HTTPS REST + webhooks for delivery receipts", direction: outbound, auth: "API key in secret store, 90-day rotation", failure-mode: "queue with retry + DLQ; approval flow never blocks on notification delivery", data-shared: [recipient-id, template-id, request-id] }
