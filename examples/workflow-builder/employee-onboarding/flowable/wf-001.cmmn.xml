@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/CMMN/20151109/MODEL"
+             xmlns:flowable="http://flowable.org/cmmn"
+             id="cmmnDefinitions_WF-001"
              targetNamespace="http://flowable.org/cmmn">
   <case id="WF-001" name="Employee Onboarding Case">
-    <casePlanModel id="WF-001Plan" name="Employee Onboarding Case Plan">
-      <planItem id="pi1" definitionRef="task1"/>
-      <humanTask id="task1" name="Employee Onboarding Case Task"/>
+    <casePlanModel id="WF-001-plan" name="Employee Onboarding Case Plan">
+      <planItem id="pi_S1" name="Open case + build task plan" definitionRef="S1"/>
+      <planItem id="pi_S2" name="Collect required documents" definitionRef="S2"/>
+      <planItem id="pi_S3" name="E-sign offer + policy ack" definitionRef="S3"/>
+      <planItem id="pi_S7" name="Provision day-one access" definitionRef="S7"/>
+      <planItem id="pi_S8" name="Readiness review decision" definitionRef="S8"/>
+      <planItem id="pi_S9" name="Close case at 100% checklist" definitionRef="S9"/>
+      <planningTable id="WF-001-planning">
+        <discretionaryItem id="di_S4" name="Provision equipment" definitionRef="S4"/>
+        <discretionaryItem id="di_S5" name="Issue badge" definitionRef="S5"/>
+        <discretionaryItem id="di_S6" name="Enroll in role training" definitionRef="S6"/>
+      </planningTable>
+      <task id="S1" name="Open case + build task plan" isBlocking="false"/>
+      <humanTask id="S2" name="Collect required documents"/>
+      <humanTask id="S3" name="E-sign offer + policy ack"/>
+      <task id="S7" name="Provision day-one access" isBlocking="false"/>
+      <humanTask id="S8" name="Readiness review decision"/>
+      <task id="S9" name="Close case at 100% checklist" isBlocking="false"/>
+      <humanTask id="S4" name="Provision equipment"/>
+      <humanTask id="S5" name="Issue badge"/>
+      <humanTask id="S6" name="Enroll in role training"/>
     </casePlanModel>
   </case>
 </definitions>

@@ -262,10 +262,11 @@ export async function flowableValidate(flags) {
   // the model — and we delete the test deployment immediately so validation
   // stays non-mutating. If an engine's REST API is not mounted in the target
   // image (404) we fall back to a structural check and say so — never a silent
-  // pass. CMMN has no engine route here yet, so it gets the structural check.
+  // pass. Artifact types with no engine route here get the structural check.
   const auth = basicAuth(user, pass)
   const ENDPOINTS = {
     "bpmn20.xml": { api: "/service/repository/deployments", cascade: true, ct: "text/xml", engine: "process" },
+    "cmmn.xml": { api: "/cmmn-api/cmmn-repository/deployments", ct: "text/xml", engine: "CMMN" },
     dmn: { api: "/dmn-api/dmn-repository/deployments", ct: "text/xml", engine: "DMN" },
     "form.json": { api: "/form-api/form-repository/deployments", ct: "application/json", engine: "form", resource: (f) => f.replace(/\.json$/, "") },
   }
@@ -510,17 +511,66 @@ function yamlToBpmn(wf, key) {
   return xml
 }
 
-function yamlToCmmn(wf, key) {
+// ---------------------------------------------------------------------------
+// CMMN 1.1 generation — a real case model the Flowable CMMN engine deploys.
+// Required steps become <planItem>s (auto-active); discretionary steps become
+// <discretionaryItem>s in a <planningTable> (a case worker adds them at
+// runtime); user/decision steps are <humanTask>s, system steps auto <task>s.
+// ---------------------------------------------------------------------------
+export function yamlToCmmn(wf, key) {
   const name = wf.name || key
   const caseId = wf.id || `${key}-case`
+  const planId = `${caseId}-plan`
+  const steps = getItems(wf.steps || wf)
+
+  const isDiscretionary = (s) => /discretion/i.test(String(s["task-nature"] || s.nature || ""))
+  const isAutomatic = (s) => /system|service/i.test(String(s.type || "user-action"))
+  const required = steps.filter((s) => !isDiscretionary(s))
+  const discretionary = steps.filter(isDiscretionary)
+
+  const stepId = (s, i) => s.id || `S${i + 1}`
+  const defFor = (s, i) => {
+    const id = stepId(s, i)
+    const nm = xmlAttr(s.name || id)
+    // Automatic steps are non-blocking tasks; everything human is a humanTask.
+    return isAutomatic(s)
+      ? `      <task id="${xmlAttr(id)}" name="${nm}" isBlocking="false"/>\n`
+      : `      <humanTask id="${xmlAttr(id)}" name="${nm}"/>\n`
+  }
+
+  let plan = ""
+  let defs = ""
+
+  if (!required.length && !discretionary.length) {
+    // A case must have at least one plan item + definition.
+    plan = `      <planItem id="pi1" definitionRef="task1"/>\n`
+    defs = `      <humanTask id="task1" name="${xmlAttr(name)} Task"/>\n`
+  } else {
+    // Element order inside a stage: planItem*, planningTable?, then definitions.
+    required.forEach((s, i) => {
+      const id = stepId(s, i)
+      plan += `      <planItem id="pi_${xmlAttr(id)}" name="${xmlAttr(s.name || id)}" definitionRef="${xmlAttr(id)}"/>\n`
+    })
+    if (discretionary.length) {
+      plan += `      <planningTable id="${xmlAttr(caseId)}-planning">\n`
+      discretionary.forEach((s, i) => {
+        const id = stepId(s, i)
+        plan += `        <discretionaryItem id="di_${xmlAttr(id)}" name="${xmlAttr(s.name || id)}" definitionRef="${xmlAttr(id)}"/>\n`
+      })
+      plan += `      </planningTable>\n`
+    }
+    required.forEach((s, i) => (defs += defFor(s, i)))
+    discretionary.forEach((s, i) => (defs += defFor(s, i)))
+  }
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/CMMN/20151109/MODEL"
+             xmlns:flowable="http://flowable.org/cmmn"
+             id="cmmnDefinitions_${xmlAttr(caseId)}"
              targetNamespace="http://flowable.org/cmmn">
-  <case id="${caseId}" name="${name}">
-    <casePlanModel id="${caseId}Plan" name="${name} Plan">
-      <planItem id="pi1" definitionRef="task1"/>
-      <humanTask id="task1" name="${name} Task"/>
-    </casePlanModel>
+  <case id="${xmlAttr(caseId)}" name="${xmlAttr(name)}">
+    <casePlanModel id="${xmlAttr(planId)}" name="${xmlAttr(name)} Plan">
+${plan}${defs}    </casePlanModel>
   </case>
 </definitions>
 `
