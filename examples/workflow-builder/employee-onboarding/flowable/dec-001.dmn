@@ -1,10 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="http://www.omg.org/spec/DMN/20191111/MODEL"
-             namespace="http://flowable.org/dmn">
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="definitions_DEC-001" name="Document Disposition Decision" namespace="http://flowable.org/dmn">
   <decision id="DEC-001" name="Document Disposition Decision">
-    <decisionTable id="DEC-001Table">
-      <input id="input1" label="Input"/>
-      <output id="output1" label="Output" typeRef="string"/>
+    <decisionTable id="DEC-001-table" hitPolicy="FIRST">
+      <input id="input1" label="Legal hold active">
+        <inputExpression id="input1_expr" typeRef="boolean">
+          <text>legal_hold</text>
+        </inputExpression>
+      </input>
+      <input id="input2" label="Past disposition date">
+        <inputExpression id="input2_expr" typeRef="boolean">
+          <text>past_disposition</text>
+        </inputExpression>
+      </input>
+      <input id="input3" label="Retention class">
+        <inputExpression id="input3_expr" typeRef="string">
+          <text>retention_class</text>
+        </inputExpression>
+      </input>
+      <output id="output1" label="Action" name="action" typeRef="string"/>
+      <rule id="rule1">
+        <inputEntry><text>true</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"block-deletion-and-log"</text></outputEntry>
+      </rule>
+      <rule id="rule2">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>true</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"flag-for-approval-gate"</text></outputEntry>
+      </rule>
+      <rule id="rule3">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>"TRANSIENT_1Y"</text></inputEntry>
+        <outputEntry><text>"review-then-dispose"</text></outputEntry>
+      </rule>
+      <rule id="rule4">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"retain"</text></outputEntry>
+      </rule>
     </decisionTable>
   </decision>
 </definitions>

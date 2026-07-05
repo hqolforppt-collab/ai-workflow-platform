@@ -1,20 +1,31 @@
 {
   "key": "FRM-002",
   "name": "Approval Decision Form",
+  "version": 0,
   "fields": [
     {
       "id": "decision",
       "name": "Decision",
-      "type": "select",
+      "type": "dropdown",
+      "value": null,
       "required": true,
-      "placeholder": "Decision"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Decision",
+      "layout": null
     },
     {
       "id": "reason",
       "name": "Reason",
       "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Reason"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Reason",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }

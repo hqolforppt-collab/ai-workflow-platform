@@ -1,20 +1,31 @@
 {
   "key": "FRM-002",
   "name": "Document Upload Form",
+  "version": 0,
   "fields": [
     {
       "id": "kind",
       "name": "Document type",
-      "type": "select",
+      "type": "dropdown",
+      "value": null,
       "required": true,
-      "placeholder": "Document type"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Document type",
+      "layout": null
     },
     {
       "id": "file",
       "name": "Document file",
-      "type": "file",
+      "type": "upload",
+      "value": null,
       "required": true,
-      "placeholder": "Document file"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Document file",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }

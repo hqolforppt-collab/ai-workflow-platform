@@ -72,8 +72,14 @@ jobs:
       - name: Convert golden example to Flowable artifacts
         run: node packages/awp-cli/bin/awp.js flowable convert examples/workflow-builder/login-registration --out=/tmp/awp-flowable
 
-      - name: Validate converted artifacts against the live engine (no mutation)
-        run: node packages/awp-cli/bin/awp.js flowable validate examples/workflow-builder/login-registration
+      - name: Validate all converted artifacts against the live engine (no mutation)
+        # BPMN → process engine, DMN → DMN engine, Form → form engine. Covers
+        # the single-output (login) and multi-output (invoice) decision tables.
+        run: |
+          for ex in login-registration invoice-approval employee-onboarding; do
+            echo "== validating $ex =="
+            node packages/awp-cli/bin/awp.js flowable validate "examples/workflow-builder/$ex"
+          done
         env:
           FLOWABLE_URL: http://localhost:8080/flowable-rest
           FLOWABLE_USER: rest-admin

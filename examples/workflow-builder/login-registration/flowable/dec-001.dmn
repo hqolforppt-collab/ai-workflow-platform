@@ -1,10 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="http://www.omg.org/spec/DMN/20191111/MODEL"
-             namespace="http://flowable.org/dmn">
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="definitions_DEC-001" name="Login Risk Decision" namespace="http://flowable.org/dmn">
   <decision id="DEC-001" name="Login Risk Decision">
-    <decisionTable id="DEC-001Table">
-      <input id="input1" label="Input"/>
-      <output id="output1" label="Output" typeRef="string"/>
+    <decisionTable id="DEC-001-table" hitPolicy="FIRST">
+      <input id="input1" label="New device">
+        <inputExpression id="input1_expr" typeRef="boolean">
+          <text>is_new_device</text>
+        </inputExpression>
+      </input>
+      <input id="input2" label="Impossible travel">
+        <inputExpression id="input2_expr" typeRef="boolean">
+          <text>impossible_travel</text>
+        </inputExpression>
+      </input>
+      <input id="input3" label="IP reputation">
+        <inputExpression id="input3_expr" typeRef="string">
+          <text>ip_reputation</text>
+        </inputExpression>
+      </input>
+      <output id="output1" label="Action" name="action" typeRef="string"/>
+      <rule id="rule1">
+        <inputEntry><text>true</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"notify-and-flag"</text></outputEntry>
+      </rule>
+      <rule id="rule2">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>true</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"step-up-challenge"</text></outputEntry>
+      </rule>
+      <rule id="rule3">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>"tor"</text></inputEntry>
+        <outputEntry><text>"block-and-alert"</text></outputEntry>
+      </rule>
+      <rule id="rule4">
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <inputEntry><text>-</text></inputEntry>
+        <outputEntry><text>"allow"</text></outputEntry>
+      </rule>
     </decisionTable>
   </decision>
 </definitions>

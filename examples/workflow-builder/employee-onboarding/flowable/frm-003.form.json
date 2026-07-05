@@ -1,20 +1,31 @@
 {
   "key": "FRM-003",
   "name": "Readiness Review Form",
+  "version": 0,
   "fields": [
     {
       "id": "verdict",
       "name": "Readiness decision",
-      "type": "select",
+      "type": "dropdown",
+      "value": null,
       "required": true,
-      "placeholder": "Readiness decision"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Readiness decision",
+      "layout": null
     },
     {
       "id": "note",
       "name": "Reviewer note",
       "type": "text",
+      "value": null,
       "required": false,
-      "placeholder": "Reviewer note"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Reviewer note",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }

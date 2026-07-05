@@ -1,20 +1,31 @@
 {
   "key": "FRM-002",
   "name": "Login Form",
+  "version": 0,
   "fields": [
     {
       "id": "email",
       "name": "Email address",
-      "type": "email",
+      "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Email address"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Email address",
+      "layout": null
     },
     {
       "id": "password",
       "name": "Password",
-      "type": "password",
+      "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Password"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Password",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }

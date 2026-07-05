@@ -1,27 +1,42 @@
 {
   "key": "FRM-001",
   "name": "Registration Form",
+  "version": 0,
   "fields": [
     {
       "id": "email",
       "name": "Email address",
-      "type": "email",
+      "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Email address"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Email address",
+      "layout": null
     },
     {
       "id": "password",
       "name": "Password",
-      "type": "password",
+      "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Password"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Password",
+      "layout": null
     },
     {
       "id": "consent",
       "name": "I agree to the privacy notice",
-      "type": "checkbox",
+      "type": "boolean",
+      "value": null,
       "required": true,
-      "placeholder": "I agree to the privacy notice"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "I agree to the privacy notice",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }

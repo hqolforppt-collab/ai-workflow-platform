@@ -1,34 +1,53 @@
 {
   "key": "FRM-001",
   "name": "Open Onboarding Case Form",
+  "version": 0,
   "fields": [
     {
       "id": "employeeName",
       "name": "Employee full name",
       "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "Employee full name"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Employee full name",
+      "layout": null
     },
     {
       "id": "nationalId",
       "name": "National ID / SSN",
       "type": "text",
+      "value": null,
       "required": true,
-      "placeholder": "National ID / SSN"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "National ID / SSN",
+      "layout": null
     },
     {
       "id": "startDate",
       "name": "Confirmed start date",
       "type": "date",
+      "value": null,
       "required": true,
-      "placeholder": "Confirmed start date"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Confirmed start date",
+      "layout": null
     },
     {
       "id": "roleTemplate",
       "name": "Role / access template",
-      "type": "select",
+      "type": "dropdown",
+      "value": null,
       "required": true,
-      "placeholder": "Role / access template"
+      "readOnly": false,
+      "overrideId": true,
+      "placeholder": "Role / access template",
+      "layout": null
     }
-  ]
+  ],
+  "outcomes": [],
+  "outcomeVariableName": null
 }
