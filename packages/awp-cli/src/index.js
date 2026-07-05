@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url"
 import { discover } from "./commands/discover.js"
 import { validate } from "./commands/validate.js"
 import { build } from "./commands/build.js"
@@ -118,4 +119,10 @@ function parseFlags(args) {
     }
   }
   return flags
+}
+
+// Self-invocation guard: `node src/index.js <cmd>` behaves like `bin/awp.js`
+// instead of silently exiting 0 (this module is otherwise import-only).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = await main(process.argv.slice(2))
 }
