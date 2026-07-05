@@ -369,6 +369,28 @@ function loadBlueprintSections(bpDir) {
 // scripts/bpmn-roundtrip.mjs and scripts/flowable-deploy-test.mjs)
 // ---------------------------------------------------------------------------
 
+// Flowable's `flowable-executable-process` validation set refuses to deploy a
+// service/send task that has no implementation (one of class / expression /
+// delegateExpression / type). A blueprint is a spec, not wired to real Java
+// delegates, so we emit a JUEL expression — the same proven-deployable pattern
+// the hand-written login-flow.bpmn20.xml uses. An explicit implementation on
+// the step (expression / delegateExpression / class) always wins; otherwise we
+// synthesize a stable, valid placeholder bound to the step id.
+function taskImplAttr(step, stepId, defaultBean) {
+  if (step.expression) {
+    const e = /^\$\{.*\}$/.test(step.expression) ? step.expression : `\${${step.expression}}`
+    return ` flowable:expression="${xmlAttr(e)}"`
+  }
+  if (step.delegateExpression) return ` flowable:delegateExpression="${xmlAttr(step.delegateExpression)}"`
+  if (step.class || step.implementation) return ` flowable:class="${xmlAttr(step.class || step.implementation)}"`
+  return ` flowable:expression="\${${defaultBean}.execute('${xmlAttr(stepId)}')}"`
+}
+
+// Minimal XML attribute escaper (the converter previously emitted raw values).
+function xmlAttr(v) {
+  return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+}
+
 function yamlToBpmn(wf, key) {
   const steps = getItems(wf.steps || wf)
   const name = wf.name || key
@@ -400,11 +422,11 @@ function yamlToBpmn(wf, key) {
       if (stepType === "user-action" || stepType === "user-task") {
         xml += `    <userTask id="${stepId}" name="${stepName}" flowable:assignee="${step.actor || ""}"/>\n`
       } else if (stepType === "system-action" || stepType === "service-task") {
-        xml += `    <serviceTask id="${stepId}" name="${stepName}"/>\n`
+        xml += `    <serviceTask id="${stepId}" name="${stepName}"${taskImplAttr(step, stepId, "awpService")}/>\n`
       } else if (stepType === "decision" || stepType === "exclusive-gateway") {
         xml += `    <exclusiveGateway id="${stepId}" name="${stepName}"/>\n`
       } else if (stepType === "notification" || stepType === "send-task") {
-        xml += `    <sendTask id="${stepId}" name="${stepName}"/>\n`
+        xml += `    <sendTask id="${stepId}" name="${stepName}"${taskImplAttr(step, stepId, "awpNotifier")}/>\n`
       } else {
         xml += `    <userTask id="${stepId}" name="${stepName}"/>\n`
       }

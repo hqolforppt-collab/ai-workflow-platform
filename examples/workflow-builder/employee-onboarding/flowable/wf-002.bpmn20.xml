@@ -7,9 +7,9 @@
              targetNamespace="http://flowable.org/process">
   <process id="WF-002" name="Document Verification and Retention" isExecutable="true">
     <startEvent id="start" name="Start"/>
-    <serviceTask id="S1" name="Malware + format scan"/>
+    <serviceTask id="S1" name="Malware + format scan" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
-    <serviceTask id="S2" name="Assign retention class"/>
+    <serviceTask id="S2" name="Assign retention class" flowable:expression="${awpService.execute('S2')}"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
     <userTask id="S3" name="Human verification" flowable:assignee="ACT-002"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>

@@ -7,17 +7,17 @@
              targetNamespace="http://flowable.org/process">
   <process id="WF-001" name="Invoice Approval with Amount-Based Routing" isExecutable="true">
     <startEvent id="start" name="Start"/>
-    <serviceTask id="S1" name="Validate totals and tax"/>
+    <serviceTask id="S1" name="Validate totals and tax" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
     <exclusiveGateway id="S2" name="Route via DEC-001"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
-    <serviceTask id="S3" name="Assign approver + start SLA"/>
+    <serviceTask id="S3" name="Assign approver + start SLA" flowable:expression="${awpService.execute('S3')}"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
     <userTask id="S4" name="Approver decision" flowable:assignee="ACT-002"/>
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
     <exclusiveGateway id="S5" name="Four-eyes gate"/>
     <sequenceFlow id="flow_S4_S5" sourceRef="S4" targetRef="S5"/>
-    <sendTask id="S6" name="Finalize and notify"/>
+    <sendTask id="S6" name="Finalize and notify" flowable:expression="${awpNotifier.execute('S6')}"/>
     <sequenceFlow id="flow_S5_S6" sourceRef="S5" targetRef="S6"/>
     <endEvent id="end" name="End"/>
     <sequenceFlow id="flow_S6_end" sourceRef="S6" targetRef="end"/>

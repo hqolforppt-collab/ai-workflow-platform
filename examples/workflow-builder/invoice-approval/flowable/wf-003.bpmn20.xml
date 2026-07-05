@@ -7,11 +7,11 @@
              targetNamespace="http://flowable.org/process">
   <process id="WF-003" name="Four-Eyes Checker Verification" isExecutable="true">
     <startEvent id="start" name="Start"/>
-    <serviceTask id="S1" name="Select distinct checker"/>
+    <serviceTask id="S1" name="Select distinct checker" flowable:expression="${awpService.execute('S1')}"/>
     <sequenceFlow id="flow_start_S1" sourceRef="start" targetRef="S1"/>
     <exclusiveGateway id="S2" name="Verify maker != checker"/>
     <sequenceFlow id="flow_S1_S2" sourceRef="S1" targetRef="S2"/>
-    <serviceTask id="S3" name="Resolve effective limit"/>
+    <serviceTask id="S3" name="Resolve effective limit" flowable:expression="${awpService.execute('S3')}"/>
     <sequenceFlow id="flow_S2_S3" sourceRef="S2" targetRef="S3"/>
     <userTask id="S4" name="Record checker decision" flowable:assignee="ACT-002"/>
     <sequenceFlow id="flow_S3_S4" sourceRef="S3" targetRef="S4"/>
